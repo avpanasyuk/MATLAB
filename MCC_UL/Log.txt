@@ -1,0 +1,5 @@
+Ok, let's write MATLAB driver for miniLAB 1008.
+
+Beam steering,
+digital light deflector
+electro-optic
