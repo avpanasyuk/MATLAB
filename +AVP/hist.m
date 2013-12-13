@@ -1,4 +1,4 @@
-function [density values bin_bounds] = avp_hist(y,nbins,show),
+function [density values bin_bounds] = hist(y,nbins,show),
 % usually histogam is calculated by taking all values range, dividing it on
 % equal ranges,  and then calculating number of points in each range.
 % Causes big instability as some ranges have a lot of points and some
