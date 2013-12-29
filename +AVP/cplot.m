@@ -1,3 +1,4 @@
-function cplot(x)
-  plot(real(x),'r'); hold on; plot(imag(x),'b'); hold off;
+function cplot(y,x)
+  if nargin < 2, x = [1:numel(y)]; end
+  plot(x,real(y),'r-+',x,imag(y),'b-+');
 end
