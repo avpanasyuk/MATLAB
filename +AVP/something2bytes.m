@@ -1,6 +1,5 @@
-% convert structure into a cell array with columns corresponding to all
-% field names (including nested). Top row is a header
-% S can be a 2D matrix of structures. 
+%> @brief convert any variable into bytes (variable should not contain strings
+%> anywhere, as they are variable length).
 function bytes = something2bytes(x)
   bytes = []; 
   if numel(x) ~= 1,
