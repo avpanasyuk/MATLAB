@@ -1,126 +1,84 @@
+%> @brief this is a passive class, it is not trying to get data by itself, you can
+%> add point by calling "AddPoints"
 classdef scrolling_plot < handle
-  properties
-    period
-    figure
+  properties (SetAccess=protected,GetAccess=public)
+    % user parameters
+    plot_names = {}
+    x_npoints = 1000
+    plot_props = {}
+    same_plot = false
+    % service
+    fig
+    data_y = []
+    data_x = []
+    last_x = 0
   end
   methods
-    function a=scrolling_plot(func,period,options)
-      % ok, we can set things up only after we know what func returns, and
-      % it may start returning something only later. So, we postpone
-      % setting things up until the last moment
-      if ishandle(a.monitor_figure), % delete the old one
-        close(a.monitor_figure); % will execute our custom CloseRequestFcn
-        % and clean everything up
+    function a=scrolling_plot(options)
+      a.fig = figure('DeleteFcn',@(varargin) a.delete,'BusyAction','cancel',...
+        'Interruptible','off');
+      if exist('options','var')
+        if isfield(options,'plot_names'), a.plot_names = options.plot_names; end
+        if isfield(options,'x_npoints'), a.x_npoints = options.x_npoints; end
+        if isfield(options,'same_plot'), a.same_plot = options.same_plot; end
+        if isfield(options,'plot_props'), a.plot_props = options.plot_props; end
+      end
+    end
+    
+    function delete(a)
+      if ishandle(a.fig)
+        delete(a.fig)
+      end
+    end
+    
+    function plot(a)
+      old_gcf = gcf;
+      set(0,'Currentfig',a.fig);
+      if a.same_plot || size(a.data_y,2) == 1
+        if isreal(a.data_y),
+          plot(a.data_x,a.data_y,'XDataSource','a.data_x',...
+            'YDataSource','a.data_y',a.plot_props{:});
+        else
+          plot(a.data_x,real(a.data_y),a.data_x,imag(a.data_y),'.-',...
+            'XDataSource','a.data_x','YDataSource','a.data_y',a.plot_props{:});
+        end
+      else
+        for vi=1:size(a.data_y,2)
+          subplot(size(a.data_y,2),1,vi)
+          if isreal(a.data_y),
+            plot(a.data_x,a.data_y(:,vi),'XDataSource','a.data_x',...
+              'YDataSource','a.data_y',a.plot_props{:,vi});
+          else
+            plot(a.data_x,real(a.data_y(:,vi)),a.data_x,imag(a.data_y(:,vi)),'.-',...
+              'XDataSource','a.data_x','YDataSource',...
+              ['a.data_y(:,' num2str(vi) ')'],a.plot_props{:,vi});
+          end
+          if ~isempty(a.plot_names),
+            set(gca,'ylabel',a.plot_names{vi});
+          end
+        end
+      end
+      drawnow
+      set(0,'Currentfig',old_gcf);
+    end % first_plot
+    
+    function AddPoints(a,y,x)
+      if nargin < 3,
+        x = [1:size(y,1)].' + a.last_x;
+        a.last_x = x(end);
       end
       
-      % rows are samples
-      plot_names =
-      x = [1:size(
-      % names are just port numbers
-      if exist('options','var')
-        if isfield(options,'plot_names'), plot_names = options.plot_names; end
-        if isfield(options,'update_period'), update_period = options.update_period; end
+      a.data_y = [a.data_y;y];
+      a.data_x = [a.data_x;x];
+      if size(a.data_y,1) > a.x_npoints,
+        a.data_y = a.data_y(end-a.x_npoints+1:end,:);
+        a.data_x = a.data_x(end-a.x_npoints+1:end,:);
       end
+      % refreshdata(a.fig,'caller');
+      a.plot
+      drawnow
     end
-  end
-  
+  end %methods
 end % classdef scrolling_plot
 
-% one SAMPLE_PERIOD unit is 64 microseconds
-% OPTIONS
-% UPDATE_PERIOD is in seconds
-% NUM_PERIODS is the number of update periods visible on the plot
-function scrolling_plot(a,ports,sample_period,options)
-  plot_names = regexp(num2str(ports),'(\d+)','tokens'); % default plot
-  update_period = sample_period*64e-6*5;
-  
-  % names are just port numbers
-  if exist('options','var')
-    if isfield(options,'plot_names'), plot_names = options.plot_names; end
-    if isfield(options,'update_period'), update_period = options.update_period; end
-  end
-  
-  if ishandle(a.monitor_figure), % delete the old one
-    close(a.monitor_figure); % will execute our custom CloseRequestFcn
-    % and clean everything up
-  end
-  % build a window of scrolling plots
-  a.monitor_figure = figure('DeleteFcn',@delete_mf,'BusyAction','cancel',...
-    'Interruptible','off');
-  % got to build plots for the first time
-  % to avoid headache with resize we make DataArray as big as
-  % possible from the beginning
-  scnsize = get(0,'ScreenSize');
-  a.monitor_data = NaN([scnsize(3),numel(ports)]);
-  for pli=1:numel(ports)
-    subplot(numel(ports),1,pli);
-    a.monitor_plots(pli) = plot(a.monitor_data(:,pli));
-    % set(a.monitor_plots(pli),'YDataSource','a.monitor_data')
-    ylabel(plot_names{pli});
-  end
-  % Now add just read data
-  
-  % create a timer to update it
-  a.monitor_timer = timer('ExecutionMode','fixedRate',...
-    'Period',update_period,...
-    'TimerFcn',@mf_timer_func,...
-    'BusyMode','drop');
-  
-  %%
-  function mf_timer_func(varargin)
-    % the first thing is try to read something
-    try
-      [Vals Times] = a.an_bg_read();
-    catch ME
-      if strcmp(ME.identifier,'teensy:command_locked'),
-        return
-      else
-        rethrow(ME)
-      end
-    end
-    if isempty(Vals), return; end
-    old_gcf = gcf;
-    set(0,'CurrentFigure',a.monitor_figure);
-    num_just_read = size(Vals,1);
-    a.monitor_data(1:end-num_just_read,:) = ...
-      a.monitor_data(num_just_read+1:end,:);
-    a.monitor_data(end-num_just_read+1:end,:) = Vals;
-    % refreshdata(a.monitor_plots);
-    for pli=1:numel(a.monitor_plots),
-      set(a.monitor_plots(pli),'YData',a.monitor_data(:,pli))
-    end
-    % refreshdata(a.monitor_figure);
-    set(0,'CurrentFigure',old_gcf);
-  end
-  
-  % start background data acquisition
-  a.an_bg_read_start(ports,sample_period);
-  a.start_monitor
-  %%
-  function delete_mf(varargin)
-    a.an_bg_read_stop();
-    % if isa(a.monitor_timer,'timer'),
-    a.stop_monitor;
-    delete(a.monitor_timer);
-    % end
-    a.monitor_figure = -1;
-  end
-end
 
-function start_monitor(a)
-  start(a.monitor_timer);
-end
-
-function was_running = stop_monitor(a)
-  was_running = a.monitor_is_running;
-  if was_running,
-    stop(a.monitor_timer);
-    % wait(a.monitor_timer); % if turned on we get error message
-    % 'Can't wait with a timer that has an infinite TasksToExecute.'
-  end
-end
-
-function is_running = monitor_is_running(a)
-  is_running =  isa(a.monitor_timer,'timer') && isvalid(a.monitor_timer) && ...
-    strcmp(get(a.monitor_timer,'Running'),'on');
-end
