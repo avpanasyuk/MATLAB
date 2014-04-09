@@ -17,6 +17,7 @@ classdef scrolling_plot_active < AVP.scrolling_plot
       if ~exist('options','var'), options = {}; end
       
       a = a@AVP.scrolling_plot(options);
+      set(a.fig,'HandleVisibility','callback')
       a.func = func;
       
       a.timer_obj = timer('ExecutionMode','fixedRate',...
@@ -35,21 +36,22 @@ classdef scrolling_plot_active < AVP.scrolling_plot
     
     function timer_func(a)
       Y = [];
-      if isempty(a.y_only)
-      % if the callback is called for the first time we determine whether we are
-      % getting any Xs        
-        try
-          while isempty(Y), [Y,X] = a.func(); end
-          a.y_only = false;
-        catch ME
-          if strcmp(ME.identifier,'MATLAB:maxlhs'), % function does not return X
-            a.y_only = true;
-          else
-            rethrow(ME);
+      try
+        if isempty(a.y_only)
+          % if the callback is called for the first time we determine whether we are
+          % getting any Xs
+          try
+            while isempty(Y), [Y,X] = a.func(); end
+            a.y_only = false;
+          catch ME
+            if strcmp(ME.identifier,'MATLAB:maxlhs'), % function does not return X
+              a.y_only = true;
+            else
+              rethrow(ME);
+            end
+            while isempty(Y), Y = a.func(); end
           end
-          while isempty(Y), Y = a.func(); end
-         end
-      end
+        end
         if a.y_only,
           while isempty(Y), Y = a.func(); end
           a.AddPoints(Y)
@@ -57,6 +59,9 @@ classdef scrolling_plot_active < AVP.scrolling_plot
           while isempty(Y), [Y,X] = a.func(); end
           a.AddPoints(Y,X)
         end
+      catch ME1
+        if ~strcmp(ME1.identifier,'protocol:command_locked'), rethrow(ME1); end
+      end     
     end % first_time_func
     
     function start(a), start(a.timer_obj); end    

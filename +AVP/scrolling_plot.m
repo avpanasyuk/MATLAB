@@ -7,11 +7,13 @@ classdef scrolling_plot < handle
     x_npoints = 1000
     plot_props = {}
     same_plot = false
+    period = 0.1 % seconds
     % service
     fig
     data_y = []
     data_x = []
     last_x = 0
+    next_plot % cputime of the last plot to avod calling too often
   end
   methods
     function a=scrolling_plot(options)
@@ -22,7 +24,9 @@ classdef scrolling_plot < handle
         if isfield(options,'x_npoints'), a.x_npoints = options.x_npoints; end
         if isfield(options,'same_plot'), a.same_plot = options.same_plot; end
         if isfield(options,'plot_props'), a.plot_props = options.plot_props; end
+        if isfield(options,'period'), a.period = options.period; end
       end
+      a.next_plot = cputime;
     end
     
     function delete(a)
@@ -58,7 +62,6 @@ classdef scrolling_plot < handle
           end
         end
       end
-      drawnow
       set(0,'Currentfig',old_gcf);
     end % first_plot
     
@@ -75,9 +78,17 @@ classdef scrolling_plot < handle
         a.data_x = a.data_x(end-a.x_npoints+1:end,:);
       end
       % refreshdata(a.fig,'caller');
-      a.plot
-      drawnow
+      if cputime > a.next_plot
+        a.plot
+        % drawnow
+        a.next_plot = cputime + a.period;
+      end
     end
+    
+    function reset(a)
+      a.data_y = [];
+      a.data_x = [];
+    end      
   end %methods
 end % classdef scrolling_plot
 
