@@ -72,6 +72,7 @@ classdef scrolling_plot < handle
       end
       
       a.data_y = [a.data_y;y];
+      
       a.data_x = [a.data_x;x];
       if size(a.data_y,1) > a.x_npoints,
         a.data_y = a.data_y(end-a.x_npoints+1:end,:);

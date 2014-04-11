@@ -9,7 +9,11 @@ classdef scrolling_plot_active < AVP.scrolling_plot
     func
   end
   methods
-    %> param period in seconds
+    %> @param func -
+    %> [Ys(numvars,numpoints)] = func() or
+    %> [Ys(numvars,numpoints),Xs(numpoints)] = func() or
+    %> [Y_name{numvars}] = func(1)
+    %> @param period in seconds
     function a=scrolling_plot_active(func,period,options)
       % ok, we can set things up only after we know what func returns, and
       % it may start returning something only later. So, we postpone
@@ -18,6 +22,7 @@ classdef scrolling_plot_active < AVP.scrolling_plot
       
       a = a@AVP.scrolling_plot(options);
       set(a.fig,'HandleVisibility','callback')
+      set(a.fig,'DeleteFcn',@(varargin) a.delete);
       a.func = func;
       
       a.timer_obj = timer('ExecutionMode','fixedRate',...
@@ -61,10 +66,10 @@ classdef scrolling_plot_active < AVP.scrolling_plot
         end
       catch ME1
         if ~strcmp(ME1.identifier,'protocol:command_locked'), rethrow(ME1); end
-      end     
+      end
     end % first_time_func
     
-    function start(a), start(a.timer_obj); end    
+    function start(a), start(a.timer_obj); end
     function stop(a), stop(a.timer_obj); end
   end % methods
-end % scrolling_plot_active 
+end % scrolling_plot_active
