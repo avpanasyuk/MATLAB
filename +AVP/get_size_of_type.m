@@ -3,4 +3,7 @@ function prec = get_size_of_type
   prec.uint8 = 1;
   prec.uint16 = 2;
   prec.uint32 = 4;
+  prec.int8 = 1;
+  prec.int16 = 2;
+  prec.int32 = 4;  
 end
