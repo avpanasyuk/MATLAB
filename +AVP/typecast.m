@@ -5,4 +5,3 @@ Sz = num2cell(size(x));
 out = reshape(typecast(x(:),type),[],Sz{2:end});
 end
 
-dele
