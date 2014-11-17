@@ -22,7 +22,8 @@ classdef scrolling_plot_active < AVP.scrolling_plot
       
       a = a@AVP.scrolling_plot(options);
       set(a.fig,'HandleVisibility','callback')
-      set(a.fig,'DeleteFcn',@(varargin) a.delete);
+      % set(a.fig,'DeleteFcn',@(varargin) a.delete); - no need, where is
+      % no virtual functions in MATLAB
       a.func = func;
       
       a.timer_obj = timer('ExecutionMode','fixedRate',...
@@ -36,8 +37,7 @@ classdef scrolling_plot_active < AVP.scrolling_plot
         a.stop
         delete(a.timer_obj)
       end
-    end
-    
+    end   
     
     function timer_func(a)
       Y = [];

@@ -10,6 +10,7 @@ classdef scrolling_plot < handle
     period = 0.1 % seconds
     % service
     fig
+    subplots = []
     data_y = []
     data_x = []
     last_x = 0
@@ -36,34 +37,31 @@ classdef scrolling_plot < handle
     end
     
     function plot(a)
-      old_gcf = gcf;
-      set(0,'Currentfig',a.fig);
-      if a.same_plot || size(a.data_y,2) == 1
-        if isreal(a.data_y),
-          plot(a.data_x,a.data_y,'XDataSource','a.data_x',...
-            'YDataSource','a.data_y',a.plot_props{:});
-        else
-          plot(a.data_x,real(a.data_y),a.data_x,imag(a.data_y),'.-',...
-            'XDataSource','a.data_x','YDataSource','a.data_y',a.plot_props{:});
-        end
-      else
+      if isempty(a.data_y), return; end
+      if isempty(a.subplots),
+        % create plot structure
+        old_gcf = gcf;
+        set(0,'Currentfig',a.fig);
         for vi=1:size(a.data_y,2)
-          subplot(size(a.data_y,2),1,vi)
-          if isreal(a.data_y),
-            plot(a.data_x,a.data_y(:,vi),'XDataSource','a.data_x',...
-              'YDataSource','a.data_y',a.plot_props{:,vi});
-          else
-            plot(a.data_x,real(a.data_y(:,vi)),a.data_x,imag(a.data_y(:,vi)),'.-',...
-              'XDataSource','a.data_x','YDataSource',...
-              ['a.data_y(:,' num2str(vi) ')'],a.plot_props{:,vi});
+          if a.same_plot, a.subplots(vi) = gca;
+          else a.subplots(vi) = subplot(size(a.data_y,2),1,vi);
           end
-          if ~isempty(a.plot_names),
-            set(gca,'ylabel',a.plot_names{vi});
-          end
+        end
+        set(0,'Currentfig',old_gcf);
+      end
+      
+      for vi=1:size(a.data_y,2)
+        if isreal(a.data_y),
+          plot(a.subplots(vi),a.data_x,a.data_y(:,vi),a.plot_props{:,vi});
+        else
+          plot(a.subplots(vi),a.data_x,real(a.data_y(:,vi)),...
+            a.data_x,imag(a.data_y(:,vi)),'.-',a.plot_props{:,vi});
+        end
+        if ~isempty(a.plot_names),
+          set(a.subplots(vi),'ylabel',a.plot_names{vi});
         end
       end
-      set(0,'Currentfig',old_gcf);
-    end % first_plot
+    end % plot
     
     function AddPoints(a,y,x)
       if nargin < 3,
@@ -89,7 +87,7 @@ classdef scrolling_plot < handle
     function reset(a)
       a.data_y = [];
       a.data_x = [];
-    end      
+    end
   end %methods
 end % classdef scrolling_plot
 
