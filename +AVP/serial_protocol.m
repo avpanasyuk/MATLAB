@@ -1,11 +1,5 @@
-% every incoming message has the first byte as a "code" byte. If this byte
-% is 0 then the command was successful and returned data ( if any ) will
-% immediately follow.
-% If "code" byte is not zero then the command failed and it is an error
-% code.
-% In between commands we can have "messages" with first 16-bit size, then
-% text
 classdef serial_protocol < handle
+%! see AVP_LIBS/General/Protocol.h for protocol desription
   properties(SetAccess=protected, GetAccess=public)
     s % serial port object
     command_lock = 0; % prevents comamnds sent from timer routine to interfere

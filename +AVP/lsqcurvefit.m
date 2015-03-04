@@ -6,7 +6,7 @@ function [c,varargout] = lsqcurvefit(func,data,c_init,options)
 % ASSUME w = 1/err_y
 %-
 %% PARSE OPTIONS
-do_plot = false;
+do_plot = true;
 weights = [];
 if exist('options','var') && ~isempty(options)
   if isfield(options,'do_plot'), do_plot = options.do_plot; end

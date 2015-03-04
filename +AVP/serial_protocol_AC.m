@@ -36,32 +36,46 @@ classdef serial_protocol_AC < AVP.serial_protocol
       for i=1:numel(serialInfo.AvailableSerialPorts)
         % now trying to open and read each of them with very small
         % timeout
+        fprintf('Checking port %s...\n',serialInfo.AvailableSerialPorts{i});
+        drawnow
         s = serial(serialInfo.AvailableSerialPorts{i},varargin{:});
         try
           fopen(s);
-          pause(0.1); % to accumulate some bytes
-          if s.BytesAvailable >= numel(Code)*2-1, % yes, port is transmitting something
-            str = char(fread(s,numel(Code)*2-1));
-            if ~isempty(strfind(str(:).',Code)) %found 2Xj
-              % sending command NOOP "manually" because object is not here yet
-              fwrite(s,[uint8('NOOP') 60 120]); % to stop broadcasting
-              Port = serialInfo.AvailableSerialPorts{i};
-              % now we have to skip all the beacon stuff until we get NOOP
-              % reply
-              T1 = cputime + 2; % wait for 1 second max
-              while cputime < T1
-                if s.BytesAvailable ~= 0
-                  if fread(s,1,'uint8') == 0,
-                    fread(s,2,'uint8'); % 16 bit return status/size and a checksum
-                    break;
+          T1 = cputime + 1; % wait for 3 seconds max
+          while cputime < T1
+            if s.BytesAvailable >= numel(Code)*2-1, % yes, port is transmitting something
+              str = char(fread(s,numel(Code)*2-1)); % make sure that captures string is long
+              % enough to contain the whole code
+              if ~isempty(strfind(str(:).',Code)) %found port transmitting Code
+                % clean receive buffer, so it is not likely to overfloat
+                if s.BytesAvailable ~= 0, fread(s,s.BytesAvailable); end
+                % sending command NOOP "manually" because object is not here yet
+                disp('Found breadcasting port, sending NOOP...');
+                fwrite(s,[uint8('NOOP') 60 120]); % NOOP is part of the handshake
+                % it causes FW to stopp sending beacon
+                % two following bytes are checksums
+                Port = serialInfo.AvailableSerialPorts{i};
+                % now we have to skip all the beacon stuff until we get NOOP
+                % reply
+                T1 = cputime + 2; % wait for 2 seconds max
+                while cputime < T1
+                  if s.BytesAvailable ~= 0
+                    if fread(s,1,'uint8') == 0, % one byte return status,
+                      fread(s,3,'uint8');  % 2 bytes size and 1 byte checksum
+                      fclose(s)
+                      delete(s)
+                      return
+                    end
                   end
                 end
+                Port = [];
+                error('Did not get 0 - protocol is broken!');
               end
-              if cputime >= T1, error('Did not get 0!'); end
             end
           end
           fclose(s);
         catch ME
+          Port = [];
           disp(['Problem with port ' s.Port]);
           disp(ME.message);
         end
