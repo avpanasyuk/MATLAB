@@ -107,16 +107,17 @@ classdef serial_protocol_AC < AVP.serial_protocol
       global OldPort
       Port = AVP.serial_protocol_AC.FindPort(code,varargin{:});
       if isempty(Port)
-        if exist('OldPort') && ~isempty(OldPort)
-          Port = OldPort;
-        else
+        try
+          eval(['Port = OldPort.Code_' code ';']);
+          disp(['Trying previous port <' Port '>...'])
+        catch
           error(['Can not find port that transmits <', code '>!']),
         end
       else
-        OldPort = Port;
-      end
-      a = a@AVP.serial_protocol(Port,varargin{:});
-    end % constructor
-  end % methods
+        eval(['OldPort.Code_' code ' = Port;']);
+    end
+    a = a@AVP.serial_protocol(Port,varargin{:});
+  end % constructor
+end % methods
 end % serial_protocol_AC
 
