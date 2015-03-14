@@ -160,7 +160,8 @@ classdef serial_protocol < handle
         csum = a.wait_and_read(1,'uint8');
         
         if mod(sum([0; output]),256) ~= csum
-          error('Checksum is wrong');
+          error('Received CS %hu ~= calculated CS %hu!',...
+            mod(sum([0; output]),256),csum);
         end
        else % error status
         size = a.wait_and_read(1,'uint8');
