@@ -110,7 +110,7 @@ classdef serial_protocol < handle
       % checks. Verifies that message is ASCII
       Message  = char(a.wait_and_read(size,'uint8').');
       if mod(sum(Message),256) ~= a.wait_and_read(1,'uint8')
-        error('Checksum is wrong!');
+        error('Checksum is wrong in message %s!', Message);
       end
       
       if ~isempty(find(Message < 9 | Message > 126,1)), % not ASCII
