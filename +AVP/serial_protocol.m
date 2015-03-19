@@ -1,5 +1,5 @@
 classdef serial_protocol < handle
-%! see AVP_LIBS/General/Protocol.h for protocol desription
+  %! see AVP_LIBS/General/Protocol.h for protocol desription
   properties(SetAccess=protected, GetAccess=public)
     s % serial port object
     command_lock = 0; % prevents comamnds sent from timer routine to interfere
@@ -49,7 +49,7 @@ classdef serial_protocol < handle
         if n ~= 0, fread(a.s,n); else break; end
       end
     end
- 
+    
     function reset(a)
       a.flush
       a.unlock_commands
@@ -131,15 +131,17 @@ classdef serial_protocol < handle
         if strncmp(Message,'Error',5),
           error([place ':ErrStatus'],'%s',Message);
         else % fprintf(1,[place ': ' MessageBytes]);
-          fprintf(1,Message);
+          fprintf(1,'%s',Message);
         end
       end
     end % check_messages
     
-    function [err_code output] = send_cmd_return_output(a,cmd_bytes)
-      % This is an lowest level SEND_COMMAND. Sorts output but not handles
-      % it in any way
-      % @param cmd_bytes is array containing both command byte and parameters bytes
+    function [err_code, output] = send_cmd_return_output(a,cmd_bytes)
+      %> This is an lowest level SEND_COMMAND. Sorts output but not handles
+      %> it in any way. Displays info messages
+      %> @param cmd_bytes is array containing both command byte and parameters bytes
+      %> @retval err_code: 0 if success, 1 if failure
+      %> @retval output data: data if success, error message if failure
       a.lock_commands
       % command can contain negative arguments, but we have to pass them
       % as uint8. MATLAB cast is totally screwy
@@ -150,22 +152,30 @@ classdef serial_protocol < handle
       end
       checksum = mod(sum(cmd_bytes(:)),256);
       fwrite(a.s,[cmd_bytes(:);checksum],'uint8');
-      err_code = a.wait_and_read(1,'uint8');
-      
-      if err_code == 0 % status ok, return data (if any) are following
-        size = a.wait_and_read(1,'uint16');
-        if size ~= 0
-          output = uint8(a.wait_and_read(size,'uint8'));
-        else output = []; end
-        csum = a.wait_and_read(1,'uint8');
+      err_code  = -1; % undefined value used as cycle trigger
+      while(err_code < 0) % loop until err_cde is assigned
+        message_code = a.wait_and_read(1,'int8');
         
-        if mod(sum([0; output]),256) ~= csum
-          error('Received CS %hu ~= calculated CS %hu!',...
-            mod(sum([0; output]),256),csum);
+        if message_code == 0 % status ok, return data (if any) are following
+          size = a.wait_and_read(1,'uint16');
+          if size ~= 0
+            output = uint8(a.wait_and_read(size,'uint8'));
+          else output = []; end
+          csum = a.wait_and_read(1,'uint8');
+          
+          if mod(sum([0; output]),256) ~= csum
+            error('Received CS %hu ~= calculated CS %hu!',...
+              mod(sum([0; output]),256),csum);
+          end
+          err_code = 0;
+        else
+          if message_code > 0 % it is just an info message, stay in while cycle
+            fprintf(1,'%s',a.receive_message(message_code));
+          else % "command failed" return
+            output = a.receive_message(-message_code);
+            err_code = 1;
+          end
         end
-       else % error status
-        size = a.wait_and_read(1,'uint8');
-        output = a.receive_message(size);
       end
       a.unlock_commands
     end % send_cmd_return_output
@@ -188,4 +198,4 @@ classdef serial_protocol < handle
     end % send_command
   end % methods
 end % serial_protocol
-  
+
