@@ -1,5 +1,27 @@
 classdef serial_protocol < handle
-  %! see AVP_LIBS/General/Protocol.h for protocol desription
+%     - all GUI->FW messages are commands:
+%       - 4 bytes ASCII command name
+%       - 1 byte its checksum,
+%       - serial_protocol::Command::NumParamBytes bytes of parameters
+%       - 1 byte of total checksum,
+%     - FW-GUI messages are differentiated  based on the first int8_t CODE
+%         - command return:
+%           - If CODE is 0 the following is successful latest command return:
+%             - uint16_t Size is size of data being transmitted.
+%             - data
+%             - 1 uint8_t data checksum
+%           - If CODE is < 0, then it is last command failure error message size, followed by
+%             - error message text without trailing 0
+%             - 1 uint8_t error message text checksum
+%             .
+%         Every command has to be responded with either successful return or error message, and only
+%         one of them.
+%         - If CODE is > 0, then it is an info message size, followed by
+%           - info message text without trailing 0
+%           - 1 uint8_t info message text checksum
+%           .
+%         Info messages may come at any time
+%       If error or info message do not fit into 127 bytes remaining text is formatted into consequtive  info message(s) is
   properties(SetAccess=protected, GetAccess=public)
     s % serial port object
     command_lock = 0; % prevents comamnds sent from timer routine to interfere
