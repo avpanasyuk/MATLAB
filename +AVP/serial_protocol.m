@@ -136,7 +136,7 @@ classdef serial_protocol < handle
       end
       
       if ~isempty(find(Message < 9 | Message > 126,1)), % not ASCII
-        error('ProtocolError: Received binary stream instead of ASCII!');
+        error('ProtocolError: Received binary stream <%s> instead of ASCII!',Message);
       end
     end
     
@@ -206,7 +206,7 @@ classdef serial_protocol < handle
       % handles error condition by issuing error
       [err_code data] = a.send_cmd_return_output(cmd_bytes);
       if err_code ~= 0,
-        error(['Command failed with error code %d due to <' data '>'], err_code);
+        error('Command failed due to <%s>', data);
       end
     end % send_cmd_return_data
     
