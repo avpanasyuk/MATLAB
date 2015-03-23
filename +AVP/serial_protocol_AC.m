@@ -55,8 +55,9 @@ classdef serial_protocol_AC < AVP.serial_protocol
                 % it causes FW to stopp sending beacon
                 % two following bytes are checksums
                 Port = serialInfo.AvailableSerialPorts{i};
-                % now we have to skip all the beacon stuff until we get NOOP
-                % reply
+                % now we have to skip all the beacon stuff until we get
+                % NOOP's reply whoch should be 0 byte status 0 16-bit size
+                % of data and 0 checksum
                 T1 = cputime + 2; % wait for 2 seconds max
                 while cputime < T1
                   if s.BytesAvailable ~= 0
