@@ -105,10 +105,10 @@ classdef serial_protocol < handle
         if ~a.port_status, error('wait_for_serial:COM_died','Oops!'); end
         if cputime() - start > get(a.s,'Timeout')
           a.flush
-          dbstack
+          % dbstack
           % a.close_serial;
-          error('wait_for_serial:Timeout',['Serial port timeout occured, '...
-            ,'waiting for %d bytes, available %d bytes!'],...
+          error('serial_protocol:wait_for_serial:Timeout',...
+            ['waited for %d bytes, available %d bytes!'],...
             N,get(a.s,'BytesAvailable'));
         end
         drawnow % to allow sending and receiving to complete
