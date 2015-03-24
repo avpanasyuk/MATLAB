@@ -40,7 +40,7 @@ function [U, Sinv, V] = pc_regression(X,y,options)
 end
 
 function pc_regression_log
-[tp tp_names] = EXPIRON.COEFF.TEST24HOURS.build_tp_matrix(s,PatParams);
+[tp tp_names] = UC.TEST24HOURS.build_tp_matrix(s,PatParams);
 [tpn,mu,sigma] = zscore(tp); % Z = (x-mean(x))/std(x)
 [U,S,V] = svd(tpn,0); % X = U*S*V'.
 % OK, we got a set of orthogonal vectors in U
