@@ -1,4 +1,3 @@
-function [c e fit]= linear(y,x,show),
 % linear regression
 % minimize sum((y - x*c(2) - c(1))^2)
 % sum(y) - sum(x)*c(2) - n*c(1) = 0; c(1) = (sum(y) - sum(x)*c(2))/n;
@@ -7,6 +6,7 @@ function [c e fit]= linear(y,x,show),
 % c(2) = (sum(y*x) - sum(x)*sum(y)/n)/(sum(x^2) - sum(x)^2/n)
 % dc2/dyi = (xi - sum(x)/n)/(sum(x^2) - sum(x)^2/n)
 % dc1/dyi = 1;
+function [c e fit]= linear(y,x,show),
 
 n = numel(y);
 if nargin < 2 || isempty(x), x = y; x(:)=1:n; end
