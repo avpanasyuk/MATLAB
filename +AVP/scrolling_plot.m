@@ -3,6 +3,7 @@
 classdef scrolling_plot < handle
   properties (SetAccess=protected,GetAccess=public)
     % user parameters
+    do_abs = false
     plot_names = {}
     x_npoints = 1000
     plot_props = {}
@@ -26,6 +27,7 @@ classdef scrolling_plot < handle
         if isfield(options,'same_plot'), a.same_plot = options.same_plot; end
         if isfield(options,'plot_props'), a.plot_props = options.plot_props; end
         if isfield(options,'period'), a.period = options.period; end
+        if isfield(options,'do_abs'), a.do_abs = options.do_abs; end
       end
       a.next_plot = cputime;
     end
@@ -69,7 +71,8 @@ classdef scrolling_plot < handle
         a.last_x = x(end);
       end
       
-      a.data_y = [a.data_y;y];
+      if a.do_abs a.data_y = [a.data_y;abs(y)]; 
+      else a.data_y = [a.data_y;y]; end
       
       a.data_x = [a.data_x;x(:)];
       if size(a.data_y,1) > a.x_npoints,
