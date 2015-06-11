@@ -1,5 +1,7 @@
 %> @brief scrolling_plot_active is given a callback function and it calls it by
 %> itself
+%> @param func should provide either Y or [Y,X] vectors. Y is of [samples,
+%> variables]  domention
 classdef scrolling_plot_active < AVP.scrolling_plot
   properties (SetAccess=protected,GetAccess=public)
     %defiined properties

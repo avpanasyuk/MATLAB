@@ -19,6 +19,7 @@ classdef scrolling_plot < handle
     function a=scrolling_plot(options)
       a.fig = figure('DeleteFcn',@(varargin) a.delete,'BusyAction','cancel',...
         'Interruptible','off');
+      
       if exist('options','var')
         if isfield(options,'plot_names'), a.plot_names = options.plot_names; end
         if isfield(options,'x_npoints'), a.x_npoints = options.x_npoints; end
@@ -37,7 +38,7 @@ classdef scrolling_plot < handle
     
     function plot(a)
       old_gcf = gcf;
-      set(0,'Currentfig',a.fig);
+      set(0,'CurrentFigure',a.fig);
       if a.same_plot || size(a.data_y,2) == 1
         if isreal(a.data_y),
           plot(a.data_x,a.data_y,'XDataSource','a.data_x',...
@@ -62,7 +63,7 @@ classdef scrolling_plot < handle
           end
         end
       end
-      set(0,'Currentfig',old_gcf);
+      set(0,'CurrentFigure',old_gcf);
     end % first_plot
     
     function AddPoints(a,y,x)
