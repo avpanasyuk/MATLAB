@@ -36,6 +36,7 @@ classdef serial_protocol < handle
   end
   properties(Constant=true)
     prec = AVP.get_size_of_type;
+    SpecErrorCodes = {'Command name checksum','Overall command checksum','UART overrun'} % defined in AVP_LIB/General/Protocol.h
   end
   methods
     %% STRUCTORS
@@ -204,11 +205,14 @@ classdef serial_protocol < handle
             else % unsuccess
               err_code = 1;
               % check return codes
-              if message_code < -3, % command was received, but failed
+              if message_code < -3, % command was received, but failed.  
                 output = a.receive_message(-message_code);
                 command_acq = true;
-              else % problem with communication
-                fprintf(1,'Reception failed, retransmitting...\n')
+              else % problem with communication. Those are 
+                % a special return codes, defined in AVP_LIB/General/Protocol.h
+                fprintf(1,'Reception failed due to %s, retransmitting command...\n', ...
+                  a.SpecErrorCodes{-message_code});
+                a.flush
               end
             end
           end
@@ -230,7 +234,7 @@ classdef serial_protocol < handle
       % @param cmd_bytes is array containing both command byte and parameters bytes
       data = a.send_cmd_return_data(cmd_bytes);
       if ~isempty(data)
-        error('What data?');
+        error('There should be no returned data!');
       end
     end % send_command
   end % methods
