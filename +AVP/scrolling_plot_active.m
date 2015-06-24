@@ -37,7 +37,7 @@ classdef scrolling_plot_active < AVP.scrolling_plot
         a.stop
         delete(a.timer_obj)
       end
-    end   
+    end
     
     function timer_func(a)
       Y = [];
