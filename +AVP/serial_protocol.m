@@ -169,7 +169,7 @@ classdef serial_protocol < handle
       %> it in any way. Displays info messages
       %> @param cmd_bytes is array containing both command byte and parameters bytes
       %> @retval err_code: 0 if success, 1 if failure
-      %> @retval output data: data if success, error message if failure
+      %> @retval output data: data bytes if success, error message if failure
       a.lock_commands
       % command can contain negative arguments, but we have to pass them
       % as uint8. MATLAB cast is totally screwy
