@@ -1,5 +1,7 @@
 %> @brief scrolling_plot_active is given a callback function and it calls it by
 %> itself
+%> @param func should provide either Y or [Y,X] vectors. Y is of [samples,
+%> variables]  domention
 classdef scrolling_plot_active < AVP.scrolling_plot
   properties (SetAccess=protected,GetAccess=public)
     %defiined properties
@@ -18,7 +20,11 @@ classdef scrolling_plot_active < AVP.scrolling_plot
       % ok, we can set things up only after we know what func returns, and
       % it may start returning something only later. So, we postpone
       % setting things up until the last moment
-      if ~exist('options','var'), options = {}; end
+       
+      if ~exist('options','var'), options = {}; 
+      else
+          if isfield(options,'y_only'), y_only = options.y_only; end
+      end
       
       a = a@AVP.scrolling_plot(options);
       set(a.fig,'HandleVisibility','callback')

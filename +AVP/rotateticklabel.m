@@ -51,9 +51,9 @@ b=get(h,'XTick');
 c=get(h,'YTick');
 %make new tick labels
 if strcmpi(get(gca,'Ydir'),'reverse'),
-  Ypos = repmat(c(end)-.1*(c(end-1)-c(end)),length(b),1)
+  Ypos = repmat(c(end)-.1*(c(end-1)-c(end)),length(b),1);
 else
-  Ypos = repmat(c(1)-.1*(c(2)-c(1)),length(b),1)
+  Ypos = repmat(c(1)-.1*(c(2)-c(1)),length(b),1);
 end  
 if rot<180
     th=text(b,Ypos,a,'HorizontalAlignment','right','rotation',rot);
