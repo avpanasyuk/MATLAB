@@ -59,6 +59,7 @@ classdef scrolling_plot < handle
           plot(a.subplots(vi),a.data_x,real(a.data_y(:,vi)),...
             a.data_x,imag(a.data_y(:,vi)),'.-',a.plot_props{:,vi});
         end
+        % if vi < size(a.data_y,2), set(a.subplots(vi),'xticklabel',[],'position',[0.01,0,0.99,1]); end
         if ~isempty(a.plot_names),
           set(a.subplots(vi),'ylabel',a.plot_names{vi});
         end
