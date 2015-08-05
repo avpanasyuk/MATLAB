@@ -20,10 +20,10 @@ classdef scrolling_plot_active < AVP.scrolling_plot
       % ok, we can set things up only after we know what func returns, and
       % it may start returning something only later. So, we postpone
       % setting things up until the last moment
-       
-      if ~exist('options','var'), options = {}; 
+      
+      if ~exist('options','var'), options = {};
       else
-          if isfield(options,'y_only'), y_only = options.y_only; end
+        if isfield(options,'y_only'), y_only = options.y_only; end
       end
       
       a = a@AVP.scrolling_plot(options);
