@@ -1,7 +1,7 @@
 classdef serial_protocol_AC < AVP.serial_protocol
-  % finds port automatically
-  % goes through all available ports and tries to open them, sends Query
-  % command to those which open and verifies returned Info
+  %> finds port automatically
+  %> goes through all available ports and finds one broadcasting a given
+  %> string
   properties
     TimeOfLastResponce = cputime;
     WatchDog
@@ -88,6 +88,35 @@ classdef serial_protocol_AC < AVP.serial_protocol
   
   
   methods
+    %> finds port which broadcasts code or tries to connect to old one
+    %> (because FW stops broadcasting on first connection).
+    %> FIXME implement broadcasting restart on disconnect
+    %> @param code
+    %>   - if string value it is the string broadcasted by FW.
+    %>      This function goes through all avaibale ports to find one
+    %>      broadcasting string "code"
+    %>   - if numerical value, it is the port number to connect to
+    %>
+    function a = serial_protocol_AC(code,varargin)
+      if isstr(code)
+        global OldPort
+        Port = AVP.serial_protocol_AC.FindPort(code,varargin{:});
+        if isempty(Port)
+          try
+            eval(['Port = OldPort.Code_' code ';']);
+            disp(['Trying previous port <' Port '>...'])
+          catch
+            error(['Can not find port that transmits <', code '>!']),
+          end
+        else
+          eval(['OldPort.Code_' code ' = Port;']);
+        end
+      else
+        Port = ['COM' num2str(code)];
+      end
+      a = a@AVP.serial_protocol(Port,varargin{:});
+    end % constructor
+
     function send_command_AC(a,Name,param_bytes)
       if nargin < 3, param_bytes = []; end
       a.send_command(...
@@ -101,24 +130,6 @@ classdef serial_protocol_AC < AVP.serial_protocol
     end % send_cmd_return_data
     
     
-    function a = serial_protocol_AC(code,varargin)
-      % finds port which broadcasts code or tries to connect to old one
-      % (because FW stops broadcasting on first connection).
-      % FIXME implement broadcasting restart on disconnect
-      global OldPort
-      Port = AVP.serial_protocol_AC.FindPort(code,varargin{:});
-      if isempty(Port)
-        try
-          eval(['Port = OldPort.Code_' code ';']);
-          disp(['Trying previous port <' Port '>...'])
-        catch
-          error(['Can not find port that transmits <', code '>!']),
-        end
-      else
-        eval(['OldPort.Code_' code ' = Port;']);
-    end
-    a = a@AVP.serial_protocol(Port,varargin{:});
-  end % constructor
-end % methods
+  end % methods
 end % serial_protocol_AC
 
