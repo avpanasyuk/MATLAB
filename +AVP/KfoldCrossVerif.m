@@ -3,7 +3,7 @@
 %! calculating errors predicted regressing the rest of the data
 %! @param X = [Num samples, N variables] matirx of independent variables
 %! @param Y = [Num samples, 1] vector of dependent variable
-%! @param regress_func = func(X,Y,...)
+%! @param regress_func is Coeffs = func(X,Y,...)
 function [Ypredict, C] = KfoldCrossVerif(regress_func,X,Y,k,params)
   if ~exist('params','var'), params = {}; end
   Ns = size(X,1);
