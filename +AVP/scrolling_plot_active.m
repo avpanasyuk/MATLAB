@@ -1,7 +1,6 @@
 %> @brief scrolling_plot_active is given a callback function and it calls it by
 %> itself
-%> @param func should provide either Y or [Y,X] vectors. Y is of [samples,
-%> variables]  domention
+%> @param func 
 classdef scrolling_plot_active < AVP.scrolling_plot
   properties (SetAccess=protected,GetAccess=public)
     %defiined properties
@@ -11,7 +10,8 @@ classdef scrolling_plot_active < AVP.scrolling_plot
     func
   end
   methods
-    %> @param func -
+    %> @param func -should provide either Y or [Y,X] vectors. Y is of [samples,
+    %> variables]  domention
     %> [Ys(numvars,numpoints)] = func() or
     %> [Ys(numvars,numpoints),Xs(numpoints)] = func() or
     %> [Y_name{numvars}] = func(1)
@@ -27,7 +27,6 @@ classdef scrolling_plot_active < AVP.scrolling_plot
       end
       
       a = a@AVP.scrolling_plot(options);
-      set(a.fig,'HandleVisibility','callback')
       % set(a.fig,'DeleteFcn',@(varargin) a.delete); - no need, where is
       % no virtual functions in MATLAB
       a.func = func;
