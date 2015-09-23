@@ -45,6 +45,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
           while cputime < T1
             if s.BytesAvailable >= numel(Code)*2-1, % yes, port is transmitting something
               str = char(fread(s,numel(Code)*2-1)); % make sure that captures string is long
+              fprintf(1,'Port is broascasting "%s"...\n',str);
               % enough to contain the whole code
               if ~isempty(strfind(str(:).',Code)) %found port transmitting Code
                 % clean receive buffer, so it is not likely to overfloat
