@@ -36,7 +36,7 @@ classdef serial_protocol < handle
   end
   properties(Constant=true)
     prec = AVP.get_size_of_type;
-    SpecErrorCodes = {'Command name checksum','Overall command checksum','UART overrun'} % defined in AVP_LIB/General/Protocol.h
+    SpecErrorCodes = {'Command checksum','UART overrun'} % defined in AVP_LIB/General/Protocol.h
   end
   methods
     %% STRUCTORS

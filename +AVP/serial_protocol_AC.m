@@ -8,25 +8,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
     Port = []
   end
   
-  properties(Constant)
-    CmdNameLength = 4
-  end
-  
   methods(Static)
-    % convertsd command name and parameter bytes into bytestream with
-    % appropriate checksums. Format is 4 byte Name (0-filled if
-    % necesssary), its csum and param bytes. total checksumm is calculated
-    % by send_cmd_return_status
-    function Bytes = cmd2bytes(Name,param_bytes)
-      % import
-      if nargin < 2, param_bytes = []; end
-      Bytes = uint8(zeros(1,AVP.serial_protocol_AC.CmdNameLength+1+numel(param_bytes)));
-      Bytes(1:numel(Name)) = Name;
-      Bytes(AVP.serial_protocol_AC.CmdNameLength+1) = ...
-        mod(sum(Bytes(1:AVP.serial_protocol_AC.CmdNameLength)),256);
-      Bytes(AVP.serial_protocol_AC.CmdNameLength+2:end) = param_bytes(:);
-    end % cmd2bytes
-    
     function Port = FindPort(Code,varargin)
       % we are trying to find available serial port which transmits
       % the code
@@ -52,9 +34,8 @@ classdef serial_protocol_AC < AVP.serial_protocol
                 if s.BytesAvailable ~= 0, fread(s,s.BytesAvailable); end
                 % sending command NOOP "manually" because object is not here yet
                 disp('Found breadcasting port, sending NOOP...');
-                fwrite(s,[uint8('NOOP') 60 120]); % NOOP is part of the handshake
-                % it causes FW to stopp sending beacon
-                % two following bytes are checksums
+                fwrite(s,0,'uint8'); % NOOP is part of the handshake
+                % it causes FW to stop sending beacon.
                 Port = serialInfo.AvailableSerialPorts{i};
                 % now we have to skip all the beacon stuff until we get
                 % NOOP's reply whoch should be 0 byte status 0 16-bit size
@@ -87,7 +68,6 @@ classdef serial_protocol_AC < AVP.serial_protocol
     
   end % static methods
   
-  
   methods
     %> finds port which broadcasts code or tries to connect to old one
     %> (because FW stops broadcasting on first connection).
@@ -117,20 +97,6 @@ classdef serial_protocol_AC < AVP.serial_protocol
       end
       a = a@AVP.serial_protocol(Port,varargin{:});
     end % constructor
-
-    function send_command_AC(a,Name,param_bytes)
-      if nargin < 3, param_bytes = []; end
-      a.send_command(...
-        AVP.serial_protocol_AC.cmd2bytes(Name,param_bytes));
-    end % send_command
-    
-    function data = send_cmd_return_data_AC(a,Name,param_bytes)
-      if nargin < 3, param_bytes = []; end
-      data = a.send_cmd_return_data(...
-        AVP.serial_protocol_AC.cmd2bytes(Name,param_bytes));
-    end % send_cmd_return_data
-    
-    
-  end % methods
+  end % methods  
 end % serial_protocol_AC
 
