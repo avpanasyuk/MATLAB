@@ -36,7 +36,7 @@ classdef serial_protocol < handle
   end
   properties(Constant=true)
     prec = AVP.get_size_of_type;
-    SpecErrorCodes = {'Command checksum','UART overrun'} % defined in AVP_LIB/General/Protocol.h
+    SpecErrorCodes = {'NOOP','Wrong command ID','Bad checksum','UART overrun'} % defined in AVP_LIB/General/Protocol.h
   end
   methods
     %% STRUCTORS
@@ -231,7 +231,7 @@ classdef serial_protocol < handle
     
     function send_command(a,cmd_bytes)
       % @brief the simplest COMMAND, does not except any return data.
-      % @param cmd_bytes is array containing both command byte and parameters bytes
+      % @param cmd_bytes is array containing both command ID and parameters bytes
       data = a.send_cmd_return_data(cmd_bytes);
       if ~isempty(data)
         error('There should be no returned data!');
