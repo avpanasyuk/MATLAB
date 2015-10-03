@@ -48,7 +48,6 @@ classdef serial_protocol < handle
     end
     
     function delete(a)
-      a.flush
       fclose(a.s);
       delete(a.s);
       disp('serial port is closed');
@@ -76,10 +75,6 @@ classdef serial_protocol < handle
         n = get(a.s,'BytesAvailable');
         if n ~= 0, fread(a.s,n); else break; end
       end
-    end
-    
-    function reset(a)
-      a.flush
       a.unlock_commands
     end
     
@@ -221,20 +216,11 @@ classdef serial_protocol < handle
       a.unlock_commands
     end % send_cmd_return_output
     
-    function data = send_cmd_return_data(a,cmd_bytes)
+    function data = send_command(a,cmd_bytes)
       % handles error condition by issuing error
       [err_code data] = a.send_cmd_return_output(cmd_bytes);
       if err_code ~= 0,
         error('Command failed due to <%s>', data);
-      end
-    end % send_cmd_return_data
-    
-    function send_command(a,cmd_bytes)
-      % @brief the simplest COMMAND, does not except any return data.
-      % @param cmd_bytes is array containing both command ID and parameters bytes
-      data = a.send_cmd_return_data(cmd_bytes);
-      if ~isempty(data)
-        error('There should be no returned data!');
       end
     end % send_command
   end % methods

@@ -104,10 +104,15 @@ classdef scrolling_plot < handle
       drawnow
     end % AddPoints
     
-%     function reset(a)
-%       a.data_y = [];
-%       a.data_x = [];
-%     end
+    function reset(a)
+      a.data_y = [];
+       a.data_x = [];
+    end
+    
+    function [y x] = get_median(a)
+      y = median(a.data_y);
+      x = mediam(a.data_x);
+    end
   end %methods
 end % classdef scrolling_plot
 
