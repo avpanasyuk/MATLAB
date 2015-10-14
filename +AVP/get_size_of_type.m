@@ -1,9 +1,4 @@
-% converts precision in form, say, 'uint8' into a number of bytes
-function prec = get_size_of_type
-  prec.uint8 = 1;
-  prec.uint16 = 2;
-  prec.uint32 = 4;
-  prec.int8 = 1;
-  prec.int16 = 2;
-  prec.int32 = 4;  
+function num_bytes = get_size_of_type(type)
+  % converts precision in form, say, 'uint8' into a number of bytes
+  num_bytes = numel(typecast(cast(0,type)));
 end

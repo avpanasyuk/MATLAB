@@ -36,7 +36,7 @@ classdef serial_protocol < handle
   end
   properties(Constant=true)
     prec = AVP.get_size_of_type;
-    SpecErrorCodes = {'NOOP','Wrong command ID','Bad checksum','UART overrun'} % defined in AVP_LIB/General/Protocol.h
+    SpecErrorCodes = {'Bad checksum','UART overrun'} % defined in AVP_LIB/General/Protocol.h
   end
   methods
     %% STRUCTORS
@@ -159,12 +159,14 @@ classdef serial_protocol < handle
       end
     end % check_messages
     
-    function [err_code, output] = send_cmd_return_output(a,cmd_bytes)
-      %> This is the lowest level SEND_COMMAND. Sorts output but not handles
-      %> it in any way. Displays info messages
+    function error_message = send_cmd_return_status(a,cmd_bytes)
+      %> This is the lowest level SEND_COMMAND. Reads and displays info
+      %> messages. Read end return error messages. Does not read returned 
+      %> data.
+      %> BECAUSE IT DOES NOT READ ALL OUTPUT IT DOES NOT DO UNLOCK_COMMANDS
+      %> WHEN COMMAND SUCCEDES
       %> @param cmd_bytes is array containing both command byte and parameters bytes
-      %> @retval err_code: 0 if success, 1 if failure
-      %> @retval output data: data bytes if success, error message if failure
+      %> @retval message - if empty command succedded. If not - error message
       a.lock_commands
       % command can contain negative arguments, but we have to pass them
       % as uint8. MATLAB cast is totally screwy
@@ -174,53 +176,70 @@ classdef serial_protocol < handle
         cmd_bytes = uint8(cmd_bytes); % now we can convert everything to uint8
       end
       sent_cs = mod(sum(cmd_bytes(:)),256);
-      command_acq = false; % check whether command was successfully received
-      while ~command_acq
+      while 1 % loop until FW perorts that it received the command
         fwrite(a.s,[cmd_bytes(:);sent_cs],'uint8');
-        err_code  = -1; % "not defined " value
-        while err_code < 0 % loop processing all info_messages until err_code is assigned
-          message_code = a.wait_and_read(1,'int8');
-          
-          if message_code == 0 % status ok, return data (if any) are following
-            err_code = 0;
-            command_acq = true;
-            size = a.wait_and_read(1,'uint16');
-            if size ~= 0
-              output = uint8(a.wait_and_read(size,'uint8'));
-            else output = []; end
-            rcvd_csum = a.wait_and_read(1,'uint8');
-            
-            output_cs = mod(sum([0; output]),256);
-            if output_cs ~= rcvd_csum
-              error('Received CS %hu ~= calculated CS %hu!',rcvd_csum,output_cs);
-            end
+        while 1 % loop processing all info_messages until status is returned
+          code = a.wait_and_read(1,'int8');
+          if code > 0 % it is just an info message, print and keep checking for return
+            fprintf(1,'%s',a.receive_message(code));
           else
-            if message_code > 0 % it is just an info message, stay in while cycle
-              fprintf(1,'%s',a.receive_message(message_code));
-            else % unsuccess
-              err_code = 1;
-              % check return codes
-              if message_code < -3, % command was received, but failed.  
-                output = a.receive_message(-message_code);
-                command_acq = true;
-              else % problem with communication. Those are 
-                % a special return codes, defined in AVP_LIB/General/Protocol.h
-                fprintf(1,'Reception failed due to %s, retransmitting command...\n', ...
-                  a.SpecErrorCodes{-message_code});
-                a.flush
-              end
+            if code == 0, error_message = ''; return; end % command succeedded
+            if code < -numel(a.SpecErrorCodes) % command was received and failed
+                error_message = a.receive_message(-code);
+                a.unlock_commands
+                return;
+            else
+              % a special return codes indicating that command was not
+              % properly received
+              a.wait_and_read(1,'uint8'); % checksum
+              fprintf(1,'Reception failed due to %s, retransmitting command...\n', ...
+                a.SpecErrorCodes{-code});
+              a.flush
             end
           end
         end
       end
-      a.unlock_commands
+    end % send_cmd_return_status
+    
+    function [code output] = send_cmd_return_output(a,cmd_bytes)
+      %> LOW LEVEL send_command, Displays info messages and gets output but
+      %> does not process command errors.
+      %> This function does UNLOCK_COMMANDS in all cases
+      %> @param cmd_bytes is an array containing both command and parameters bytes
+      %> @retval code: 0 if success, 1 if failure
+      %> @retval output data: data bytes if success, error message if failure
+      output = a.send_cmd_return_status(cmd_bytes);
+      if isempty(output) % command succeded
+        code = 0;
+        % reading output
+        size = a.wait_and_read(1,'uint16');
+        if size ~= 0
+          output = uint8(a.wait_and_read(size,'uint8'));
+        else output = []; end
+        rcvd_csum = a.wait_and_read(1,'uint8');
+        a.unlock_commands
+        
+        output_cs = mod(sum([0; output]),256);
+        if output_cs ~= rcvd_csum
+          error('Received CS %hu ~= calculated CS %hu!',rcvd_csum,output_cs);
+        end
+      else
+        code = 1;
+      end
     end % send_cmd_return_output
     
-    function data = send_command(a,cmd_bytes)
-      % handles error condition by issuing error
+    function data = send_command(a,ID,cmd_bytes)
+      %> handles error condition by issuing error
+      %> @retval data - retuned bytes
+      if ~exists('cmd_bytes','var'), cmd_bytes = []; end
+      if isstr(ID)
+        cmd_bytes = [char(ID),cmd_bytes];
+      else
+        cmd_bytes = [ID,cmd_bytes]; 
+      end
       [err_code data] = a.send_cmd_return_output(cmd_bytes);
       if err_code ~= 0,
-        error('Command failed due to <%s>', data);
+        error('send_command:Command_failed',data);
       end
     end % send_command
   end % methods
