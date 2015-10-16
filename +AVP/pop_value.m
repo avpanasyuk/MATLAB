@@ -1,3 +1,4 @@
+% !!!!!!!!!!!!!!!! usage discouraged, use pop
 function [Value x] = pop_value(type,x,n)
 %> using typecast
 %> @param type - type to cast to using typecast

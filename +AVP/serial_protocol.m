@@ -43,17 +43,7 @@ classdef serial_protocol < handle
     
     % read and discard everything from the serial port
     function flush(a)
-      null_array = zeros(10,1);
-      start = cputime();
-      while cputime() < start + 1;
-        fwrite(a.s,null_array);
-        pause(0.01)
-        n = get(a.s,'BytesAvailable');
-        if n > 4 
-          out = fread(a.s,n); 
-          if ~any(out(end-3:end)), break; end
-        end
-      end
+      flush_port(a.s,1)
       a.unlock_commands
     end
     
@@ -79,7 +69,6 @@ classdef serial_protocol < handle
       while get(a.s,'BytesAvailable') < N
         if ~a.port_status, error('wait_for_serial:COM_died','Oops!'); end
         if cputime() - start > get(a.s,'Timeout')
-          a.flush
           % dbstack
           % a.close_serial;
           error('serial_protocol:wait_for_serial:Timeout',...
@@ -140,7 +129,7 @@ classdef serial_protocol < handle
     
     function error_message = send_cmd_return_status(a,cmd_bytes)
       %> This is the lowest level SEND_COMMAND. Reads and displays info
-      %> messages. Read end return error messages. Does not read returned 
+      %> messages. Read end return error messages. Does not read returned
       %> data, not even size word
       %> BECAUSE IT DOES NOT READ ALL OUTPUT IT DOES NOT DO UNLOCK_COMMANDS
       %> WHEN COMMAND SUCCEDES
@@ -164,9 +153,9 @@ classdef serial_protocol < handle
           else
             if code == 0, error_message = ''; return; end % command succeedded
             if code < -numel(a.SpecErrorCodes) % command was received and failed
-                error_message = a.receive_message(-code);
-                a.unlock_commands
-                return;
+              error_message = a.receive_message(-code);
+              a.unlock_commands
+              return;
             else
               % a special return codes indicating that command was not
               % properly received
@@ -214,7 +203,7 @@ classdef serial_protocol < handle
       if isstr(ID)
         cmd_bytes = [uint8(ID),cmd_bytes(:).'];
       else
-        cmd_bytes = [ID,cmd_bytes(:).']; 
+        cmd_bytes = [ID,cmd_bytes(:).'];
       end
       [err_code data] = a.send_cmd_return_output(cmd_bytes);
       if err_code ~= 0,
@@ -222,5 +211,20 @@ classdef serial_protocol < handle
       end
     end % send_command
   end % methods
+  methods(Static)
+    function flush_port(s, timeout)
+      null_array = zeros(10,1);
+      start = cputime();
+      while cputime() < start + timeout;
+        fwrite(s,null_array);
+        pause(timeout/10)
+        if s.BytesAvailable > 4 % 4 zeros is the NOOP response
+          out = fread(s);
+          if ~any(out(end-3:end)), return; end
+        end
+      end
+      error('Flushing timed out!') 
+    end % flush_port
+  end % static methods
 end % serial_protocol
 
