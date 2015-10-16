@@ -1,32 +1,5 @@
 classdef serial_protocol < handle
-  %   * @verbatim    Protocol description.
-%     - all GUI->FW messages are commands:
-%       - 4 bytes ASCII command name
-%       - 1 byte its checksum,
-%       - serial_protocol::Command::NumParamBytes bytes of parameters
-%       - 1 byte of total checksum,
-%     - FW-GUI messages are differentiated  based on the first int8_t CODE
-%         - command return:
-%           - If CODE is 0 the following is successful latest command return:
-%             - uint16_t Size is size of data being transmitted.
-%             - data
-%             - 1 uint8_t data checksum
-%           - If CODE is < 0, then it is the last command failure return message:
-%             - CODE > -NUM_SPEC_CODES, @see enum SpecErrorCodes
-% enum SpecErrorCodes { CMD_NAME_CS=1, CMD_MESSAGE_CS, UART_OVERRUN, NUM_SPEC_CODES };
-%            - if CODE <= -NUM_SPEC_CODES it is the error message size, followed by
-%               - error message text without trailing 0
-%               - 1 uint8_t error message text checksum
-%               .
-%         Every command has to be responded with either successful return or error message, and only
-%         one of them.
-%         - If CODE is > 0, then it is an info message size, followed by
-%           - info message text without trailing 0
-%           - 1 uint8_t info message text checksum
-%           .
-%         Info messages may come at any time
-%       If error or info message do not fit into 127 bytes remaining text is formatted into consequtive  info message(s) is
-  %   * @endverbatim
+  %   @see Firmware/AVP_LIBS/General/Protocol.h
   properties(SetAccess=protected, GetAccess=public)
     s % serial port object
     command_lock = 0; % prevents comamnds sent from timer routine to interfere
@@ -35,7 +8,7 @@ classdef serial_protocol < handle
     % return is received
   end
   properties(Constant=true)
-    prec = AVP.get_size_of_type;
+    prec = AVP.get_prec;
     SpecErrorCodes = {'Bad checksum','UART overrun'} % defined in AVP_LIB/General/Protocol.h
   end
   methods
@@ -70,10 +43,16 @@ classdef serial_protocol < handle
     
     % read and discard everything from the serial port
     function flush(a)
-      while 1
+      null_array = zeros(10,1);
+      start = cputime();
+      while cputime() < start + 1;
+        fwrite(a.s,null_array);
         pause(0.01)
         n = get(a.s,'BytesAvailable');
-        if n ~= 0, fread(a.s,n); else break; end
+        if n > 4 
+          out = fread(a.s,n); 
+          if ~any(out(end-3:end)), break; end
+        end
       end
       a.unlock_commands
     end
@@ -162,7 +141,7 @@ classdef serial_protocol < handle
     function error_message = send_cmd_return_status(a,cmd_bytes)
       %> This is the lowest level SEND_COMMAND. Reads and displays info
       %> messages. Read end return error messages. Does not read returned 
-      %> data.
+      %> data, not even size word
       %> BECAUSE IT DOES NOT READ ALL OUTPUT IT DOES NOT DO UNLOCK_COMMANDS
       %> WHEN COMMAND SUCCEDES
       %> @param cmd_bytes is array containing both command byte and parameters bytes
@@ -231,11 +210,11 @@ classdef serial_protocol < handle
     function data = send_command(a,ID,cmd_bytes)
       %> handles error condition by issuing error
       %> @retval data - retuned bytes
-      if ~exists('cmd_bytes','var'), cmd_bytes = []; end
+      if ~exist('cmd_bytes','var'), cmd_bytes = []; end
       if isstr(ID)
-        cmd_bytes = [char(ID),cmd_bytes];
+        cmd_bytes = [uint8(ID),cmd_bytes(:).'];
       else
-        cmd_bytes = [ID,cmd_bytes]; 
+        cmd_bytes = [ID,cmd_bytes(:).']; 
       end
       [err_code data] = a.send_cmd_return_output(cmd_bytes);
       if err_code ~= 0,
