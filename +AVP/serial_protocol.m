@@ -43,7 +43,7 @@ classdef serial_protocol < handle
     
     % read and discard everything from the serial port
     function flush(a)
-      flush_port(a.s,1)
+      AVP.serial_protocol.flush_port(a.s,1)
       a.unlock_commands
     end
     
@@ -144,8 +144,21 @@ classdef serial_protocol < handle
         cmd_bytes = uint8(cmd_bytes); % now we can convert everything to uint8
       end
       sent_cs = mod(sum(cmd_bytes(:)),256);
+      first_try = true;
       while 1 % loop until FW perorts that it received the command
-        fwrite(a.s,[cmd_bytes(:);sent_cs],'uint8');
+        try 
+          fwrite(a.s,[cmd_bytes(:);sent_cs],'uint8');
+        catch ME
+          if first_try
+            first_try = false;
+            fclose(a.s)
+            fopen(a.s)
+            a.flush
+            fprintf(1,'Something happened to port, reset seems to be successful!\n');
+            continue
+          else error('Communication broke!\n'); 
+          end
+        end
         while 1 % loop processing all info_messages until status is returned
           code = a.wait_and_read(1,'int8');
           if code > 0 % it is just an info message, print and keep checking for return
