@@ -11,7 +11,7 @@ classdef scrolling_plot_active < AVP.scrolling_plot
   end
   methods
     %> @param func -should provide either Y or [Y,X] vectors. Y is of [samples,
-    %> variables]  domention
+    %> variables]  dimention
     %> [Ys(numvars,numpoints)] = func() or
     %> [Ys(numvars,numpoints),Xs(numpoints)] = func() or
     %> [Y_name{numvars}] = func(1)
