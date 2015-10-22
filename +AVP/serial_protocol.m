@@ -236,7 +236,7 @@ classdef serial_protocol < handle
           if ~any(out(end-3:end)), return; end
         end
       end
-      error('Flushing timed out!') 
+      error('flush_port:timeout','Flushing timed out!') 
     end % flush_port
   end % static methods
 end % serial_protocol
