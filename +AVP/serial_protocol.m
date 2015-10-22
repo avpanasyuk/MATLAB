@@ -120,8 +120,8 @@ classdef serial_protocol < handle
         Message = a.receive_message(size);
         
         if strncmp(Message,'Error',5),
-          error([place ':ErrStatus'],'%s',Message);
-        else % fprintf(1,[place ': ' MessageBytes]);
+          error('check_messages:ErrStatus','%s',Message);
+        else 
           fprintf(1,'%s',Message);
         end
       end
@@ -145,7 +145,7 @@ classdef serial_protocol < handle
       end
       sent_cs = mod(sum(cmd_bytes(:)),256);
       first_try = true;
-      while 1 % loop until FW perorts that it received the command
+      while 1 % loop until FW reports that it successfully received the command
         try 
           fwrite(a.s,[cmd_bytes(:);sent_cs],'uint8');
         catch ME
