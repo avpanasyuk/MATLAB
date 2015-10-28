@@ -1,6 +1,9 @@
 function out = pop(x,n)
   %> poping byte sequences or typecast values from a given in advance array of bytes
   %> the array should be preset by calling this function with it as a parameter
+  %> @example 
+  %> AVP.pop(uint8([3 4 2 5]))
+  %> AVP.pop('unit16'); AVP.pop('unit16'); 
   %> @param x
   %> - If a scalar is the number of bytes to pop, default 1.
   %> - if vector defines an array to pop bytes from
