@@ -1,3 +1,3 @@
 function o = rel_rms(x,y)
-  o = sqrt(mean((2*(x-y)./(x+y)).^2));
+  o = AVP.squeeze(AVP.rms(x-y)./sqrt(AVP.rms(x).*AVP.rms(y)));
 end

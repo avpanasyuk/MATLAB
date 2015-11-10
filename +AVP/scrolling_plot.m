@@ -7,6 +7,7 @@ classdef scrolling_plot < handle
     x_npoints = 1000
     plot_props = {}
     same_plot = false
+    do_abs = false
     % service
     fig = []
     plots = {}
@@ -33,7 +34,7 @@ classdef scrolling_plot < handle
     
     function delete(a)
       if ishandle(a.fig)
-        delete(a.fig)
+        close(a.fig)
       end
     end
     
@@ -56,6 +57,7 @@ classdef scrolling_plot < handle
       
       a.data_x = [a.data_x;x];
       % Y
+      if a.do_abs, y = abs(y); end
       a.data_y = [a.data_y;y];
       
       % trim data
