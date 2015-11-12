@@ -2,5 +2,5 @@
 function out=squeeze(x)
   dims = size(x);
   dims(dims==1)=[];
-  out=reshape(x,[dims,1]);
+  out=reshape(x,[dims,1,1]);
 end

@@ -1,22 +1,22 @@
-function [t1 t2 dif] = findsideknots(model, knotdim, knotsite, d, minX, maxX, old_t1, old_t2)
+function [t1, t2, diff] = findsideknots(model, knotdim, knotsite, d, minX, maxX, old_t1, old_t2)
 % Recomputes side knot placements for all the basis functions in the model
 % (in either the knotdim dimension or all the dimensions) while taking into
 % account that a new basis function is to be added and its side knots must
 % not disrupt the integrity of the whole side knot placement. The function
 % is used only for piecewise-cubic modelling.
-% The function assumes that there is no self-interactions in any basis
+% The function assumes that there are no self-interactions in any basis
 % function.
 % t1 is a matrix of knot sites for the knots on the left of the central
 % knot. t2 is a matrix of knot sites for the knots on the right of the
-% central knot. dif is a boolean vector with 1's for the basis functions
-% for which at least one knot has moved, and 0's for other basis functions.
+% central knot. diff is a list of basis functions for which at least one
+% knot has moved.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2011  Gints Jekabsons
+% Copyright (C) 2009-2015  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -32,13 +32,12 @@ function [t1 t2 dif] = findsideknots(model, knotdim, knotsite, d, minX, maxX, ol
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: November 9, 2009
+% Last update: September 30, 2015
 
 if isempty(model.knotdims)
     if isempty(knotdim)
         t1 = [];
         t2 = [];
-        dif = [];
     else
         t1 = inf(1,d);
         t2 = inf(1,d);
@@ -49,8 +48,8 @@ if isempty(model.knotdims)
                 t2(di) = (knotsite(temp) + maxX(di)) / 2;
             end
         end
-        dif = true;
     end
+    diff = [];
 else
     if ~isempty(knotdim)
         t1 = old_t1;
@@ -89,7 +88,7 @@ else
         ind = ind(1:count);
         knot = knot(1:count);
         % sort the arrays by knot place
-        [knot ind2] = sort(knot);
+        [knot, ind2] = sort(knot);
         ind = ind(ind2);
         % calculate and store t1, t2
         % (it is possible that two or more functions have the same central
@@ -127,12 +126,14 @@ else
     % find the difference between old t1,t2 and new t1,t2
     if ~isempty(old_t1)
         if isempty(knotdim)
-            dif = any((t1 ~= old_t1) | (t2 ~= old_t2), 2);
+            diff = any((t1 ~= old_t1) | (t2 ~= old_t2), 2);
         else
-            dif = any((t1(1:end-1,:) ~= old_t1) | (t2(1:end-1,:) ~= old_t2), 2);
+            diff = any((t1(1:end-1,:) ~= old_t1) | (t2(1:end-1,:) ~= old_t2), 2);
         end
+        diff = find(diff);
+        diff = diff';
     else
-        dif = [];
+        diff = [];
     end
 end
 return

@@ -1,24 +1,26 @@
 function Yq = arespredict(model, Xq)
 % arespredict
-% Predicts output values for the given query points Xq using an ARES model.
+% Predicts response values for the given query points Xq using ARES model.
 %
 % Call:
 %   Yq = arespredict(model, Xq)
 %
 % Input:
-%   model         : ARES model
-%   Xq            : Inputs of query data points (Xq(i,:)), i = 1,...,nq
+%   model         : ARES model or a cell array of ARES models (for
+%                   multi-response modelling).
+%   Xq            : A matrix of query data points.
 %
 % Output:
-%   Yq            : Predicted outputs of the query data points (Yq(i)),
-%                   i = 1,...,nq
+%   Yq            : Either a column vector of predicted response values or,
+%                   for multi-response modelling, a matrix with columns
+%                   corresponding to response variables.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2011  Gints Jekabsons
+% Copyright (C) 2009-2015  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -34,22 +36,41 @@ function Yq = arespredict(model, Xq)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: November 9, 2009
+% Last update: September 7, 2015
 
 if nargin < 2
-    error('Too few input arguments.');
+    error('Not enough input arguments.');
 end
+
+numModels = length(model);
+if (numModels > 1)
+    models = model;
+    model = models{1};
+else
+    if iscell(model)
+        model = model{1};
+    end
+end
+
 X = ones(size(Xq,1),length(model.knotdims)+1);
 if model.trainParams.cubic
     for i = 1 : length(model.knotdims)
-       X(:,i+1) = createbasisfunction(Xq, X, model.knotdims{i}, model.knotsites{i}, ...
-                  model.knotdirs{i}, model.parents(i), model.minX, model.maxX, model.t1(i,:), model.t2(i,:));
+        X(:,i+1) = createbasisfunction(Xq, X, model.knotdims{i}, model.knotsites{i}, ...
+            model.knotdirs{i}, model.parents(i), model.minX, model.maxX, model.t1(i,:), model.t2(i,:));
     end
 else
     for i = 1 : length(model.knotdims)
-       X(:,i+1) = createbasisfunction(Xq, X, model.knotdims{i}, model.knotsites{i}, ...
-                  model.knotdirs{i}, model.parents(i), model.minX, model.maxX);
+        X(:,i+1) = createbasisfunction(Xq, X, model.knotdims{i}, model.knotsites{i}, ...
+            model.knotdirs{i}, model.parents(i), model.minX, model.maxX);
     end
 end
-Yq = X * model.coefs;
+
+if numModels == 1
+    Yq = X * model.coefs;
+else
+    Yq = zeros(size(Xq, 1), numModels);
+    for k = 1 : numModels
+        Yq(:,k) = X * models{k}.coefs;
+    end
+end
 return

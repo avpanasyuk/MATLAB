@@ -1,36 +1,38 @@
-function [modelReduced usedBasis] = aresanovareduce(model, vars, exact)
+function [model, usedBasis] = aresanovareduce(model, varsToStay, exact)
 % aresanovareduce
-% Deletes all the basis functions from an ARES model in which at least one
-% used variable is not in the given list of allowed variables. This can be
-% used to perform ANOVA decomposition as well as for investigation of
-% individual and joint contributions of variables in the model, i.e.,
-% the reduced model can be plotted using function aresplot to visualize
-% the contributions.
+% Deletes all the basis functions from ARES model (without recalculating
+% model's coefficients and relocating additional knots of piecewise-cubic
+% models) in which at least one used variable is not in the given list of
+% allowed variables. This can be used to perform ANOVA decomposition as
+% well as for investigation of individual and joint contributions of
+% variables in the model, i.e., the reduced model can then be plotted to
+% visualize the contributions.
+% The function works with single-response models only.
 %
 % Call:
-%   [modelReduced usedBasis] = aresanovareduce(model, vars, exact)
+%   [model, usedBasis] = aresanovareduce(model, varsToStay, exact)
 %
 % Input:
-%   model         : ARES model
-%   vars          : A vector of indexes for input variables to stay in the
-%                   model. The size of the vector should be between 1 and
-%                   d, where d is the total number of input variables.
+%   model         : ARES model.
+%   varsToStay    : A vector of indices for input variables to stay in the
+%                   model. The size of the vector should be between one and
+%                   the total number of input variables.
 %   exact         : Set this to true to get a model with only those basis
 %                   functions where the exact combination of variables is
 %                   present (default value = false). This is used from
 %                   function aresanova.
 %
 % Output:
-%   modelReduced  : The reduced model
-%   usedBasis     : The list of original indexes for the used basis
-%                   functions
+%   model         : Reduced ARES model.
+%   usedBasis     : List of original indexes for basis functions still in
+%                   use.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2011  Gints Jekabsons
+% Copyright (C) 2009-2015  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -46,21 +48,31 @@ function [modelReduced usedBasis] = aresanovareduce(model, vars, exact)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: June 2, 2011
+% Last update: September 30, 2015
 
 if nargin < 2
-    error('Too few input arguments.');
+    error('Not enough input arguments.');
 end
-if (nargin < 3) || (isempty(exact))
+if isempty(varsToStay)
+    error('varsToStay is empty.');
+end
+if length(model) > 1
+    error('This function works with single-response models only.');
+else
+    if iscell(model)
+        model = model{1};
+    end
+end
+if (nargin < 3) || isempty(exact)
     exact = false;
 end
 
-len = length(model.knotdims);
-notvars = setdiff(1:length(model.minX), vars);
-stay = true(len,1);
+nBasis = length(model.knotdims);
+notvars = setdiff(1:length(model.minX), varsToStay);
+stay = true(nBasis,1);
 
-for i = 1 : len
-    if exact && (length(unique(model.knotdims{i})) ~= length(vars))
+for i = 1 : nBasis
+    if exact && (length(unique(model.knotdims{i})) ~= length(varsToStay))
         stay(i) = false;
         continue;
     end
@@ -74,27 +86,29 @@ end
 
 usedBasis = find(stay);
 
-modelReduced = model;
-for i = len : -1 : 1
+for i = nBasis : -1 : 1 % deleting in reverse order
     if ~stay(i)
-        modelReduced.coefs(i+1) = [];
-        modelReduced.knotdims(i) = [];
-        modelReduced.knotsites(i) = [];
-        modelReduced.knotdirs(i) = [];
-        modelReduced.parents(i) = [];
-        modelReduced.parents = updateParents(modelReduced.parents, i);
-        if modelReduced.trainParams.cubic
-            modelReduced.t1(i,:) = [];
-            modelReduced.t2(i,:) = [];
+        model.coefs(i+1) = [];
+        model.knotdims(i) = [];
+        model.knotsites(i) = [];
+        model.knotdirs(i) = [];
+        model.parents(i) = [];
+        model.parents = updateParents(model.parents, i);
+        if model.trainParams.cubic
+            model.t1(i,:) = [];
+            model.t2(i,:) = [];
+        end
+        if isfield(model, 'X')
+            model.X(:,i+1) = [];
         end
     end
 end
 
 return
 
-function parents = updateParents(parents, deletedInd)
-% Updates direct parent indexes after deletion of a basis function.
-parents(parents == deletedInd) = 0;
-tmp = parents > deletedInd;
+function parents = updateParents(parents, deletedIdx)
+% Updates direct parent indices after deletion of a basis function.
+parents(parents == deletedIdx) = 0;
+tmp = parents > deletedIdx;
 parents(tmp) = parents(tmp) - 1;
 return

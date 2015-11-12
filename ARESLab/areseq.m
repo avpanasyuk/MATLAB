@@ -1,27 +1,40 @@
-function eq = areseq(model, precision)
+function eq = areseq(model, precision, varNames, hideCubicSmoothing)
 % areseq
-% Outputs the ARES model in an explicit mathematical form (useful e.g., for
-% deployment of built ARES models in other software).
+% Prints ARES model.
+% The function works with single-response models only.
 %
 % Call:
-%   eq = areseq(model, precision)
-%   eq = areseq(model)
+%   eq = areseq(model, precision, varNames)
+%
+% All the input arguments, except the first one, are optional.
+% Piecewise-cubic spline equations are very complex as they involve
+% smoothing. For easier interpretation use piecewise-linear models or set
+% hideCubicSmoothing to true.
 %
 % Input:
-%   model         : ARES model
+%   model         : ARES model.
 %   precision     : Number of digits in the model coefficients and knot
-%                   sites.
+%                   sites. (default value = 15)
+%   varNames      : A cell array of variable names to show instead of the
+%                   generic ones. This is used for
+%                   piecewise-linear models only.
+%   hideCubicSmoothing : This is for piecewise-cubic models only. Whether
+%                   to hide piecewise-cubic spline smoothing. It's easier
+%                   to understand the equations if smoothing is hidden. The
+%                   model will look like piecewise-linear but the
+%                   coefficients will be for the actual piecewise-cubic
+%                   model. (default value = true)
 %
 % Output:
-%   eq            : A cell array of equations for individual basis
-%                   functions and the main model.
+%   eq            : A cell array of strings containing equations for
+%                   individual basis functions and the main model.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2011  Gints Jekabsons
+% Copyright (C) 2009-2015  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -37,13 +50,30 @@ function eq = areseq(model, precision)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: September 15, 2010
+% Last update: September 30, 2015
 
 if nargin < 1
-    error('Too few input arguments.');
+    error('Not enough input arguments.');
 end
-if (nargin < 2) || (isempty(precision))
+if length(model) > 1
+    error('This function works with single-response models only.');
+else
+    if iscell(model)
+        model = model{1};
+    end
+end
+if (nargin < 2) || isempty(precision)
     precision = 15;
+end
+if (nargin >= 3)
+    if (~isempty(varNames)) && (length(varNames) ~= length(model.minX))
+        error('Wrong number of names in varNames.');
+    end
+else
+    varNames = [];
+end
+if (nargin < 4) || isempty(hideCubicSmoothing)
+    hideCubicSmoothing = true;
 end
 
 p = ['%.' num2str(precision) 'g'];
@@ -60,16 +90,24 @@ for i = 1 : length(model.knotdims)
     end
     for j = start : length(model.knotdims{i})
         
-        if ~model.trainParams.cubic
+        if (~model.trainParams.cubic) || (hideCubicSmoothing)
             if model.knotdirs{i}(j) > 0 % here the hinge function looks like "_/"
                 if model.knotsites{i}(j) > 0
                     m = '';
-                else % here the hinge function looks like "\_"
+                else
                     m = '+';
                 end
-                func = [func ' max(0, x' num2str(model.knotdims{i}(j),p) ' ' m num2str(-model.knotsites{i}(j),p) ')'];
-            else
-                func = [func ' max(0, ' num2str(model.knotsites{i}(j),p) ' -x' num2str(model.knotdims{i}(j),p) ')'];
+                if isempty(varNames)
+                    func = [func ' max(0, x' num2str(model.knotdims{i}(j),p) ' ' m num2str(-model.knotsites{i}(j),p) ')'];
+                else
+                    func = [func ' max(0, ' varNames{model.knotdims{i}(j)} ' ' m num2str(-model.knotsites{i}(j),p) ')'];
+                end
+            else % here the hinge function looks like "\_"
+                if isempty(varNames)
+                    func = [func ' max(0, ' num2str(model.knotsites{i}(j),p) ' -x' num2str(model.knotdims{i}(j),p) ')'];
+                else
+                    func = [func ' max(0, ' num2str(model.knotsites{i}(j),p) ' -' varNames{model.knotdims{i}(j)} ')'];
+                end
             end
         else
             t = num2str(model.knotsites{i}(j),p);
@@ -82,53 +120,53 @@ for i = 1 : length(model.knotdims)
             if model.knotdirs{i}(j) > 0 % here the hinge function looks like "_/"
                 iff = ['if (x' d ' <= ' t1 ') then ' f ' = 0'];
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 
                 iff = ['if (' t1 ' < x' d ' < ' t2 ') then begin'];
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 pPoz = ['  ' pp ' = (2*(' t2 ') + (' t1 ') - 3*(' t ')) / ((' t2 ') - (' t1 '))^2'];
                 disp(pPoz);
-                eq{end+1} = pPoz;
+                eq{end+1,1} = pPoz;
                 rPoz = ['  ' rr ' = (2*(' t ') - (' t2 ') - (' t1 ')) / ((' t2 ') - (' t1 '))^3'];
                 disp(rPoz);
-                eq{end+1} = rPoz;
+                eq{end+1,1} = rPoz;
                 iff = ['  ' f ' = ' pp '*(x' d '-(' t1 '))^2 + ' rr '*(x' d '-(' t1 '))^3'];
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 iff = 'end';
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 
                 iff = ['if (x' d ' >= (' t2 ')) then ' f ' = x' d ' - (' t ')'];
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 
                 func = [func ' '  f];
             else % here the hinge function looks like "\_"
                 iff = ['if (x' d ' <= ' t1 ') then ' f ' = -(x' d ' - (' t '))'];
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 
                 iff = ['if (' t1 ' < x' d ' < ' t2 ') then begin'];
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 pNeg = ['  ' pp ' = (3*(' t ') - 2*(' t1 ') - (' t2 ')) / ((' t1 ') - (' t2 '))^2'];
                 disp(pNeg);
-                eq{end+1} = pNeg;
+                eq{end+1,1} = pNeg;
                 rNeg = ['  ' rr ' = ((' t1 ') + (' t2 ') - 2*(' t ')) / ((' t1 ') - (' t2 '))^3'];
                 disp(rNeg);
-                eq{end+1} = rNeg;
+                eq{end+1,1} = rNeg;
                 iff = ['  ' f ' = ' pp '*(x' d '-(' t2 '))^2 + ' rr '*(x' d '-(' t2 '))^3'];
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 iff = 'end';
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 
                 iff = ['if (x' d ' >= (' t2 ')) then ' f ' = 0'];
                 disp(iff);
-                eq{end+1} = iff;
+                eq{end+1,1} = iff;
                 
                 func = [func ' '  f];
             end
@@ -139,7 +177,7 @@ for i = 1 : length(model.knotdims)
         end
     end
     disp(func);
-    eq{end+1} = func;
+    eq{end+1,1} = func;
 end
 
 % compose the summation
@@ -153,5 +191,14 @@ for i = 1 : length(model.knotdims)
     func = [func num2str(model.coefs(i+1),p) '*BF' num2str(i)];
 end
 disp(func);
-eq{end+1} = func;
+eq{end+1,1} = func;
+
+if model.trainParams.cubic
+    if hideCubicSmoothing
+        fprintf('\nWARNING: Piecewise-cubic spline smoothing hidden.\n');
+    else
+        fprintf('\nINFO: Piecewise-cubic spline equations are very complex as they involve smoothing. For easier interpretation use piecewise-linear models or set hideCubicSmoothing to true.\n');
+    end
+end
+
 return
