@@ -5,8 +5,9 @@ function out = pop(x,n)
   %> AVP.pop(uint8([3 4 2 5]))
   %> AVP.pop('unit16'); AVP.pop('unit16'); 
   %> @param x
+  %> - if vector defines an array to pop bytes from. SHOULD BE USED BEFORE
+  %>   OTHER CALLS
   %> - If a scalar is the number of bytes to pop, default 1.
-  %> - if vector defines an array to pop bytes from
   %> - If scalar 0 then out is size of remaining array
   %> - if string - the type of value to pop, then
   %> @param n defines the number of values to pop, default 1. It maybe
