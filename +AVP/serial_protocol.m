@@ -211,7 +211,7 @@ classdef serial_protocol < handle
     
     function data = send_command(a,ID,cmd_bytes)
       %> handles error condition by issuing error
-      %> @retval data - retuned bytes
+      %> @retval data - returned bytes
       if ~exist('cmd_bytes','var'), cmd_bytes = []; end
       if isstr(ID)
         cmd_bytes = [uint8(ID),cmd_bytes(:).'];
