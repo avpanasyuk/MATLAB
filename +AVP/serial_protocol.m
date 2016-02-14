@@ -195,12 +195,12 @@ classdef serial_protocol < handle
         % reading output
         size = a.wait_and_read(1,'uint16');
         if size ~= 0
-          output = uint8(a.wait_and_read(size,'uint8'));
+          output = uint8(a.wait_and_read([1 size],'uint8'));
         else output = []; end
         rcvd_csum = a.wait_and_read(1,'uint8');
         a.unlock_commands
         
-        output_cs = mod(sum([0; output]),256);
+        output_cs = mod(sum([0, output]),256);
         if output_cs ~= rcvd_csum
           error('Received CS %hu ~= calculated CS %hu!',rcvd_csum,output_cs);
         end
