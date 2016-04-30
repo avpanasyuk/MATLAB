@@ -3,7 +3,7 @@ function out = pop(x,n)
   %> the array should be preset by calling this function with it as a parameter
   %> @example 
   %> AVP.pop(uint8([3 4 2 5]))
-  %> AVP.pop('unit16'); AVP.pop('unit16'); 
+  %> AVP.pop('uint16'); AVP.pop('uint16',1); 
   %> @param x
   %> - if vector defines an array to pop bytes from. SHOULD BE USED BEFORE
   %>   OTHER CALLS
