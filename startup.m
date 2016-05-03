@@ -1,6 +1,9 @@
 % ok, let's find project root directory which should be somewhere  up the tree. 
-PROJECT_DIR = pwd;
+global PROJECT_DIR REP_ROOT DATA_DIR
+PROJECT_DIR = pwd; PROJECT_DIR(1) = upper(PROJECT_DIR(1)); 
 REP_ROOT = PROJECT_DIR; % looking for the root of git repository
+DATA_DIR = 'c:\Dropbox\JEF Core\Sasha\DATA\';
+
 while ~isempty(REP_ROOT)
 	if exist([REP_ROOT '\MATLAB'],'dir'), break; end
   REP_ROOT = fileparts(REP_ROOT);
@@ -23,8 +26,13 @@ if exist('matlab.files','file') == 2
   files = textscan(f,'%s\n');
   files = files{1};
   for fi = 1:numel(files)    
-    if ~isempty(files{fi}) && exist(files{fi},'file') == 2
-      matlab.desktop.editor.openDocument(files{fi});
+    if ~isempty(files{fi})
+      if exist([REP_ROOT '\' files{fi}],'file') == 2
+        matlab.desktop.editor.openDocument([REP_ROOT '\' files{fi}]);
+      else if exist(files{fi},'file') == 2
+        matlab.desktop.editor.openDocument(files{fi});
+        end
+      end
     end
   end
   fclose(f);
@@ -53,7 +61,7 @@ else
   end
 end
 
-clearvars -except  PROJECT_DIR
+clearvars -except  PROJECT_DIR REP_ROOT DATA_DIR
 
   
   
