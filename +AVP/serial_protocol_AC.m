@@ -26,7 +26,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
           end
         end
       end
-      error('Did not get 0 - protocol is broken!');
+      error('Did not get "\0\0\0\0" - protocol is broken!');
       status = false;
     end
     
@@ -84,7 +84,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
           OldPort = getfield(OldPorts,['Code_' code]);
           if any(strcmp(AvailPorts,OldPort))
             try
-              disp('Trying old port first...')
+              disp(['Trying old port <', OldPort, '> first...'])
               s = serial(OldPort,varargin{:});
               fopen(s);
               if AVP.serial_protocol_AC.PingNOOP(s), Port = OldPort; end
@@ -95,8 +95,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
             fclose(s)
             delete(s)
           end
-        end
-        
+        end        
         
         % looking through all available ports
         if ~exist('Port','var')
@@ -110,14 +109,17 @@ classdef serial_protocol_AC < AVP.serial_protocol
             drawnow
           end
         end
+        OldPorts = setfield(OldPorts,['Code_' code],Port);  
       else % code is a number, so it is specifying port directly
         Port = ['COM' num2str(code)];
+        disp(['Checking specified port <',Port,'> ...']);
       end
       if ~exist('Port','var')
         error('Can not connect...')
       end
       a = a@AVP.serial_protocol(Port,varargin{:});
-      OldPorts = setfield(OldPorts,['Code_' code],Port);
+      AVP.serial_protocol_AC.PingNOOP(a.s); % if we specified port directly 
+      % it may still broadcast ID, PingNOOP stops it
     end % constructor
   end % methods
 end % serial_protocol_AC
