@@ -1,11 +1,15 @@
 function c = curvature(y,x)
-% diff on potentially non-uniform grid along the first dimension
-sz = size(y);
-if sz(1) < 3, error('Too few points to calculate derivative'); end
-if ~exist('x','var'), x = [1:sz(1)].'; end
-[d1,d2] = AVP.diff(y,x);
-c = (1+d1.^2).^1.5./smooth(d2,3);
+  % nice precise calculation symmetrical with x and y.
+  % correct everywhere.
+  y = y(:); x = x(:);
+  c = 2*(x(1:end-2).*(y(2:end-1)-y(3:end)) + ...
+    x(2:end-1).*(y(3:end)-y(1:end-2)) + ...
+    x(3:end).*(y(1:end-2)-y(2:end-1)))./...
+    sqrt(((x(2:end-1)-x(3:end)).^2 + (y(2:end-1)-y(3:end)).^2).*...
+    ((x(1:end-2)-x(3:end)).^2 + (y(1:end-2)-y(3:end)).^2).*...
+    ((x(2:end-1)-x(1:end-2)).^2 + (y(2:end-1)-y(1:end-2)).^2));
+  c = smooth([c(1);c;c(end)],3);
 end
 
- 
-  
+
+
