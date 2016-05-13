@@ -1,29 +1,55 @@
-function eq = areseq(model, precision, varNames, hideCubicSmoothing)
+function eq = areseq(model, precision, varNames, binarySimple, expandParentBF, cubicSmoothing)
 % areseq
-% Prints ARES model.
+% Prints equations of ARES model.
 % The function works with single-response models only.
 %
 % Call:
-%   eq = areseq(model, precision, varNames)
+%   eq = areseq(model, precision, varNames, binarySimple, ...
+%           expandParentBF, cubicSmoothing)
 %
-% All the input arguments, except the first one, are optional.
-% Piecewise-cubic spline equations are very complex as they involve
-% smoothing. For easier interpretation use piecewise-linear models or set
-% hideCubicSmoothing to true.
+% All the input arguments, except the first one, are optional. Empty values
+% are also accepted (the corresponding defaults will be used).
 %
 % Input:
 %   model         : ARES model.
 %   precision     : Number of digits in the model coefficients and knot
-%                   sites. (default value = 15)
+%                   sites. Default value = 15.
 %   varNames      : A cell array of variable names to show instead of the
-%                   generic ones. This is used for
-%                   piecewise-linear models only.
-%   hideCubicSmoothing : This is for piecewise-cubic models only. Whether
-%                   to hide piecewise-cubic spline smoothing. It's easier
-%                   to understand the equations if smoothing is hidden. The
-%                   model will look like piecewise-linear but the
-%                   coefficients will be for the actual piecewise-cubic
-%                   model. (default value = true)
+%                   generic ones.
+%   binarySimple  : Whether to simplify basis functions that use binary
+%                   input variables (default value = false). Note that
+%                   whether a variable is binary is automatically
+%                   determined during model building in aresbuild by
+%                   counting unique values for each variable in training
+%                   data. Therefore a variable can also be taken as binary
+%                   by mistake if the data for some reason includes only
+%                   two values for the variable. You can correct such
+%                   mistakes by editing model.isBinary. Also note that
+%                   whether a variable is binary does not influence
+%                   building of models. It's just used here to simplify
+%                   equations.
+%                   The argument has no effect if the model was allowed to
+%                   have input variables to enter linearly, because then
+%                   all binary variables are handled using linear functions
+%                   instead of hinge functions.
+%   expandParentBF : A basis function that involves multiplication of two
+%                   or more hinge functions can be defined simply as a
+%                   multiplication of an already existing basis function
+%                   (parent) and a new hinge function. Alternatively, it
+%                   can be defined as a multiplication of a number of hinge
+%                   functions. Set expandParentBF to false (default) for
+%                   the former behaviour and to true for the latter.
+%   cubicSmoothing : This is for piecewise-cubic models only. Set to
+%                   'short' (default) to show piecewise-cubic basis
+%                   functions in their short mathematical form (Equation 34
+%                   in Friedman, 1991a). Set to 'full' to show all
+%                   computations involved in calculating the response
+%                   value. Set to 'hide' to hide cubic smoothing and see
+%                   the model as if it would be piecewise-linear. It's
+%                   easier to understand the equations if smoothing is
+%                   hidden. Note that, while the model then looks like
+%                   piecewise-linear, the coefficients are for the actual
+%                   piecewise-cubic model.
 %
 % Output:
 %   eq            : A cell array of strings containing equations for
@@ -34,7 +60,7 @@ function eq = areseq(model, precision, varNames, hideCubicSmoothing)
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -50,7 +76,7 @@ function eq = areseq(model, precision, varNames, hideCubicSmoothing)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: September 30, 2015
+% Last update: May 2, 2016
 
 if nargin < 1
     error('Not enough input arguments.');
@@ -72,111 +98,115 @@ if (nargin >= 3)
 else
     varNames = [];
 end
-if (nargin < 4) || isempty(hideCubicSmoothing)
-    hideCubicSmoothing = true;
+if (nargin < 4) || isempty(binarySimple)
+    binarySimple = false;
+end
+if (nargin < 5) || isempty(expandParentBF)
+    expandParentBF = false;
+end
+if (nargin < 6) || isempty(cubicSmoothing)
+    cubicSmoothing = 'short';
+else
+    if ~strcmpi(cubicSmoothing, {'hide' 'short' 'full'})
+        error('Wrong value for cubicSmoothing.');
+    end
 end
 
 p = ['%.' num2str(precision) 'g'];
 eq = {};
+isPrint = nargout <= 0;
 
 % compose the individual basis functions
 for i = 1 : length(model.knotdims)
     func = ['BF' num2str(i) ' ='];
-    if model.parents(i) > 0
-        func = [func ' BF' num2str(model.parents(i)) ' *'];
-        start = length(model.knotdims{i});
+    if (~model.trainParams.cubic) || ~strcmpi(cubicSmoothing, 'full')
+        func = [func ' ' getbfstr(model, i, p, binarySimple, expandParentBF, varNames, strcmpi(cubicSmoothing, 'hide'))];
     else
-        start = 1;
-    end
-    for j = start : length(model.knotdims{i})
-        
-        if (~model.trainParams.cubic) || (hideCubicSmoothing)
-            if model.knotdirs{i}(j) > 0 % here the hinge function looks like "_/"
-                if model.knotsites{i}(j) > 0
-                    m = '';
-                else
-                    m = '+';
-                end
-                if isempty(varNames)
-                    func = [func ' max(0, x' num2str(model.knotdims{i}(j),p) ' ' m num2str(-model.knotsites{i}(j),p) ')'];
-                else
-                    func = [func ' max(0, ' varNames{model.knotdims{i}(j)} ' ' m num2str(-model.knotsites{i}(j),p) ')'];
-                end
-            else % here the hinge function looks like "\_"
-                if isempty(varNames)
-                    func = [func ' max(0, ' num2str(model.knotsites{i}(j),p) ' -x' num2str(model.knotdims{i}(j),p) ')'];
-                else
-                    func = [func ' max(0, ' num2str(model.knotsites{i}(j),p) ' -' varNames{model.knotdims{i}(j)} ')'];
-                end
-            end
+        if (~expandParentBF) && (model.parents(i) > 0)
+            func = [func ' BF' num2str(model.parents(i)) ' *'];
+            start = length(model.knotdims{i});
         else
+            start = 1;
+        end
+        for j = start : length(model.knotdims{i})
+            % if the knot is on the very edge, treat the basis function as linear
+            if (model.knotdirs{i}(j) == 2) || ...
+               ((model.knotdirs{i}(j) > 0) && (model.knotsites{i}(j) <= model.minX(model.knotdims{i}(j)))) || ...
+               ((model.knotdirs{i}(j) < 0) && (model.knotsites{i}(j) >= model.maxX(model.knotdims{i}(j))))
+                func = [func ' ' getbfstr(model, i, p, binarySimple, expandParentBF, varNames, strcmpi(cubicSmoothing, 'hide'), j)];
+                continue;
+            end
             t = num2str(model.knotsites{i}(j),p);
             t1 = num2str(model.t1(i,model.knotdims{i}(j)),p);
             t2 = num2str(model.t2(i,model.knotdims{i}(j)),p);
             pp = ['p' num2str(i) '_' num2str(j)];
             rr = ['r' num2str(i) '_' num2str(j)];
-            d = num2str(model.knotdims{i}(j),p);
+            if isempty(varNames)
+                d = ['x' num2str(model.knotdims{i}(j),p)];
+            else
+                d = varNames{model.knotdims{i}(j)};
+            end
             f = ['f' num2str(i) '_' num2str(j)];
             if model.knotdirs{i}(j) > 0 % here the hinge function looks like "_/"
-                iff = ['if (x' d ' <= ' t1 ') then ' f ' = 0'];
-                disp(iff);
+                iff = ['if (' d ' <= ' t1 ') then ' f ' = 0'];
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 
-                iff = ['if (' t1 ' < x' d ' < ' t2 ') then begin'];
-                disp(iff);
+                iff = ['if (' t1 ' < ' d ' < ' t2 ') then begin'];
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 pPoz = ['  ' pp ' = (2*(' t2 ') + (' t1 ') - 3*(' t ')) / ((' t2 ') - (' t1 '))^2'];
-                disp(pPoz);
+                if isPrint, disp(pPoz); end
                 eq{end+1,1} = pPoz;
                 rPoz = ['  ' rr ' = (2*(' t ') - (' t2 ') - (' t1 ')) / ((' t2 ') - (' t1 '))^3'];
-                disp(rPoz);
+                if isPrint, disp(rPoz); end
                 eq{end+1,1} = rPoz;
-                iff = ['  ' f ' = ' pp '*(x' d '-(' t1 '))^2 + ' rr '*(x' d '-(' t1 '))^3'];
-                disp(iff);
+                iff = ['  ' f ' = ' pp ' * (' d ' - (' t1 '))^2 + ' rr ' * (' d ' - (' t1 '))^3'];
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 iff = 'end';
-                disp(iff);
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 
-                iff = ['if (x' d ' >= (' t2 ')) then ' f ' = x' d ' - (' t ')'];
-                disp(iff);
+                iff = ['if (' d ' >= ' t2 ') then ' f ' = ' d ' - (' t ')'];
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 
-                func = [func ' '  f];
+                func = [func ' ' f];
             else % here the hinge function looks like "\_"
-                iff = ['if (x' d ' <= ' t1 ') then ' f ' = -(x' d ' - (' t '))'];
-                disp(iff);
+                iff = ['if (' d ' <= ' t1 ') then ' f ' = -(' d ' - (' t '))'];
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 
-                iff = ['if (' t1 ' < x' d ' < ' t2 ') then begin'];
-                disp(iff);
+                iff = ['if (' t1 ' < ' d ' < ' t2 ') then begin'];
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 pNeg = ['  ' pp ' = (3*(' t ') - 2*(' t1 ') - (' t2 ')) / ((' t1 ') - (' t2 '))^2'];
-                disp(pNeg);
+                if isPrint, disp(pNeg); end
                 eq{end+1,1} = pNeg;
                 rNeg = ['  ' rr ' = ((' t1 ') + (' t2 ') - 2*(' t ')) / ((' t1 ') - (' t2 '))^3'];
-                disp(rNeg);
+                if isPrint, disp(rNeg); end
                 eq{end+1,1} = rNeg;
-                iff = ['  ' f ' = ' pp '*(x' d '-(' t2 '))^2 + ' rr '*(x' d '-(' t2 '))^3'];
-                disp(iff);
+                iff = ['  ' f ' = ' pp ' * (' d ' - (' t2 '))^2 + ' rr ' * (' d ' - (' t2 '))^3'];
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 iff = 'end';
-                disp(iff);
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 
-                iff = ['if (x' d ' >= (' t2 ')) then ' f ' = 0'];
-                disp(iff);
+                iff = ['if (' d ' >= ' t2 ') then ' f ' = 0'];
+                if isPrint, disp(iff); end
                 eq{end+1,1} = iff;
                 
-                func = [func ' '  f];
+                func = [func ' ' f];
+            end
+            
+            if j < length(model.knotdims{i})
+                func = [func ' *'];
             end
         end
-        
-        if j < length(model.knotdims{i})
-            func = [func ' *'];
-        end
     end
-    disp(func);
+    if isPrint, disp(func); end
     eq{end+1,1} = func;
 end
 
@@ -190,14 +220,13 @@ for i = 1 : length(model.knotdims)
     end
     func = [func num2str(model.coefs(i+1),p) '*BF' num2str(i)];
 end
-disp(func);
+if isPrint, disp(func); end
 eq{end+1,1} = func;
 
 if model.trainParams.cubic
-    if hideCubicSmoothing
-        fprintf('\nWARNING: Piecewise-cubic spline smoothing hidden.\n');
-    else
-        fprintf('\nINFO: Piecewise-cubic spline equations are very complex as they involve smoothing. For easier interpretation use piecewise-linear models or set hideCubicSmoothing to true.\n');
+    if strcmpi(cubicSmoothing, 'hide')
+        if isPrint, fprintf('\n'); end
+        fprintf('WARNING: Piecewise-cubic spline smoothing hidden.\n');
     end
 end
 

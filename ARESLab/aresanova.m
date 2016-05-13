@@ -13,7 +13,8 @@ function varImportance = aresanova(model, Xtr, Ytr, weights)
 %
 % Input:
 %   model         : ARES model.
-%   Xtr, Ytr      : Training data observations.
+%   Xtr, Ytr      : Training data observations. The same data that was used
+%                   when the model was built.
 %   weights       : A vector of weights for observations. The same weights
 %                   that were used when the model was built.
 %
@@ -27,7 +28,7 @@ function varImportance = aresanova(model, Xtr, Ytr, weights)
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -43,7 +44,7 @@ function varImportance = aresanova(model, Xtr, Ytr, weights)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: September 30, 2015
+% Last update: April 25, 2016
 
 if nargin < 3
     error('Not enough input arguments.');
@@ -51,7 +52,7 @@ end
 if isempty(Xtr) || isempty(Ytr)
     error('Data is empty.');
 end
-n = size(Xtr,1);
+[n, d] = size(Xtr); % number of observations and number of input variables
 if size(Ytr,1) ~= n
     error('The number of rows in Xtr and Ytr should be equal.');
 end
@@ -61,6 +62,9 @@ else
     if iscell(model)
         model = model{1};
     end
+end
+if length(model.minX) ~= d
+    error('The number of columns in Xtr is different from the number when the model was built.');
 end
 if size(Ytr,2) ~= 1
     error('Ytr should have one column.');
@@ -74,7 +78,9 @@ else
     end
 end
 
-YtrVar = var2(Ytr, weights);
+gcvNull = gcv(1, var2(Ytr, weights), n, 0);
+nVars = length(model.minX);
+nBasisExI = length(model.knotdims); % excluding intercept
 
 if model.trainParams.cubic
     fprintf('Type: piecewise-cubic\n');
@@ -82,61 +88,87 @@ else
     fprintf('Type: piecewise-linear\n');
 end
 fprintf('GCV: %g\n', model.GCV);
-fprintf('R2GCV: %g\n', 1 - model.GCV / YtrVar);
-fprintf('Total number of basis functions: %d\n', length(model.coefs));
+fprintf('R2GCV: %g\n', 1 - model.GCV / gcvNull);
+fprintf('Total number of basis functions (including intercept): %d\n', length(model.coefs));
 fprintf('Total effective number of parameters: %g\n', ...
-        length(model.coefs) + model.trainParams.c * length(model.knotdims) / 2);
+        length(model.coefs) + model.trainParams.c * nBasisExI / 2);
+
+if nBasisExI <= 0
+    return;
+end
+
 fprintf('ANOVA decomposition:\n');
-fprintf('Function\t\tSTD\t\t\t\tGCV\t\t\tR2GCV\t\t#basis\t#params\t\tvariable(s)\n');
-counter = 0;
-for i = 1 : model.trainParams.maxInteractions
-    combs = nchoosek(1:length(model.minX),i);
-    for j = 1 : size(combs,1)
-        [modelReduced, usedBasis] = aresanovareduce(model, combs(j,:), true);
-        if ~isempty(usedBasis)
-            counter = counter + 1;
-            fprintf('%d\t', counter);
-            % standard deviation of the ANOVA function
-            fprintf('%15f', sqrt(var2(arespredict(modelReduced, Xtr), weights)));
-            % GCV when the basis functions of the ANOVA function are deleted
-            modelReduced = aresdel(model, usedBasis, Xtr, Ytr, weights);
-            fprintf('%16f', modelReduced.GCV);
-            fprintf('%14.4f', 1 -  modelReduced.GCV / YtrVar);
-            % the number of basis functions for that ANOVA function
-            fprintf('%13d', length(usedBasis));
-            % effective parameters
-            fprintf('%9.2f\t\t', length(usedBasis) + model.trainParams.c * length(usedBasis) / 2);
-            % used variables
-            fprintf('%d ', combs(j,:));
-            fprintf('\n');
-        end
+fprintf('Function        STD             GCV         R2GCV       #basis  #params     variable(s)\n');
+maxNumInteract = 0; % max number of interactions
+for i = 1 : nBasisExI
+    if maxNumInteract < length(model.knotdims{i})
+        maxNumInteract = length(model.knotdims{i});
     end
 end
+priority = zeros(1,nBasisExI); % for ordering ANOVA functions according to number of variables and variable indices
+for i = 1 : nBasisExI
+    sorted = sort(model.knotdims{i});
+    sorted = [zeros(1, maxNumInteract - length(sorted)) sorted];
+    priority(i) = sum(sorted .* (nVars .^ ((maxNumInteract-1):-1:0)));
+end
+[~, idx] = sort(priority);
+% Show ANOVA functions ordered by their priority
+counterANOVA = 0;
+for i = 1 : length(idx)
+    if idx(i) <= 0
+        continue;
+    end
+    counterANOVA = counterANOVA + 1;
+    usedBasis = printLine(model, Xtr, Ytr, weights, gcvNull, counterANOVA, model.knotdims{idx(i)});
+    for j = usedBasis
+        idx(idx == j) = 0;
+    end
+end
+
 fprintf('Relative variable importance:\n');
 fprintf('Variable\tImportance\n');
-nVars = length(model.minX);
-nBasis = length(model.knotdims);
 varImportance = zeros(nVars,1);
 for v = 1 : nVars
     funcsToDel = [];
-    for i = 1 : nBasis
-        dims = model.knotdims{i};
-        if any(dims == v)
+    for i = 1 : nBasisExI
+        if any(model.knotdims{i} == v)
             funcsToDel = [funcsToDel i];
         end
     end
-    if isempty(funcsToDel)
-        varImportance(v) = 0;
-    else
+    if ~isempty(funcsToDel)
         modelReduced = aresdel(model, funcsToDel, Xtr, Ytr, weights);
         varImportance(v) = sqrt(modelReduced.GCV) - sqrt(model.GCV);
     end
 end
-maxImp = max(varImportance);
-varImportance = varImportance ./ maxImp .* 100;
+varImportance = varImportance ./ max(varImportance) .* 100;
 for v = 1 : nVars
     fprintf('%d\t\t\t%10.3f\n', v, varImportance(v));
 end
+return
+
+function usedBasis = printLine(model, Xtr, Ytr, weights, gcvNull, counterANOVA, combination)
+    [modelReduced, usedBasis] = aresanovareduce(model, combination, true);
+    counterStr = num2str(counterANOVA);
+    counterStr = [counterStr repmat(' ', 1, 4-length(counterStr))];
+    fprintf(counterStr);
+    % standard deviation of the ANOVA function
+    fprintf('%15f', sqrt(var2(arespredict(modelReduced, Xtr), weights)));
+    % GCV when the basis functions of the ANOVA function are deleted
+    modelReduced = aresdel(model, usedBasis, Xtr, Ytr, weights);
+    fprintf('%16f', modelReduced.GCV);
+    if modelReduced.GCV / gcvNull - 1e-10 <= model.GCV / gcvNull % the same result as with gcvs alone but allows that 1e-10 stuff
+        fprintf(' !');
+    else
+        fprintf('  ');
+    end
+    fprintf('%12.5f', 1 - modelReduced.GCV / gcvNull);
+    % the number of basis functions for that ANOVA function
+    fprintf('%13d', length(usedBasis));
+    % effective number of parameters
+    fprintf('%9.2f     ', length(usedBasis) + model.trainParams.c * length(usedBasis) / 2);
+    % used variables
+    fprintf('%d ', sort(combination));
+    fprintf('\n');
 return
 
 function res = var2(values, weights)
@@ -145,5 +177,17 @@ if isempty(weights)
 else
     valuesMean = sum(values(:,1) .* weights) / sum(weights);
     res = sum(((values(:,1) - valuesMean) .^ 2) .* weights) / sum(weights);
+end
+return
+
+function g = gcv(nBasis, MSE, n, c)
+% Calculates GCV from model complexity, its Mean Squared Error, number of
+% observations n, and penalty c.
+enp = nBasis + c * (nBasis - 1) / 2; % model's effective number of parameters
+if enp >= n
+    g = Inf;
+else
+    p = 1 - enp / n;
+    g = MSE / (p * p);
 end
 return

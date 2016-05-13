@@ -6,8 +6,8 @@ function Yq = arespredict(model, Xq)
 %   Yq = arespredict(model, Xq)
 %
 % Input:
-%   model         : ARES model or a cell array of ARES models (for
-%                   multi-response modelling).
+%   model         : ARES model or, for multi-response modelling, a cell
+%                   array of ARES models.
 %   Xq            : A matrix of query data points.
 %
 % Output:
@@ -20,7 +20,7 @@ function Yq = arespredict(model, Xq)
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ function Yq = arespredict(model, Xq)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: September 7, 2015
+% Last update: April 25, 2016
 
 if nargin < 2
     error('Not enough input arguments.');
@@ -50,6 +50,9 @@ else
     if iscell(model)
         model = model{1};
     end
+end
+if length(model.minX) ~= size(Xq,2)
+    error('The number of columns in Xq is different from the number when the model was built.');
 end
 
 X = ones(size(Xq,1),length(model.knotdims)+1);

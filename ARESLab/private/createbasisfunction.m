@@ -7,7 +7,7 @@ function Xn = createbasisfunction(X, Xtmp, knotdims, knotsites, knotdirs, parent
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -23,12 +23,12 @@ function Xn = createbasisfunction(X, Xtmp, knotdims, knotsites, knotdirs, parent
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: October 14, 2015
+% Last update: May 2, 2016
 
 n = size(X,1);
 
-% if the basis function will always be zero, return NaN
-% (we check only the last elements because all others are already checked)
+% if the basis function is always zero (it's on the edge), return NaN
+% (we check only the last element because all others are already checked)
 if ((knotdirs(end) > 0) && (knotsites(end) >= maxX(knotdims(end)))) || ...
    ((knotdirs(end) < 0) && (knotsites(end) <= minX(knotdims(end))))
     Xn = NaN(n,1);
@@ -39,27 +39,39 @@ if nargin < 10 % piecewise-linear
     
     if parent > 0
         % If the basis function has a direct parent in the model, use it to speed-up the calculations
-        if knotdirs(end) > 0
-            z = X(:,knotdims(end)) - knotsites(end);
+        if knotdirs(end) == 2
+            Xn = Xtmp(:,parent+1) .* X(:,knotdims(end)); % variable enters linearly
         else
-            z = knotsites(end) - X(:,knotdims(end));
+            if knotdirs(end) > 0
+                z = X(:,knotdims(end)) - knotsites(end);
+            else
+                z = knotsites(end) - X(:,knotdims(end));
+            end
+            Xn = Xtmp(:,parent+1) .* max(0,z);
         end
-        Xn = Xtmp(:,parent+1) .* max(0,z);
     else
-        if knotdirs(1) > 0
-            z = X(:,knotdims(1)) - knotsites(1);
+        if knotdirs(1) == 2
+            Xn = X(:,knotdims(1)); % variable enters linearly
         else
-            z = knotsites(1) - X(:,knotdims(1));
+            if knotdirs(1) > 0
+                z = X(:,knotdims(1)) - knotsites(1);
+            else
+                z = knotsites(1) - X(:,knotdims(1));
+            end
+            Xn = max(0,z);
         end
-        Xn = max(0,z);
         len = length(knotdims);
         for i = 2 : len
-            if knotdirs(i) > 0
-                z = X(:,knotdims(i)) - knotsites(i);
+            if knotdirs(i) == 2
+                Xn = Xn .* X(:,knotdims(i)); % variable enters linearly
             else
-                z = knotsites(i) - X(:,knotdims(i));
+                if knotdirs(i) > 0
+                    z = X(:,knotdims(i)) - knotsites(i);
+                else
+                    z = knotsites(i) - X(:,knotdims(i));
+                end
+                Xn = Xn .* max(0,z);
             end
-            Xn = Xn .* max(0,z);
         end
     end
     
@@ -75,11 +87,14 @@ else % piecewise-cubic
     
     Xx = zeros(n,1);
     for i = start : length(knotdims)
-        % if the knot is on the very edge, treat the basis function as linear
-        if (knotdirs(i) > 0) && (knotsites(i) <= minX(knotdims(i)))
-            Xx(:) = X(:,knotdims(i)) - knotsites(i);
+        if knotdirs(i) == 2
+            Xx(:) = X(:,knotdims(i)); % variable enters linearly
+        elseif (knotdirs(i) > 0) && (knotsites(i) <= minX(knotdims(i)))
+            % if the knot is on the very edge, treat the basis function as piecewise-linear
+            Xx(:) = max(0, X(:,knotdims(i)) - knotsites(i));
         elseif (knotdirs(i) < 0) && (knotsites(i) >= maxX(knotdims(i)))
-            Xx(:) = knotsites(i) - X(:,knotdims(i));
+            % if the knot is on the very edge, treat the basis function as piecewise-linear
+            Xx(:) = max(0, knotsites(i) - X(:,knotdims(i)));
         else
             tt1 = t1(knotdims(i));
             tt2 = t2(knotdims(i));

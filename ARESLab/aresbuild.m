@@ -9,11 +9,11 @@ function [model, time, resultsEval] = aresbuild(Xtr, Ytr, trainParams, ...
 %       weights, keepX, modelOld, dataEval, verbose)
 %
 % All the input arguments, except the first two, are optional. Empty values
-% are also accepted (the corresponding default values will be used).
+% are also accepted (the corresponding defaults will be used).
 %
 % Input:
 %   Xtr, Ytr      : Xtr is a matrix with rows corresponding to
-%                   observations, and columns corresponding to input
+%                   observations and columns corresponding to input
 %                   variables. Ytr is either a column vector of response
 %                   values or, for multi-response data, a matrix with
 %                   columns corresponding to response variables. The
@@ -21,21 +21,21 @@ function [model, time, resultsEval] = aresbuild(Xtr, Ytr, trainParams, ...
 %                   depending on whether Ytr is a vector or a matrix (see
 %                   below).
 %                   All values must be numeric. Categorical variables with
-%                   more than one category must be replaced with dummy
-%                   binary variables before using aresbuild (or any other
-%                   ARESLab function).
+%                   more than two categories must be replaced with
+%                   synthetic binary variables before using aresbuild (or
+%                   any other ARESLab function), for example using function
+%                   dummyvar.
 %                   For multi-response data, each model will have the same
 %                   set of basis functions but different coefficients. The
-%                   models are built and pruned as usual but with the GCVs
-%                   (for minimization) and RSSs (for threshold checking)
-%                   summed across all responses. Since all the models are
-%                   optimized simultaneously, the results for each model
-%                   won't be as good as building the models independently.
-%                   However, the combined model may be better in other
-%                   senses, depending on what you are trying to achieve.
-%                   For example, it could be useful to select the set of
-%                   basis functions that is best across all responses
-%                   (Milborrow, 2015).
+%                   models are built and pruned as usual but with the
+%                   Residual Sum of Squares and GCVs summed across all
+%                   responses. Since all the models are optimized
+%                   simultaneously, the results for each model won't be as
+%                   good as building the models independently. However, the
+%                   combined model may be better in other senses, depending
+%                   on what you are trying to achieve. For example, it
+%                   could be useful to select the set of basis functions
+%                   that is best across all responses.
 %                   It is recommended to pre-scale Xtr values to [0,1]
 %                   (Friedman, 1991a). This is because widely different
 %                   locations and scales for the input variables can cause
@@ -51,30 +51,36 @@ function [model, time, resultsEval] = aresbuild(Xtr, Ytr, trainParams, ...
 %                   gets the appropriate weight during model building. A
 %                   variable with higher variance will influence the
 %                   results more than a variable with lower variance
-%                   (Milborrow, 2015).
+%                   (Milborrow, 2016).
 %   trainParams   : A structure of training parameters for the algorithm.
 %                   If not provided, default values will be used (see
 %                   function aresparams for details).
-%   weights       : A vector of weights for observations. If supplied, the
-%                   algorithm calculates the sum of squared errors
-%                   multiplying the squared residuals by the supplied
-%                   weights. The length of the vector must be the same as
-%                   the number of observations in Xtr and Ytr. The weights
-%                   must be nonnegative.
-%   keepX         : Set this to true to retain model.X matrix (see
+%   weights       : A vector of observation weights. The length of the
+%                   vector must be the same as the number of observations
+%                   in Xtr and Ytr. The weights must be nonnegative.
+%   keepX         : Set to true to retain basis matrix model.X (see
 %                   description of model.X). For multi-response modelling,
 %                   the matrix will be replicated for each model. (default
 %                   value = false)
-%   modelOld      : If here an already built ARES model is provided, no
-%                   forward phase will be done. Instead this model will be
-%                   taken directly to the backward phase and pruned. This
-%                   is useful for fast selection of the "best" penalty
-%                   trainParams.c value using Cross-Validation in arescvc
-%                   function and for fast tuning of other parameters of
-%                   backward phase (cubic, maxFinalFuncs).
-%   dataEval      : A structure containing fields X, Y, and, optionally,
-%                   weights. Used from function arescv to get evaluations
-%                   for all candidate models in the pruning phase.
+%   modelOld      : If an already built ARES model is provided (whether
+%                   pruned or not), no forward phase will be done. Instead
+%                   the provided model will be taken directly to the
+%                   backward phase and pruned. This is useful for fast
+%                   tuning of parameters of the backward phase (c, cubic,
+%                   maxFinalFuncs). Note that this is also a much faster
+%                   way of changing a piecewise-linear model into a
+%                   piecewise-cubic model or vice versa instead of building
+%                   a new model from scratch. This argument is also used by
+%                   function arescvc for fast selection of the "best" value
+%                   for penalty c using Cross-Validation.
+%   dataEval      : A structure containing test data in fields X, Y, and,
+%                   optionally, weights. Used for getting evaluations for
+%                   the best candidate models of each size in the backward
+%                   pruning phase. For example, arescv uses it to help
+%                   choosing a good value for the number of basis functions
+%                   using Cross-Validation (see example of usage in user's
+%                   manual Section 3.3). Results are saved in fields R2test
+%                   and MSEtest of output argument resultsEval.
 %   verbose       : Whether to output additional information to console
 %                   (default value = true).
 %
@@ -82,59 +88,89 @@ function [model, time, resultsEval] = aresbuild(Xtr, Ytr, trainParams, ...
 %   model         : A single ARES model for single-response Ytr or a cell
 %                   array of ARES models for multi-response Ytr. A
 %                   structure defining one model has the following fields:
-%     coefs       : Coefficients vector of the regression model (for the
-%                   intercept term and each basis function). Because of the
-%                   coefficient for the intercept term, this vector is one
-%                   row longer than the others.
+%     coefs       : Coefficients vector of the regression model (first, for
+%                   the intercept term, and then for all the rest of basis
+%                   functions). Because of the coefficient for the
+%                   intercept term, this vector is one row longer than the
+%                   others.
 %     knotdims	  : Cell array of indices of used input variables for knots
 %                   in each basis function.
 %     knotsites	  : Cell array of knot sites for each knot and used input
 %                   variable in each basis function. knotdims and knotsites
 %                   together contain all the information for locating the
-%                   knots.
+%                   knots. If a variable entered a basis function linearly
+%                   (i.e., without hinge function), the knot site for that
+%                   variable is set to minX.
 %     knotdirs	  : Cell array of directions (-1 or 1) of the hinge
 %                   functions for each used input variable in each basis
-%                   function.
+%                   function. If a variable entered a basis function
+%                   linearly (i.e., without hinge function), the direction
+%                   for that variable is set to 2.
 %     parents     : Vector of indices of direct parents for each basis
 %                   function (0 if there is no direct parent).
 %     trainParams : A structure of training parameters for the algorithm.
-%                   The values are updated if any values are chosen
-%                   automatically. Except useMinSpan, because in automatic
-%                   mode it is calculated for each parent basis function
-%                   separately.
+%                   The values are updated if chosen automatically. Except
+%                   useMinSpan, because in automatic mode it is calculated
+%                   for each parent basis function separately.
 %     MSE         : Mean Squared Error of the model in the training data.
-%     GCV         : Generalized Cross-Validation (GCV) of the model in the
+%     GCV         : Generalized Cross-Validation of the model in the
 %                   training data set. The value may also be Inf if model’s
 %                   effective number of parameters is larger than or equal
-%                   to the number of observations in Xtr,Ytr.
-%     t1          : For piecewise-cubic models only. Matrix of sites for
-%                   the additional knots on the left of the central knot.
-%     t2          : For piecewise-cubic models only. Matrix of sites for
-%                   the additional knots on the right of the central knot.
-%     minX        : Vector of minimums for input variables.
-%     maxX        : Vector of maximums for input variables.
-%     X           : Matrix of values of basis functions applied to Xtr. The
-%                   number of columns in X is equal to the number of rows
-%                   in coefs, i.e., the first column is for the intercept
-%                   (all ones) and all the other columns correspond to
-%                   their basis functions. Each row corresponds to a row in
-%                   Xtr. Multiplying X by coefs gives ARES prediction for
-%                   Ytr. This variable is available only if argument keepX
-%                   is set to true.
+%                   to the number of observations in the training data.
+%     t1, t2      : Matrix of sites for the additional side knots on the
+%                   left and on the right of the central knot.
+%     minX, maxX  : Vectors defining the ranges of the input variables
+%                   determined from the training data.
+%     isBinary    : A vector indicating binary input variables. Determined
+%                   automatically by counting unique values for each
+%                   variable in training data. Therefore a variable can
+%                   also be taken as binary by mistake if the data for some
+%                   reason included only two values for the variable. Note
+%                   that whether a variable is binary does not influence
+%                   building of the model. This vector is further used in
+%                   other functions to simplify printed equations.
+%     X           : Basis matrix. Contains values of basis functions
+%                   applied to Xtr. The number of columns in X is equal to
+%                   the number of rows in coefs, i.e., the first column is
+%                   for the intercept (all ones) and all the other columns
+%                   correspond to the basis functions defined by knotdims,
+%                   knotsites, knotdirs, t1, and t2. Each row corresponds
+%                   to a row in Xtr. Multiplying X by coefs gives ARES
+%                   prediction for Ytr. This variable is available only if
+%                   argument keepX is set to true.
 %   time          : Algorithm execution time (in seconds).
-%   resultsEval   : Available only if dataEval is not empty. The structure
-%                   has the following fields:
-%     R2GCV       : R2GCV value for each candidate model in the pruning
-%                   phase.
-%     R2oof       : Out-of-fold R2 for each candidate model in the pruning
-%                   phase.
+%   resultsEval   : Model evaluation results from the backward pruning
+%                   phase. Fields R2test and MSEtest are available only if
+%                   input argument dataEval is not empty. The structure has
+%                   the following fields:
+%     MSE         : MSE (Mean Squared Error) in training data for the best
+%                   candidate model of each size.
+%     R2          : R2 (Coefficient of Determination) in training data for
+%                   the best candidate model of each size.
+%     GCV         : GCV (Generalized Cross-Validation) in training data for
+%                   the best candidate model of each size. Contains Inf
+%                   values for models with effective number of parameters
+%                   larger than the number of observations in training
+%                   data.
+%     R2GCV       : R2 estimated by GCV in training data for the best
+%                   candidate model of each size. Contains -Inf values for
+%                   models with effective number of parameters larger than
+%                   the number of observations in training data.
+%     R2test      : R2 in dataEval test data for the best candidate model
+%                   of each size.
+%     MSEtest     : MSE in dataEval test data for the best candidate model
+%                   of each size.
+%                   Note that if trainParams.cubic = true, values of these
+%                   fields are calculated using piecewise-linear models if
+%                   trainParams.cubicFastLevel = 2 and piecewise-cubic
+%                   models if trainParams.cubicFastLevel < 2.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -151,10 +187,10 @@ function [model, time, resultsEval] = aresbuild(Xtr, Ytr, trainParams, ...
 % =========================================================================
 
 % Citing the ARESLab toolbox:
-% Jekabsons G. ARESLab: Adaptive Regression Splines toolbox for Matlab/
-% Octave, 2015, available at http://www.cs.rtu.lv/jekabsons/
+% Jekabsons G., ARESLab: Adaptive Regression Splines toolbox for Matlab/
+% Octave, 2016, available at http://www.cs.rtu.lv/jekabsons/
 
-% Last update: October 14, 2015
+% Last update: May 5, 2016
 
 if nargin < 2
     error('Not enough input arguments.');
@@ -166,10 +202,16 @@ end
 if (~isfloat(Xtr)) || (~isfloat(Ytr))
     error('Data type should be floating-point.');
 end
+if any(any(isnan(Xtr)))
+    error('The toolbox cannot handle missing values (NaN).');
+end
 [n, d] = size(Xtr); % number of observations and number of input variables
 [ny, dy] = size(Ytr); % number of observations and number of output variables
 if ny ~= n
     error('The number of rows in Xtr and Ytr should be equal.');
+end
+if (ny == 1) && (dy > 1)
+    disp('WARNING: Ytr has one row but more than one column.');
 end
 
 if (nargin < 3) || isempty(trainParams)
@@ -177,7 +219,7 @@ if (nargin < 3) || isempty(trainParams)
 end
 if (trainParams.cubic) && (trainParams.selfInteractions > 1)
     trainParams.selfInteractions = 1;
-    disp('Warning: trainParams.selfInteractions value reverted to 1 due to piecewise-cubic setting.');
+    disp('WARNING: trainParams.selfInteractions value reverted to 1 due to piecewise-cubic setting.');
 end
 if trainParams.cubic
     doCubicFastLevel = trainParams.cubicFastLevel;
@@ -189,20 +231,20 @@ else
 end
 if (trainParams.endSpanAdjust < 1)
     trainParams.endSpanAdjust = 1;
-    disp('Warning: trainParams.endSpanAdjust value too small. Reverted to 1.');
+    disp('WARNING: trainParams.endSpanAdjust value too small. Reverted to 1.');
 end
 
 if (trainParams.fastK < 3)
     trainParams.fastK = 3;
-    disp('Warning: trainParams.fastK value too small. Reverted to 3.');
+    disp('WARNING: trainParams.fastK value too small. Reverted to 3.');
 end
 if (trainParams.fastBeta < 0)
     trainParams.fastBeta = 0;
-    disp('Warning: trainParams.fastBeta value too small. Reverted to 0.');
+    disp('WARNING: trainParams.fastBeta value too small. Reverted to 0.');
 end
 if (trainParams.fastH < 1)
     trainParams.fastH = 1;
-    disp('Warning: trainParams.fastH value too small. Reverted to 1.');
+    disp('WARNING: trainParams.fastH value too small. Reverted to 1.');
 end
 
 if trainParams.useMinSpan == 0
@@ -211,13 +253,11 @@ end
 
 if (nargin < 4)
     weights = [];
-    wd = [];
 else
     if (~isempty(weights)) && ...
        ((size(weights,1) ~= n) || (size(weights,2) ~= 1))
         error('weights vector is of wrong size.');
     end
-    wd = diag(weights);
     sumWeights = sum(weights);
 end
 if (nargin < 5) || isempty(keepX)
@@ -225,15 +265,42 @@ if (nargin < 5) || isempty(keepX)
 end
 if nargin < 6
     modelOld = [];
-end
-if (dy > 1) && (~isempty(modelOld)) && (length(modelOld) ~= dy)
-    error('modelOld should contain as many models as there are columns in Ytr.');
+else
+    if ~isempty(modelOld)
+        if (dy > 1) && (length(modelOld) ~= dy)
+            error('modelOld should contain as many models as there are columns in Ytr.');
+        end
+        if ((dy == 1) && (length(modelOld.minX) ~= d)) || ...
+           ((dy > 1) && (length(modelOld{1}.minX) ~= d))
+            error('The number of columns in Xtr is different from the number when the modelOld was built.');
+        end
+    end
 end
 if (nargin < 7)
     dataEval = [];
 end
 if (nargin < 8) || isempty(verbose)
     verbose = true;
+end
+
+requestingResultsEval = nargout >= 3;
+resultsEval = [];
+
+if ~isempty(trainParams.noInteract)
+    if ~isempty(trainParams.yesInteract)
+        error('trainParams.noInteract and trainParams.yesInteract cannot be used at the same time.');
+    end
+    if size(trainParams.noInteract,2) ~= 2
+        error('trainParams.noInteract should have two columns.');
+    end
+    trainParams.noInteract = [trainParams.noInteract; trainParams.noInteract(:,2) trainParams.noInteract(:,1)];
+    trainParams.noInteract = unique(trainParams.noInteract, 'rows');
+elseif ~isempty(trainParams.yesInteract)
+    if size(trainParams.yesInteract,2) ~= 2
+        error('trainParams.yesInteract should have two columns.');
+    end
+    trainParams.yesInteract = [trainParams.yesInteract; trainParams.yesInteract(:,2) trainParams.yesInteract(:,1)];
+    trainParams.yesInteract = unique(trainParams.yesInteract, 'rows');
 end
 
 if trainParams.maxFuncs >= 0
@@ -253,14 +320,16 @@ if (trainParams.c < 0)
     if verbose, fprintf('Setting trainParams.c to %d\n', trainParams.c); end
 end
 
+if ~any([0 1 2] == trainParams.allowLinear)
+    error('Expected values for trainParams.allowLinear are 0, 1 or 2.');
+end
+
 if verbose, fprintf('Building ARES model...\n'); end
 ws = warning('off');
 ttt = tic;
 
-resultsEval = [];
-
 if isempty(weights)
-    YtrMean = mean(Ytr);
+    YtrMean = mean(Ytr,1);
 else
     YtrMean = zeros(1,dy);
     for k = 1 : dy
@@ -270,18 +339,27 @@ end
 YtrVarN = zeros(1,dy);
 if isempty(weights)
     for k = 1 : dy
-        YtrVarN(k) = sum((Ytr(:,k) - YtrMean(k)) .^ 2); % Ytr variance * n
+        YtrVarN(k) = sum((Ytr(:,k) - YtrMean(k)) .^ 2); % Ytr variance * n (i.e., null SSE)
     end
-    YtrVar = YtrVarN / n; % Ytr variance
+    YtrVar = YtrVarN / n; % Ytr variance (i.e., null MSE)
 else
     for k = 1 : dy
-        YtrVarN(k) = sum(((Ytr(:,k) - YtrMean(k)) .^ 2) .* weights);
+        YtrVarN(k) = sum(((Ytr(:,k) - YtrMean(k)) .^ 2) .* weights); % (i.e., null SSE)
     end
-    YtrVar = YtrVarN / sumWeights; % Ytr weighted variance
+    YtrVar = YtrVarN / sumWeights; % Ytr weighted variance (i.e., null MSE)
 end
 
 minX = min(Xtr);
 maxX = max(Xtr);
+if isempty(modelOld)
+    isBinary = [];
+else
+    if dy == 1
+        isBinary = modelOld.isBinary;
+    else
+        isBinary = modelOld{1}.isBinary;
+    end
+end
 
 if trainParams.useEndSpan < 0
     trainParams.useEndSpan = getEndSpan(d); % automatic
@@ -326,8 +404,9 @@ else
 end
 
 if trainParams.useEndSpan * 2 >= n
-    disp('Warning: trainParams.useEndSpan * 2 >= n');
+    disp('WARNING: trainParams.useEndSpan * 2 >= n');
     if isempty(modelOld)
+        isBinary = false(1,d);
         if dy == 1
             model.MSE = YtrVar;
             model.GCV = gcv(length(model.coefs), model.MSE, n, trainParams.c);
@@ -351,17 +430,30 @@ else
     % FORWARD PHASE
 
     if isempty(modelOld) % no forward phase when modelOld is used
-
-        if verbose, fprintf('Forward phase  .'); end
-
+        
+        if verbose && (maxIters < 1)
+            fprintf('Forward phase  .');
+        end
+        
         % create sorted lists of observations for knot placements
         [sortedXtr, sortedXtrInd] = sort(Xtr);
+        % check whether any input variable could be binary
+        isBinary = false(1,d);
+        for i = 1 : d
+            %isBinary(i) = all((sortedXtr(:,i) == sortedXtr(1,i)) | (sortedXtr(:,i) == sortedXtr(end,i)));
+            isBinary(i) = numel(unique(sortedXtr(:,i))) == 2;
+        end
+        % is endSpan is used, throw away observations at the ends of the intervals
         if trainParams.useEndSpan ~= 0
-            % throw away observations at the ends of the intervals
             sortedXtr = sortedXtr(1+trainParams.useEndSpan:end-trainParams.useEndSpan,:);
             sortedXtrInd = sortedXtrInd(1+trainParams.useEndSpan:end-trainParams.useEndSpan,:);
         end
-
+        
+        if verbose
+            sizeInfGCV = NaN;
+            countKnots = zeros(1,d);
+        end
+        
         if trainParams.cubic
             tmp_t1 = [];
             tmp_t2 = [];
@@ -371,7 +463,7 @@ else
         if (trainParams.newVarPenalty > 0)
             dimsInModel = []; % lists all input variables the model uses
         end
-
+        
         if (trainParams.fastK < Inf)
             % we could preallocate space here but benchmarking shows that
             % there is not much to be gained from this
@@ -380,13 +472,13 @@ else
             fastIterComputedErr = [];
             fastNumBasis = 0;
         end
-
+        
         % the main loop of the forward phase
         for currIter = 1 : maxIters
             % create list of all possible daughter basis functions
             [basisFunctionList, idxStart1, idxEnd1, idxStart2, idxEnd2] = ...
                     createList(basisFunctionList, Xtr, sortedXtr, sortedXtrInd, ...
-                               n, d, model, numNewFuncs, trainParams);
+                               n, d, model, numNewFuncs, trainParams, minX, maxX);
             
             % stop the forward phase if basisFunctionList is empty
             if isempty(basisFunctionList)
@@ -394,8 +486,23 @@ else
                     t1 = tmp_t1;
                     t2 = tmp_t2;
                 end
-                if verbose, fprintf('\nTermination condition is met: no more basis functions to add.'); end
+                if verbose
+                    if (currIter == 1)
+                        fprintf('Forward phase  .');
+                    end
+                    fprintf('\nTermination condition is met: no more basis functions to add.');
+                end
                 break;
+            end
+            
+            % count the number of knot locations for the basis functions
+            if verbose && (currIter == 1)
+                for i = 1 : size(basisFunctionList,2)
+                    countKnots(1,basisFunctionList{1,i}) = countKnots(1,basisFunctionList{1,i}) + 1;
+                end
+                fprintf('Approx number of available knot locations (controlled by useMinSpan and useEndSpan):%s\n', ...
+                    sprintf(' x%d:%d', [1:length(countKnots); countKnots]));
+                fprintf('Forward phase  .');
             end
             
             % preallocate space
@@ -415,9 +522,9 @@ else
             else
                 Xtmp = [X zeros(n,2)];
             end
-
-            if (trainParams.fastK < Inf)
-
+            
+            if (trainParams.fastK < Inf) % using the Fast MARS algorithm
+                
                 % initialize info about the two new parent basis functions
                 if ~isempty(basisFunctionList)
                     if (idxStart1 > 0)
@@ -437,23 +544,23 @@ else
                         fastParent{fastNumBasis}.iterComputedAllDims = -Inf;
                     end
                 end
-
+                
                 % make a selection of parent basis functions to try
                 lenR = length(fastParent);
                 if lenR > trainParams.fastK
                     % ranking and prioritizing
-                    [dummy, idxR] = sort(fastMinErrAdj, 2, 'descend'); % sort by err
+                    [~, idxR] = sort(fastMinErrAdj, 2, 'descend'); % sort by err
                     idxR(idxR) = 1:lenR; % get ranks in the original order
                     idxInf = fastMinErrAdj == -Inf; % special case
                     idxR(idxInf) = idxR(idxInf) + 1E6; % so that -Inf is never outprioritized
                     priority = idxR + trainParams.fastBeta * (repmat(currIter, 1, lenR) - fastIterComputedErr); % calculate priorities
-                    [dummy, idxP] = sort(priority, 2); % sort (with equal priorities, most recent will be first)
+                    [~, idxP] = sort(priority, 2); % sort (with equal priorities, most recent will be first)
                     indToCalc = idxP(end:-1:end-trainParams.fastK+1); % indices of parents to try
                 else
                     indToCalc = 1 : lenR;
                 end
                 fastIterComputedErr(indToCalc) = currIter;
-
+                
                 bestParent = -1;
                 bestErrAdj = Inf;
                 % try the selected parent basis functions
@@ -504,12 +611,12 @@ else
                         end
                         if ok1 && ok2 % both basis functions created
                             if dy == 1
-                                [tmpCoefs(:,i), tmpErr(i)] = lreg(Xtmp, Ytr, weights, wd);
+                                [tmpCoefs(:,i), tmpErr(i)] = lreg(Xtmp, Ytr, weights);
                             else
                                 tmpErr(i) = 0;
                                 tmpErrVar(i,:) = 0;
                                 for k = 1 : dy
-                                    [tmpCoefs{k}(:,i), sse] = lreg(Xtmp, Ytr(:,k), weights, wd);
+                                    [tmpCoefs{k}(:,i), sse] = lreg(Xtmp, Ytr(:,k), weights);
                                     tmpErr(i) = tmpErr(i) + sse;
                                     tmpErrVar(i) = tmpErrVar(i) + sse / YtrVarN(k);
                                 end
@@ -518,9 +625,9 @@ else
                         elseif ok1 || ok2 % one of the basis functions not created
                             if dy == 1
                                 if (ok1)
-                                    [coefs, tmpErr(i)] = lreg(Xtmp(:, 1:end-1), Ytr, weights, wd);
+                                    [coefs, tmpErr(i)] = lreg(Xtmp(:, 1:end-1), Ytr, weights);
                                 else
-                                    [coefs, tmpErr(i)] = lreg([Xtmp(:, 1:end-2) Xtmp(:, end)], Ytr, weights, wd);
+                                    [coefs, tmpErr(i)] = lreg([Xtmp(:, 1:end-2) Xtmp(:, end)], Ytr, weights);
                                 end
                                 tmpCoefs(:,i) = [coefs; NaN];
                             else
@@ -528,9 +635,9 @@ else
                                 tmpErrVar(i,:) = 0;
                                 for k = 1 : dy
                                     if (ok1)
-                                        [coefs, sse] = lreg(Xtmp(:, 1:end-1), Ytr(:,k), weights, wd);
+                                        [coefs, sse] = lreg(Xtmp(:, 1:end-1), Ytr(:,k), weights);
                                     else
-                                        [coefs, sse] = lreg([Xtmp(:, 1:end-2) Xtmp(:, end)], Ytr(:,k), weights, wd);
+                                        [coefs, sse] = lreg([Xtmp(:, 1:end-2) Xtmp(:, end)], Ytr(:,k), weights);
                                     end
                                     tmpCoefs{k}(:,i) = [coefs; NaN];
                                     tmpErr(i) = tmpErr(i) + sse;
@@ -542,32 +649,45 @@ else
                         %    tmpErr(i) = Inf; % unnecessary because the array is already initialized as Inf
                         end
                     end
-
+                    
                     % find the best pair of daughter basis functions from this parent
-                    if ((trainParams.newVarPenalty > 0) && (currIter > 1))
+                    isNewVarPenalty = ((trainParams.newVarPenalty > 0) && (currIter > 1));
+                    isPreferLinear = trainParams.allowLinear == 2;
+                    if isNewVarPenalty || isPreferLinear
                         adjust = ones(1, idxEnd - idxStart + 1);
+                    end
+                    if isNewVarPenalty
+                        % score adjustment due to new variable entering the model
                         for i = idxStart : idxEnd
                             if (~isempty(setdiff(basisFunctionList{1,i}, dimsInModel)))
                                 adjust(i - idxStart + 1) = 1 + trainParams.newVarPenalty;
                             end
                         end
+                    end
+                    if isPreferLinear
+                        % score adjustment due to preference of variables entering linearly
+                        gcvCorrection = gcv(length(model.coefs) + 2, 1, n, trainParams.c);
+                        if isfinite(gcvCorrection)
+                            gcvCorrection = 1 / gcvCorrection * gcv(length(model.coefs) + 1, 1, n, trainParams.c);
+                            for i = idxStart : idxEnd
+                                if basisFunctionList{3,i}(end) == 2
+                                    adjust(i - idxStart + 1) = adjust(i - idxStart + 1) * gcvCorrection;
+                                end
+                            end
+                        end
+                    end
+                    if isNewVarPenalty || isPreferLinear
                         % the adjusted values are used for selection only,
                         % they are not used in any further calculations
                         [newErrAdj, ind] = min(tmpErr(idxStart:idxEnd) .* adjust);
-                        ind = ind + idxStart - 1;
-                        if dy == 1
-                            newErr = tmpErr(ind);
-                        else
-                            newErr = tmpErrVar(ind) / dy;
-                        end
                     else
                         [newErrAdj, ind] = min(tmpErr(idxStart:idxEnd));
-                        ind = ind + idxStart - 1;
-                        if dy == 1
-                            newErr = newErrAdj;
-                        else
-                            newErr = tmpErrVar(ind) / dy;
-                        end
+                    end
+                    ind = ind + idxStart - 1;
+                    if dy == 1
+                        newErr = tmpErr(ind);
+                    else
+                        newErr = tmpErrVar(ind) / dy;
                     end
                     fastParent{ir}.bestDim = basisFunctionList{1,ind}(end);
                     fastParent{ir}.bestIdxInList = ind;
@@ -590,9 +710,9 @@ else
                 fastMinErrAdj(bestParent) = -Inf;
                 %fastParent{bestParent}.bestDim = -1;
                 fastParent{bestParent}.iterComputedAllDims = -Inf;
-
+                
             else % else of "if (trainParams.fastK < Inf)"
-
+                
                 % try all the reflected pairs in the list
                 for i = 1 : size(basisFunctionList,2)
                     if trainParams.cubic
@@ -628,12 +748,12 @@ else
                     end
                     if ok1 && ok2 % both basis functions created
                         if dy == 1
-                        	[tmpCoefs(:,i), tmpErr(i)] = lreg(Xtmp, Ytr, weights, wd);
+                        	[tmpCoefs(:,i), tmpErr(i)] = lreg(Xtmp, Ytr, weights);
                         else
                             tmpErr(i) = 0;
                             tmpErrVar(i,:) = 0;
                             for k = 1 : dy
-                                [tmpCoefs{k}(:,i), sse] = lreg(Xtmp, Ytr(:,k), weights, wd);
+                                [tmpCoefs{k}(:,i), sse] = lreg(Xtmp, Ytr(:,k), weights);
                                 tmpErr(i) = tmpErr(i) + sse;
                                 tmpErrVar(i) = tmpErrVar(i) + sse / YtrVarN(k);
                             end
@@ -642,9 +762,9 @@ else
                     elseif ok1 || ok2 % one of the basis functions not created
                         if dy == 1
                             if (ok1)
-                                [coefs, tmpErr(i)] = lreg(Xtmp(:, 1:end-1), Ytr, weights, wd);
+                                [coefs, tmpErr(i)] = lreg(Xtmp(:, 1:end-1), Ytr, weights);
                             else
-                                [coefs, tmpErr(i)] = lreg([Xtmp(:, 1:end-2) Xtmp(:, end)], Ytr, weights, wd);
+                                [coefs, tmpErr(i)] = lreg([Xtmp(:, 1:end-2) Xtmp(:, end)], Ytr, weights);
                             end
                             tmpCoefs(:,i) = [coefs; NaN];
                         else
@@ -652,9 +772,9 @@ else
                             tmpErrVar(i,:) = 0;
                             for k = 1 : dy
                                 if (ok1)
-                                    [coefs, sse] = lreg(Xtmp(:, 1:end-1), Ytr(:,k), weights, wd);
+                                    [coefs, sse] = lreg(Xtmp(:, 1:end-1), Ytr(:,k), weights);
                                 else
-                                    [coefs, sse] = lreg([Xtmp(:, 1:end-2) Xtmp(:, end)], Ytr(:,k), weights, wd);
+                                    [coefs, sse] = lreg([Xtmp(:, 1:end-2) Xtmp(:, end)], Ytr(:,k), weights);
                                 end
                                 tmpCoefs{k}(:,i) = [coefs; NaN];
                                 tmpErr(i) = tmpErr(i) + sse;
@@ -666,30 +786,44 @@ else
                     %    tmpErr(i) = Inf; % unnecessary because the array is already initialized as Inf
                     end
                 end
-
-                % find the best daughter basis function
-                if ((trainParams.newVarPenalty > 0) && (currIter > 1))
+                
+                % find the best pair of daughter basis functions
+                isNewVarPenalty = (trainParams.newVarPenalty > 0) && (currIter > 1);
+                isPreferLinear = trainParams.allowLinear == 2;
+                if isNewVarPenalty || isPreferLinear
                     adjust = ones(1,size(basisFunctionList,2));
+                end
+                if isNewVarPenalty
+                    % score adjustment due to new variable entering the model
                     for i = 1 : size(basisFunctionList,2)
                         if (~isempty(setdiff(basisFunctionList{1,i}, dimsInModel)))
                             adjust(i) = 1 + trainParams.newVarPenalty;
                         end
                     end
+                end
+                if isPreferLinear
+                    % score adjustment due to preference of variables entering linearly
+                    gcvCorrection = gcv(length(model.coefs) + 2, 1, n, trainParams.c);
+                    if isfinite(gcvCorrection)
+                        gcvCorrection = 1 / gcvCorrection * gcv(length(model.coefs) + 1, 1, n, trainParams.c);
+                        for i = 1 : size(basisFunctionList,2)
+                            if basisFunctionList{3,i}(end) == 2
+                                adjust(i) = adjust(i) * gcvCorrection;
+                            end
+                        end
+                    end
+                end
+                if isNewVarPenalty || isPreferLinear
                     % the adjusted values are used for selection only,
                     % they are not used in any further calculations
-                    [dummy, ind] = min(tmpErr .* adjust);
-                    if dy == 1
-                        newErr = tmpErr(ind) / YtrVarN;
-                    else
-                        newErr = tmpErrVar(ind) / dy;
-                    end
+                    [~, ind] = min(tmpErr .* adjust);
                 else
-                    [newErr, ind] = min(tmpErr);
-                    if dy == 1
-                        newErr = newErr / YtrVarN;
-                    else
-                        newErr = tmpErrVar(ind) / dy;
-                    end
+                    [~, ind] = min(tmpErr);
+                end
+                if dy == 1
+                    newErr = tmpErr(ind) / YtrVarN;
+                else
+                    newErr = tmpErrVar(ind) / dy;
                 end
                 
             end % end of "if (trainParams.fastK < Inf)"
@@ -796,21 +930,36 @@ else
                 end
             end
             
-            if verbose, fprintf('..'); end
+            if verbose
+                if getENP(length(model.coefs), trainParams.c) >= n
+                    fprintf('xx'); % indicates that GCV would be Inf
+                    if isnan(sizeInfGCV)
+                        sizeInfGCV = currIter * 2 + 1;
+                    end
+                else
+                    fprintf('..');
+                end
+            end
             
             % stop the forward phase if newErr is too small or if the
             % number of model's basis functions (including intercept term)
             % in the next iteration is expected to be > n
             err = newErr;
-            if (newErr < trainParams.threshold)
+            if newErr < trainParams.threshold
                 if verbose
                     fprintf('\nTermination condition is met: R2 >= 1 - threshold.');
                 end
                 break;
             end
-            if (length(model.coefs) + 2 > n)
+            if length(model.coefs) + 2 > n
                 if verbose
                     fprintf('\nTermination condition is met: number of basis functions reached the number of observations in data.');
+                end
+                break;
+            end
+            if trainParams.terminateWhenInfGCV && (getENP(length(model.coefs), trainParams.c) >= n)
+                if verbose
+                    fprintf('\nTermination condition is met: effective number of parameters reached the number of observations in data (GCV would be Inf).');
                 end
                 break;
             end
@@ -849,9 +998,20 @@ else
         
         if verbose, fprintf('\n'); end
         
+        if verbose && (~isnan(sizeInfGCV)) && (length(model.coefs) >= 5)
+            percent = (length(model.coefs) - sizeInfGCV) / length(model.coefs);
+            if percent >= 0.2
+                fprintf('WARNING: The last %d%% iterations have models with GCV = Inf. Depending on your data, you might want to try either enabling terminateWhenInfGCV, lowering maxFuncs, or lowering c.\n', round(percent * 100));
+            end
+        end
+        
     end % end of "isempty(modelOld)"
     
     if isempty(modelOld)
+        if verbose && trainParams.prune
+            fprintf('Number of basis functions in the model after forward phase: %d\n', length(model.coefs));
+        end
+        
         if (doCubicFastLevel == 1) || ...
            ((doCubicFastLevel >= 2) && (~trainParams.prune)) % for this level, if there is no pruning, we force calculations for cubic
             % turn the cubic modelling on
@@ -863,7 +1023,7 @@ else
                            model.knotdirs{i}, model.parents(i), minX, maxX, t1(i,:), t2(i,:));
             end
             if dy == 1
-                [model.coefs, model.MSE] = lreg(X, Ytr, weights, wd);
+                [model.coefs, model.MSE] = lreg(X, Ytr, weights);
                 if isempty(weights)
                     model.MSE = model.MSE / n;
                 else
@@ -871,7 +1031,7 @@ else
                 end
             else
                 for k = 1 : dy
-                    [model.coefs, modelsY{k}.MSE] = lreg(X, Ytr(:,k), weights, wd);
+                    [model.coefs, modelsY{k}.MSE] = lreg(X, Ytr(:,k), weights);
                     modelsY{k}.coefs = model.coefs;
                     if isempty(weights)
                         modelsY{k}.MSE = modelsY{k}.MSE / n;
@@ -921,17 +1081,19 @@ else
         
         if ~isempty(modelOld) % create basis functions from scratch when modelOld is used
             if (doCubicFastLevel == -1) || (doCubicFastLevel >= 2) % either no cubic or not yet cubic
-                if isfield(modelOld, 'X')
+                if (dy == 1) && isfield(modelOld, 'X')
                     X = modelOld.X;
+                elseif (dy > 1) && isfield(modelOld{1}, 'X')
+                    X = modelOld{1}.X;
                 else
-                    % create all basis functions (linear) from scratch
+                    % create all basis functions (piecewise-linear) from scratch
                     X = ones(n,length(model.knotdims)+1);
                     for i = 1 : length(model.knotdims)
                         X(:,i+1) = createbasisfunction(Xtr, X, model.knotdims{i}, model.knotsites{i}, ...
                                    model.knotdirs{i}, model.parents(i), minX, maxX);
                     end
                     if dy == 1
-                        [model.coefs, model.MSE] = lreg(X, Ytr, weights, wd);
+                        [model.coefs, model.MSE] = lreg(X, Ytr, weights);
                         if isempty(weights)
                             model.MSE = model.MSE / n;
                         else
@@ -939,7 +1101,7 @@ else
                         end
                     else
                         for k = 1 : dy
-                            [model.coefs, modelsY{k}.MSE] = lreg(X, Ytr(:,k), weights, wd);
+                            [model.coefs, modelsY{k}.MSE] = lreg(X, Ytr(:,k), weights);
                             modelsY{k}.coefs = model.coefs;
                             if isempty(weights)
                                 modelsY{k}.MSE = modelsY{k}.MSE / n;
@@ -953,10 +1115,12 @@ else
                 trainParams.cubic = true; % set to true once again because the value in modelOld is lost
                 t1 = model.t1;
                 t2 = model.t2;
-                if isfield(modelOld, 'X')
+                if (dy == 1) && isfield(modelOld, 'X')
                     X = modelOld.X;
+                elseif (dy > 1) && isfield(modelOld{1}, 'X')
+                    X = modelOld{1}.X;
                 else
-                    % create all basis functions (cubic) from scratch
+                    % create all basis functions (piecewise-cubic) from scratch
                     X = ones(n,length(model.knotdims)+1);
                     for i = 1 : length(model.knotdims)
                         X(:,i+1) = createbasisfunction(Xtr, X, model.knotdims{i}, model.knotsites{i}, ...
@@ -983,7 +1147,11 @@ else
             modelsYAll = {modelsY};
         end
         gcvs = model.GCV; % for multi-response data, this is a sum of GCVs
-        if (dy > 1) && (~isempty(dataEval))
+        if (dy > 1) && requestingResultsEval
+            msesAll = zeros(1,dy);
+            for k = 1 : dy
+                msesAll(1,k) = modelsY{k}.MSE;
+            end
             gcvsAll = zeros(1,dy);
             for k = 1 : dy
                 gcvsAll(1,k) = modelsY{k}.GCV;
@@ -997,7 +1165,8 @@ else
                 tmpCoefs = inf(length(model.coefs)-1, length(model.knotdims));
             else
                 tmpGCV = inf(1, length(model.knotdims));
-                if ~isempty(dataEval)
+                if requestingResultsEval
+                    tmpMSEAll = inf(length(model.knotdims), dy);
                     tmpGCVAll = inf(length(model.knotdims), dy);
                 end
                 tmpCoefs = cell(dy, 1);
@@ -1006,12 +1175,12 @@ else
                 end
             end
 
-            % try to delete model's basis functions one at a time
+            % try to delete basis functions one at a time
             for jj = 1 : length(model.knotdims)
                 Xtmp = X;
                 Xtmp(:,jj+1) = [];
                 if trainParams.cubic
-                    % create temporary t1, t2, and model with a deleted basis function
+                    % create a temporary model without the basis function
                     tmp_t1 = t1;
                     tmp_t1(jj,:) = [];
                     tmp_t2 = t2;
@@ -1026,19 +1195,19 @@ else
                     tmp_model.parents(jj) = [];
                     tmp_model.parents = updateParents(tmp_model.parents, jj);
                     [tmp_t1, tmp_t2, diff] = findsideknots(tmp_model, [], [], d, minX, maxX, tmp_t1, tmp_t2);
-                    % update basis functions with the updated side knots
+                    % update basis functions that have their side knots moved
                     for i = diff
                         Xtmp(:,i+1) = createbasisfunction(Xtr, Xtmp, tmp_model.knotdims{i}, tmp_model.knotsites{i}, ...
                                       tmp_model.knotdirs{i}, tmp_model.parents(i), minX, maxX, tmp_t1(i,:), tmp_t2(i,:));
                     end
                 end
                 if dy == 1
-                    [coefs, tmpErr(jj)] = lreg(Xtmp, Ytr, weights, wd);
+                    [coefs, tmpErr(jj)] = lreg(Xtmp, Ytr, weights);
                     tmpCoefs(:,jj) = coefs;
                 else
                     tmpGCV(jj) = 0;
                     for k = 1 : dy
-                        [coefs, err] = lreg(Xtmp, Ytr(:,k), weights, wd);
+                        [coefs, err] = lreg(Xtmp, Ytr(:,k), weights);
                         tmpErr(jj) = tmpErr(jj) + err;
                         tmpCoefs{k}(:,jj) = coefs;
                         if isempty(weights)
@@ -1046,16 +1215,19 @@ else
                         else
                             err = err / sumWeights;
                         end
+                        if requestingResultsEval
+                            tmpMSEAll(jj,k) = err;
+                        end
                         err = gcv(length(model.coefs) - 1, err, n, trainParams.c); % "-1" is because we delete one basis function
                         tmpGCV(jj) = tmpGCV(jj) + err;
-                        if ~isempty(dataEval)
+                        if requestingResultsEval
                             tmpGCVAll(jj,k) = err;
                         end
                     end
                 end
             end
             
-            [dummy, ind] = min(tmpErr); % find out the best modification
+            [~, ind] = min(tmpErr); % find the best modification
             X(:,ind+1) = [];
             if dy == 1
                 model.coefs = tmpCoefs(:,ind);
@@ -1075,7 +1247,7 @@ else
                 t1(ind,:) = [];
                 t2(ind,:) = [];
                 [t1, t2, diff] = findsideknots(model, [], [], d, minX, maxX, t1, t2);
-                % update basis functions with the updated side knots
+                % update basis functions that have their side knots moved
                 for i = diff
                     X(:,i+1) = createbasisfunction(Xtr, X, model.knotdims{i}, model.knotsites{i}, ...
                                model.knotdirs{i}, model.parents(i), minX, maxX, t1(i,:), t2(i,:));
@@ -1095,7 +1267,8 @@ else
             else
                 modelsYAll{end+1} = modelsY;
                 gcvs(end+1) = tmpGCV(ind);
-                if (dy > 1) && (~isempty(dataEval))
+                if requestingResultsEval
+                    msesAll(end+1,1:dy) = tmpMSEAll(ind,:);
                     gcvsAll(end+1,1:dy) = tmpGCVAll(ind,:);
                 end
             end
@@ -1104,106 +1277,160 @@ else
         end % end of the main loop
         
         % now choose the best pruned model
-        if trainParams.maxFinalFuncs >= length(models{1}.coefs)
-            [g, ind] = min(gcvs);
-        elseif trainParams.maxFinalFuncs > 1
-            [g, ind] = min(gcvs(end-trainParams.maxFinalFuncs+1:end));
-            ind = ind + length(gcvs) - trainParams.maxFinalFuncs;
-        else
+        if trainParams.maxFinalFuncs <= 1
             g = gcvs(end);
             ind = length(gcvs);
+        else
+            if dy == 1
+                [sgcvs, sind] = sort(gcvs);
+                gcvNull = gcv(1, YtrVar, n, 0);
+                if trainParams.maxFinalFuncs >= length(models{1}.coefs) % if even the biggest model is not bigger than maxFinalFuncs
+                    g = sgcvs(1); % in the sorted list, 1st is the best
+                    ind = sind(1);
+                else
+                    [g, ind] = min(gcvs(end-trainParams.maxFinalFuncs+1:end));
+                    ind = ind + length(gcvs) - trainParams.maxFinalFuncs;
+                end
+                % select smaller model, if it is only negligibly worse
+                gBest = g;
+                indBest = ind;
+                for i = 2 : numel(sgcvs)
+                    if (sgcvs(i) / gcvNull - 1e-10 <= g / gcvNull)
+                        if (sind(i) > ind)
+                            gBest = sgcvs(i);
+                            indBest = sind(i);
+                        end
+                    else
+                        break;
+                    end
+                end
+                g = gBest;
+                ind = indBest;
+            else
+                if trainParams.maxFinalFuncs >= length(models{1}.coefs) % if even the biggest model is not bigger than maxFinalFuncs
+                    [g, ind] = min(gcvs);
+                else
+                    [g, ind] = min(gcvs(end-trainParams.maxFinalFuncs+1:end));
+                    ind = ind + length(gcvs) - trainParams.maxFinalFuncs;
+                end
+            end
         end
         model = models{ind};
         if dy > 1
             modelsY = modelsYAll{ind};
         end
         
-        if ~isempty(dataEval)
-            nDataEval = size(dataEval.Y,1);
-            dataEvalHasWeights = isfield(dataEval, 'weights');
-            if dataEvalHasWeights
-                if isempty(dataEval.weights)
-                    dataEvalHasWeights = false;
-                else
-                    sumDataEvalWeights = sum(dataEval.weights);
+        if requestingResultsEval
+            availableDataEval = ~isempty(dataEval);
+            if availableDataEval
+                nDataEval = size(dataEval.Y,1);
+                dataEvalHasWeights = isfield(dataEval, 'weights');
+                if dataEvalHasWeights
+                    if isempty(dataEval.weights)
+                        dataEvalHasWeights = false;
+                    else
+                        sumDataEvalWeights = sum(dataEval.weights);
+                    end
                 end
             end
             if dy == 1
-                % Calculate MSEoof in the test data for each model size
-                resultsEval.R2oof = zeros(length(models),1);
-                for j = 1 : length(models)
-                    models{j}.trainParams = trainParams;
-                    models{j}.minX = minX;
-                    models{j}.maxX = maxX;
-                    if ~dataEvalHasWeights
-                        resultsEval.R2oof(j) = ...
-                            sum((dataEval.Y - arespredict(models{j}, dataEval.X)).^2) / nDataEval;
-                    else
-                        resultsEval.R2oof(j) = ...
-                            sum((dataEval.Y - arespredict(models{j}, dataEval.X)).^2.*dataEval.weights) / sumDataEvalWeights;
-                    end
-                end
-                % Calculate R2GCV for each model size
-                resultsEval.R2GCV = gcvs';
-                resultsEval.R2GCV = 1 - resultsEval.R2GCV / gcv(1, YtrVar, n, 0);
-            else
-                % Calculate MSEoof in the test data for each model size
-                resultsEval.R2oof = zeros(length(models),dy);
-                for j = 1 : length(models)
-                    models{j}.trainParams = trainParams;
-                    models{j}.minX = minX;
-                    models{j}.maxX = maxX;
-                    modelsYTestTmp = modelsYAll{j};
-                    for k = 1 : dy
-                        models{j}.coefs = modelsYTestTmp{k}.coefs;
+                if availableDataEval
+                    % Calculate MSEtest in the test data for each model size
+                    resultsEval.MSEtest = zeros(length(models),1);
+                    for j = 1 : length(models)
+                        models{j}.trainParams = trainParams;
+                        models{j}.minX = minX;
+                        models{j}.maxX = maxX;
                         if ~dataEvalHasWeights
-                            resultsEval.R2oof(j,k) = ...
-                                sum((dataEval.Y(:,k) - arespredict(models{j}, dataEval.X)).^2) / nDataEval;
+                            resultsEval.MSEtest(j) = ...
+                                sum((dataEval.Y - arespredict(models{j}, dataEval.X)).^2) / nDataEval;
                         else
-                            resultsEval.R2oof(j,k) = ...
-                                sum((dataEval.Y(:,k) - arespredict(models{j}, dataEval.X)).^2.*dataEval.weights) / sumDataEvalWeights;
+                            resultsEval.MSEtest(j) = ...
+                                sum((dataEval.Y - arespredict(models{j}, dataEval.X)).^2.*dataEval.weights) / sumDataEvalWeights;
                         end
                     end
                 end
-                % Calculate R2GCV for each model size
-                resultsEval.R2GCV = gcvsAll;
-                GCVnull = zeros(size(resultsEval.R2GCV,1), dy);
+                % Save GCV and R2GCV for each model size
+                resultsEval.MSE = mses';
+                resultsEval.R2 = 1 - resultsEval.MSE / YtrVar;
+                resultsEval.GCV = gcvs';
+                resultsEval.R2GCV = 1 - resultsEval.GCV / gcv(1, YtrVar, n, 0);
+            else
+                % Calculate MSEtest in the test data for each model size
+                if availableDataEval
+                    resultsEval.MSEtest = zeros(length(models),dy);
+                    for j = 1 : length(models)
+                        models{j}.trainParams = trainParams;
+                        models{j}.minX = minX;
+                        models{j}.maxX = maxX;
+                        modelsYTestTmp = modelsYAll{j};
+                        for k = 1 : dy
+                            models{j}.coefs = modelsYTestTmp{k}.coefs;
+                            if ~dataEvalHasWeights
+                                resultsEval.MSEtest(j,k) = ...
+                                    sum((dataEval.Y(:,k) - arespredict(models{j}, dataEval.X)).^2) / nDataEval;
+                            else
+                                resultsEval.MSEtest(j,k) = ...
+                                    sum((dataEval.Y(:,k) - arespredict(models{j}, dataEval.X)).^2.*dataEval.weights) / sumDataEvalWeights;
+                            end
+                        end
+                    end
+                end
+                % Save GCV and R2GCV for each model size
+                resultsEval.MSE = msesAll;
+                resultsEval.R2 = 1 - resultsEval.MSE ./ repmat(YtrVar, size(resultsEval.MSE,1), 1);
+                resultsEval.GCV = gcvsAll;
+                GCVnull = zeros(size(resultsEval.GCV,1), dy);
                 for k = 1 : dy
                     GCVnull(:,k) = gcv(1, YtrVar(k), n, 0);
                 end
-                resultsEval.R2GCV = 1 - resultsEval.R2GCV ./ GCVnull;
-                resultsEval.R2GCV = mean(resultsEval.R2GCV,2); % mean accross models
+                resultsEval.R2GCV = 1 - resultsEval.GCV ./ GCVnull;
+                % mean accross models
+                resultsEval.MSE = mean(resultsEval.MSE,2);
+                resultsEval.R2 = mean(resultsEval.R2,2);
+                resultsEval.GCV = mean(resultsEval.GCV,2);
+                resultsEval.R2GCV = mean(resultsEval.R2GCV,2);
             end
-            % Flip R2GCV so that model size is ascending
+            % Flip so that model size is ascending
+            resultsEval.MSE = flip(resultsEval.MSE);
+            resultsEval.R2 = flip(resultsEval.R2);
+            resultsEval.GCV = flip(resultsEval.GCV);
+            %resultsEval.GCV(isinf(resultsEval.GCV)) = NaN;
             resultsEval.R2GCV = flip(resultsEval.R2GCV);
-            resultsEval.R2GCV(resultsEval.R2GCV == -Inf) = NaN;
-            % Calculate R2oof
-            if ~dataEvalHasWeights
-                dataEvalYMean = mean(dataEval.Y,1);
-                for k = 1 : dy
-                    dataEvalYtrVar = sum((dataEval.Y(:,k) - dataEvalYMean(k)) .^ 2) / nDataEval;
-                    if (dataEvalYtrVar > eps)
-                        resultsEval.R2oof(:,k) = 1 - resultsEval.R2oof(:,k) / dataEvalYtrVar;
-                    else
-                        resultsEval.R2oof(:) = NaN;
-                        break;
+            %resultsEval.R2GCV(isinf(resultsEval.R2GCV)) = NaN;
+            if availableDataEval
+                % Calculate R2test
+                resultsEval.R2test = nan(size(resultsEval.MSEtest));
+                if ~dataEvalHasWeights
+                    dataEvalYMean = mean(dataEval.Y,1);
+                    for k = 1 : dy
+                        dataEvalYtrVar = sum((dataEval.Y(:,k) - dataEvalYMean(k)) .^ 2) / nDataEval;
+                        if (dataEvalYtrVar > eps)
+                            resultsEval.R2test(:,k) = 1 - resultsEval.MSEtest(:,k) / dataEvalYtrVar;
+                        else
+                            resultsEval.R2test(:) = NaN;
+                            break;
+                        end
+                    end
+                else
+                    for k = 1 : dy
+                        dataEvalYMean = sum(dataEval.Y(:,k) .* dataEval.weights) / sumDataEvalWeights;
+                        dataEvalYtrVar = sum(((dataEval.Y(:,k) - dataEvalYMean) .^ 2) .* dataEval.weights) / sumDataEvalWeights;
+                        if (dataEvalYtrVar > eps)
+                            resultsEval.R2test(:,k) = 1 - resultsEval.MSEtest(:,k) / dataEvalYtrVar;
+                        else
+                            resultsEval.R2test(:) = NaN;
+                            break;
+                        end
                     end
                 end
-            else
-                for k = 1 : dy
-                    dataEvalYMean = sum(dataEval.Y(:,k) .* dataEval.weights) / sumDataEvalWeights;
-                    dataEvalYtrVar = sum(((dataEval.Y(:,k) - dataEvalYMean) .^ 2) .* dataEval.weights) / sumDataEvalWeights;
-                    if (dataEvalYtrVar > eps)
-                        resultsEval.R2oof(:,k) = 1 - resultsEval.R2oof(:,k) / dataEvalYtrVar;
-                    else
-                        resultsEval.R2oof(:) = NaN;
-                        break;
-                    end
-                end
+                % Mean across models
+                resultsEval.MSEtest = mean(resultsEval.MSEtest,2);
+                resultsEval.R2test = mean(resultsEval.R2test,2);
+                % Flip so that model size is ascending
+                resultsEval.MSEtest = flip(resultsEval.MSEtest);
+                resultsEval.R2test = flip(resultsEval.R2test);
             end
-            resultsEval.R2oof = mean(resultsEval.R2oof,2); % mean accross models
-            % Flip R2oof so that model size is ascending
-            resultsEval.R2oof = flip(resultsEval.R2oof);
         end
         
         if doCubicFastLevel >= 2
@@ -1219,7 +1446,7 @@ else
             model.t1 = t1;
             model.t2 = t2;
             if dy == 1
-                [model.coefs, model.MSE] = lreg(X, Ytr, weights, wd);
+                [model.coefs, model.MSE] = lreg(X, Ytr, weights);
                 if isempty(weights)
                     model.MSE = model.MSE / n;
                 else
@@ -1228,7 +1455,7 @@ else
                 model.GCV = gcv(length(model.coefs), model.MSE, n, trainParams.c);
             else
                 for k = 1 : dy
-                    [modelsY{k}.coefs, modelsY{k}.MSE] = lreg(X, Ytr(:,k), weights, wd);
+                    [modelsY{k}.coefs, modelsY{k}.MSE] = lreg(X, Ytr(:,k), weights);
                     if isempty(weights)
                         modelsY{k}.MSE = modelsY{k}.MSE / n;
                     else
@@ -1279,6 +1506,7 @@ end % end of "if useEndSpan*2 >= n"
 model.trainParams = trainParams;
 model.minX = minX;
 model.maxX = maxX;
+model.isBinary = isBinary;
 
 if keepX
     model.X = X;
@@ -1287,8 +1515,7 @@ end
 time = toc(ttt);
 if verbose
     fprintf('Number of basis functions in the final model: %d\n', length(model.coefs));
-    fprintf('Total effective number of parameters: %0.1f\n', ...
-            length(model.coefs) + model.trainParams.c * length(model.knotdims) / 2);
+    fprintf('Total effective number of parameters: %0.1f\n', getENP(length(model.coefs), model.trainParams.c));
     maxDeg = 0;
     vars = [];
     if ~isempty(model.knotdims)
@@ -1333,9 +1560,14 @@ return
 
 %==========================================================================
 
+function enp = getENP(nBasis, c)
+% Calculates model's effective number of parameters
+enp = nBasis + c * (nBasis - 1) / 2;
+return
+
 function g = gcv(nBasis, MSE, n, c)
 % Calculates GCV from model complexity, its Mean Squared Error, number of
-% observations n, and penalty coefficient c.
+% observations n, and penalty c.
 enp = nBasis + c * (nBasis - 1) / 2; % model's effective number of parameters
 if enp >= n
     g = Inf;
@@ -1353,22 +1585,22 @@ parents(tmp) = parents(tmp) - 1;
 return
 
 function [basisFunctionList, idxStart1, idxEnd1, idxStart2, idxEnd2] = ...
-createList(basisFunctionList_old, Xtr, sortedXtr, sortedXtrInd, n, d, ...
-model, numNewFuncs, trainParams)
+    createList(basisFunctionList_old, Xtr, sortedXtr, sortedXtrInd, n, d, ...
+    model, numNewFuncs, trainParams, minX, maxX)
 % Takes the old list of basis functions and adds new ones according to the
-% current model. If the old list is empty, adds all linear basis
-% functions. If it is non-empty, adds only basis functions with
+% current model. If the old list is empty, adds all basis functions without
+% interactions. If it's non-empty, adds only basis functions with
 % interactions which result from the last numNewFuncs basis functions
 % (typically 2, sometimes 1).
 % For knot placement (and for calculation of minSpan) only those potential
 % knot sites are considered for which the parent basis function is larger
 % than zero.
-% Input argument Xtr should contain all the training observations; sortedXtr
-% should contain all the Xtr observations (except first and last endSpan points)
-% sorted in each column separately; sortedXtrInd should contain indices of
-% the sorted observations.
+% Input argument Xtr should contain all the training observations;
+% sortedXtr should contain all the Xtr observations, except first and last
+% endSpan points, sorted in each column separately; sortedXtrInd should
+% contain indices of the sorted observations.
 
-% Create linear basis functions
+% Create no-ineraction basis functions
 
 if (isempty(basisFunctionList_old)) && (numNewFuncs == 0)
     if trainParams.useMinSpan ~= 1
@@ -1391,10 +1623,27 @@ if (isempty(basisFunctionList_old)) && (numNewFuncs == 0)
     basisFunctionList = cell(4,0);
     counter = 0;
     for di = 1 : d % for each dimension
+        forceLinear = any(trainParams.forceLinear == di);
+        if (trainParams.allowLinear > 0) || forceLinear
+            counter = counter + 1;
+            basisFunctionList{1, counter} = di; % knotdims
+            basisFunctionList{2, counter} = minX(di);  % knotsites
+            basisFunctionList{3, counter} = 2;  % knotdirs
+            basisFunctionList{4, counter} = 0;  % parent
+            if forceLinear
+                continue;
+            end
+            ignoreEdges = true; % because var entering linearly is (almost) like putting a knot on the edge
+        else
+            ignoreEdges = false;
+        end
         if trainParams.useMinSpan == 1
             allowedSites = unique(sortedXtr(:,di))';
         else
             allowedSites = unique(sortedXtr(allowed,di))';
+        end
+        if ignoreEdges && ~isempty(allowedSites)
+            allowedSites = allowedSites((1+(allowedSites(1) == minX(di))):(end-(allowedSites(end) == maxX(di))));
         end
         % add new unique basis functions to the list (either all or except
         % those which do not fall on the allowed knot sites)
@@ -1476,6 +1725,23 @@ for j = start : length(model.knotdims)
         if isempty(allowedDims)
             continue
         end
+        if (~isempty(trainParams.noInteract)) || (~isempty(trainParams.yesInteract))
+            if ~isempty(trainParams.noInteract)
+                allowed = true(1,d);
+                for i = model.knotdims{j}
+                    allowed(trainParams.noInteract(trainParams.noInteract(:,1)==i,2)) = false;
+                end
+            else
+                allowed = false(1,d);
+                for i = model.knotdims{j}
+                    allowed(trainParams.yesInteract(trainParams.yesInteract(:,1)==i,2)) = true;
+                end
+            end
+            allowedDims = setdiff(allowedDims, find(~allowed));
+            if isempty(allowedDims)
+                continue
+            end
+        end
 
         if trainParams.useMinSpan ~= 1
 
@@ -1498,8 +1764,22 @@ for j = start : length(model.knotdims)
                 offset = floor(nAvail / 2); % if space for only one knot, put it in center
             end
             allowed = mod(-offset:nAvail-1-offset, minSpan) == 0;
-
+            
             for di = allowedDims % for each dimension
+                forceLinear = any(trainParams.forceLinear == di);
+                if (trainParams.allowLinear > 0) || forceLinear
+                    counter = counter + 1;
+                    basisFunctionList{1, counter} = [model.knotdims{j} di]; % knotdims
+                    basisFunctionList{2, counter} = [model.knotsites{j} minX(di)];  % knotsites
+                    basisFunctionList{3, counter} = [model.knotdirs{j} 2];  % knotdirs
+                    basisFunctionList{4, counter} = j;  % parent
+                    if forceLinear
+                        continue;
+                    end
+                    ignoreEdges = true; % because var entering linearly is (almost) like putting a knot on the edge
+                else
+                    ignoreEdges = false;
+                end
                 % add new unique basis functions to the list (all except
                 % those which do not fall on the allowed knot sites and
                 % except those for which the parent basis function is zero
@@ -1511,6 +1791,9 @@ for j = start : length(model.knotdims)
                     allowed = allowed & nonzero(sortedXtrInd(:,di));
                 end
                 allowedSites = unique(sortedXtr(allowed,di))';
+                if ignoreEdges && ~isempty(allowedSites)
+                    allowedSites = allowedSites((1+(allowedSites(1) == minX(di))):(end-(allowedSites(end) == maxX(di))));
+                end
                 for x = allowedSites
                     counter = counter + 1;
                     basisFunctionList{1, counter} = [model.knotdims{j} di];
@@ -1524,6 +1807,20 @@ for j = start : length(model.knotdims)
 
             nonzero = listNonZero(Xtr, model.knotdims{j}, model.knotsites{j}, model.knotdirs{j});
             for di = allowedDims % for each dimension
+                forceLinear = any(trainParams.forceLinear == di);
+                if (trainParams.allowLinear > 0) || forceLinear
+                    counter = counter + 1;
+                    basisFunctionList{1, counter} = [model.knotdims{j} di]; % knotdims
+                    basisFunctionList{2, counter} = [model.knotsites{j} minX(di)];  % knotsites
+                    basisFunctionList{3, counter} = [model.knotdirs{j} 2];  % knotdirs
+                    basisFunctionList{4, counter} = j;  % parent
+                    if forceLinear
+                        continue;
+                    end
+                    ignoreEdges = true; % because var entering linearly is (almost) like putting a knot on the edge
+                else
+                    ignoreEdges = false;
+                end
                 % add new unique basis functions to the list (all except
                 % those for which the parent basis function is zero on
                 % the knot site)
@@ -1532,6 +1829,9 @@ for j = start : length(model.knotdims)
                     allowedSites = unique(sortedXtr(nonzero(sortedXtrInd(1+add:end-add,di)),di))';
                 else
                     allowedSites = unique(sortedXtr(nonzero(sortedXtrInd(:,di)),di))';
+                end
+                if ignoreEdges && ~isempty(allowedSites)
+                    allowedSites = allowedSites((1+(allowedSites(1) == minX(di))):(end-(allowedSites(end) == maxX(di))));
                 end
                 for x = allowedSites
                     counter = counter + 1;
@@ -1610,14 +1910,14 @@ else
 end
 return
 
-function [coefs, err] = lreg(x, y, w, wd)
+function [coefs, err] = lreg(x, y, w)
 % Linear regression (unweighted and weighted)
-if isempty(wd)
+if isempty(w)
     coefs = (x' * x) \ (x' * y);
     err = sum((y-x*coefs).^2);
 else
-    x_wd = x' * wd;
-    coefs = (x_wd * x) \ (x_wd * y);
-    err = sum((y-x*coefs).^2.*w);
+    xw = bsxfun(@times, x, w)';
+    coefs = (xw * x) \ (xw * y);
+    err = sum((y-x*coefs).^2.*w); % later in code this is divided by sum of weights
 end
 return
