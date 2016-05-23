@@ -2,6 +2,8 @@ classdef serial_protocol_AC < AVP.serial_protocol
   %> finds port automatically
   %> goes through all available ports and finds one broadcasting a given
   %> string
+  %> NOTE: as a beacon Port should transmit at least 8 characters in 0.5
+  %> seconds!
   properties
     TimeOfLastResponce = cputime;
     WatchDog
@@ -10,6 +12,9 @@ classdef serial_protocol_AC < AVP.serial_protocol
   
   methods(Static)
     function status = PingNOOP(s)
+      if s.BytesAvailable ~= 0
+        fread(s,s.BytesAvailable,'uint8'); % cleaning buffer from beacon stuff
+      end
       disp('Sending NOOP...');
       fwrite(s,0,'uint8'); % NOOP is part of the handshake
       % it causes FW to stop sending beacon.
@@ -31,37 +36,39 @@ classdef serial_protocol_AC < AVP.serial_protocol
     end
     
     function status = CheckPort(Port,Code,varargin)
+      status = false; % assume worst
       fprintf('Checking port %s...\n',Port);
       s = serial(Port,varargin{:});
       try
         fopen(s);
         T1 = cputime + 0.5; % timeout
-        while cputime < T1
+        while cputime <= T1
           if s.BytesAvailable >= numel(Code)*2-1, % yes, port is transmitting something
             str = char(fread(s,numel(Code)*2-1)); % make sure that captures string is long
             % enough to contain the whole code
-            fprintf(1,'Port is broascasting "%s"...\n',str);
+            fprintf('Port is transmitting "%s"...\n',str);
             if ~isempty(strfind(str(:).',Code)) %found port transmitting Code
               % clean receive buffer, so it is not likely to overfloat
               if s.BytesAvailable ~= 0, fread(s,s.BytesAvailable); end
               % sending command NOOP "manually" because object is not here yet
-              disp('Found breadcasting port...');
+              disp('Found transmitting port...');
               status = AVP.serial_protocol_AC.PingNOOP(s);
-              fclose(s)
-              delete(s)
-              return
+              break;
+            else
+              fprintf('Which is not what we need...\n');  
+              break;
             end
           end
         end
+        if cputime > T1, fprintf('Port is not transmitting...\n'); end
         fclose(s);
       catch ME
         Port = [];
         disp(['Problem with port ' s.Port]);
         disp(ME.message);
       end
-      delete(s);
-      status = false;
-    end
+      delete(s);      
+    end % CheckPort
   end % static methods
   
   methods
@@ -108,14 +115,12 @@ classdef serial_protocol_AC < AVP.serial_protocol
             end
             drawnow
           end
+          if ~exist('Port','var'), error('No port is transmitting anything...'); end
         end
         OldPorts = setfield(OldPorts,['Code_' code],Port);  
       else % code is a number, so it is specifying port directly
         Port = ['COM' num2str(code)];
         disp(['Checking specified port <',Port,'> ...']);
-      end
-      if ~exist('Port','var')
-        error('Can not connect...')
       end
       a = a@AVP.serial_protocol(Port,varargin{:});
       AVP.serial_protocol_AC.PingNOOP(a.s); % if we specified port directly 
