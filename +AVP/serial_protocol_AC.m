@@ -114,7 +114,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
         Port = ['COM' num2str(code)];
       end
       if ~exist('Port','var')
-        error('Can not connect...')
+        error('Can not find transmitting port ...')
       end
       a = a@AVP.serial_protocol(Port,varargin{:});
       OldPorts = setfield(OldPorts,['Code_' code],Port);
