@@ -1,6 +1,7 @@
-% convert structure into a cell array with columns corresponding to all
-% field names (including nested). Top row is a header
-% S can be a 2D matrix of structures. 
+%> reverses "something2bytes".
+%> @param x - just gives variable structure, value is not used
+%> @retval x - variable of the same structure as input "x" filled from
+%> "bytes"
 function [x, bytes] = bytes2something(bytes,x)
   if numel(x) ~= 1,
     for n=1:numel(x),
