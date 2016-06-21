@@ -4,35 +4,34 @@ function [resultsTotal, resultsFolds, resultsPruning] = arescv(X, Y, ...
 % Tests ARES performance using k-fold Cross-Validation.
 % The function has additional built-in capabilities for finding the "best"
 % number of basis functions for the final ARES model (maxFinalFuncs for
-% function aresparams).
+% function aresparams). See example of usage in user's manual for details.
 %
 % Call:
 %   [resultsTotal, resultsFolds, resultsPruning] = arescv(X, Y, ...
 %       trainParams, k, shuffle, nCross, weights, testWithWeights, ...
 %       evalPruning, verbose)
 %
-% All the input arguments, except the first two, are optional. Empty values
-% are also accepted (the corresponding default values will be used).
+% All the input arguments, except the first three, are optional. Empty
+% values are also accepted (the corresponding defaults will be used).
 % Note that, if argument shuffle is set to true, this function employs
 % random number generator for which you can set seed before calling the
 % function.
 %
 % Input:
-%   X, Y          : Observations. See description for function aresbuild.
-%   trainParams   : A structure of training parameters. If not provided,
-%                   default values will be used (see function aresparams
-%                   for details).
+%   X, Y          : The data. See description of function aresbuild.
+%   trainParams   : A structure of training parameters (see function
+%                   aresparams for details).
 %   k             : Value of k for k-fold Cross-Validation. The typical
 %                   values are 5 or 10. For Leave-One-Out Cross-Validation
 %                   set k equal to n. (default value = 10)
 %   shuffle       : Whether to shuffle the order of observations before
-%                   performing Cross-Validation (default value = true).
+%                   performing Cross-Validation. (default value = true)
 %   nCross        : How many times to repeat Cross-Validation with
 %                   different data partitioning. This can be used to get
 %                   more stable results. Default value = 1, i.e., no
 %                   repetition. Useless if shuffle = false.
 %   weights       : A vector of weights for observations. See description
-%                   for function aresbuild.
+%                   of function aresbuild.
 %   testWithWeights : Set to true to use weights vector for both, training
 %                   and testing. Set to false to use it for training only.
 %                   This argument has any effect only when weights vector
@@ -40,9 +39,9 @@ function [resultsTotal, resultsFolds, resultsPruning] = arescv(X, Y, ...
 %   evalPruning   : Whether to evaluate all the candidate models of the
 %                   pruning phase. If set to true, the output argument
 %                   resultsPruning contains the results. See example of
-%                   usage in the user's manual. (default value = false)
-%   verbose       : Whether to output additional information to console
-%                   (default value = true).
+%                   usage in user's manual. (default value = false)
+%   verbose       : Whether to output additional information to console.
+%                   (default value = true)
 %
 % Output:
 %   resultsTotal  : A structure of Cross-Validation results. The results
@@ -65,21 +64,39 @@ function [resultsTotal, resultsFolds, resultsPruning] = arescv(X, Y, ...
 %     nVars       : Number of input variables included in model.
 %     maxDeg      : Highest degree of variable interactions in model.
 %   resultsPruning: Available only if evalPruning = true. See example of
-%                   usage in the user's manual. The structure has the
-%                   following fields:
-%     R2GCV       : A matrix of R2GCV values for models of each size in
+%                   usage in the user's manual Section 3.3. The structure
+%                   has the following fields:
+%     GCV         : A matrix of GCV values for best candidate models of
+%                   each size at each Cross-Validation fold. The number of
+%                   rows is equal to k*nCross. Column index corresponds to
+%                   the number of basis functions in a model.
+%     meanGCV     : A vector of mean GCV values for each model size across
+%                   all Cross-Validation folds.
+%     nBasisGCV   : The number of basis functions (including the intercept
+%                   term) for which the mean GCV is minimum.
+%     MSEoof      : A matrix of out-of-fold MSE values for best candidate
+%                   models of each size at each Cross-Validation fold. The
+%                   number of rows for this matrix is equal to k*nCross.
+%                   Column index corresponds to the number of basis
+%                   functions in a model.
+%     meanMSEoof  : A vector of mean out-of-fold MSE values for each model
+%                   size across all Cross-Validation folds.
+%     nBasisMSEoof : The number of basis functions (including the intercept
+%                   term) for which the mean out-of-fold MSE is minimum.
+%     R2GCV       : A matrix of R2GCV (R2 estimated by GCV in training
+%                   data) values for best candidate models of each size at
 %                   each Cross-Validation fold. The number of rows is equal
-%                   to k * nCross. Column index corresponds to the number
-%                   of basis functions in a model.
+%                   to k*nCross. Column index corresponds to the number of
+%                   basis functions in a model.
 %     meanR2GCV   : A vector of mean R2GCV values for each model size
 %                   across all Cross-Validation folds.
 %     nBasisR2GCV : The number of basis functions (including the intercept
 %                   term) for which the mean R2GCV is maximum.
-%     R2oof       : A matrix of out-of-fold R2 values for models of each
-%                   size in each Cross-Validation fold. The number of rows
-%                   for this matrix is equal to k * nCross. Column index
-%                   corresponds to the number of basis functions in a
-%                   model.
+%     R2oof       : A matrix of out-of-fold R2 values for best candidate
+%                   models of each size at each Cross-Validation fold. The
+%                   number of rows for this matrix is equal to k*nCross.
+%                   Column index corresponds to the number of basis
+%                   functions in a model.
 %     meanR2oof   : A vector of mean out-of-fold R2 values for each model
 %                   size across all Cross-Validation folds.
 %     nBasisR2oof : The number of basis functions (including the intercept
@@ -90,7 +107,7 @@ function [resultsTotal, resultsFolds, resultsPruning] = arescv(X, Y, ...
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -106,9 +123,9 @@ function [resultsTotal, resultsFolds, resultsPruning] = arescv(X, Y, ...
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: October 14, 2015
+% Last update: May 5, 2016
 
-if nargin < 2
+if nargin < 3
     error('Not enough input arguments.');
 end
 
@@ -121,9 +138,6 @@ if ny ~= n
     error('The number of rows in X and Y should be equal.');
 end
 
-if (nargin < 3) || isempty(trainParams)
-    trainParams = aresparams();
-end
 if (nargin < 4) || isempty(k)
     k = 10;
 end
@@ -174,8 +188,19 @@ resultsFolds.nBasis = NaN(k*nCross,dy);
 resultsFolds.nVars = zeros(k*nCross,dy);
 resultsFolds.maxDeg = zeros(k*nCross,dy);
 if evalPruning
+    resultsPruning.GCV = NaN(k*nCross,1);
+    resultsPruning.MSEoof = NaN(k*nCross,1);
+    resultsPruning.meanGCV = NaN;
+    resultsPruning.nBasisGCV = NaN;
+    resultsPruning.meanMSEoof = NaN;
+    resultsPruning.nBasisMSEoof = NaN;
+    
     resultsPruning.R2GCV = NaN(k*nCross,1);
     resultsPruning.R2oof = NaN(k*nCross,1);
+    resultsPruning.meanR2GCV = NaN;
+    resultsPruning.nBasisR2GCV = NaN;
+    resultsPruning.meanR2oof = NaN;
+    resultsPruning.nBasisR2oof = NaN;
 else
     resultsPruning = [];
 end
@@ -196,13 +221,17 @@ for iCross = 1 : nCross
     resultsFolds.maxDeg(range,:) = maxDeg;
     if evalPruning
         % Accomodate new data, even if bigger than expected
-        sizeOld = size(resultsPruning.R2GCV,2);
-        sizeNew = size(evalResults.R2GCV,2);
+        sizeOld = size(resultsPruning.GCV,2);
+        sizeNew = size(evalResults.GCV,2);
         if sizeOld < sizeNew
-            add = NaN(size(resultsPruning.R2GCV,1),sizeNew-sizeOld);
+            add = NaN(size(resultsPruning.GCV,1),sizeNew-sizeOld);
+            resultsPruning.GCV = [resultsPruning.GCV add];
+            resultsPruning.MSEoof = [resultsPruning.MSEoof add];
             resultsPruning.R2GCV = [resultsPruning.R2GCV add];
             resultsPruning.R2oof = [resultsPruning.R2oof add];
         end
+        resultsPruning.GCV(range,1:sizeNew) = evalResults.GCV;
+        resultsPruning.MSEoof(range,1:sizeNew) = evalResults.MSEoof;
         resultsPruning.R2GCV(range,1:sizeNew) = evalResults.R2GCV;
         resultsPruning.R2oof(range,1:sizeNew) = evalResults.R2oof;
     end
@@ -219,10 +248,22 @@ resultsTotal.nVars = mean(mean(resultsFolds.nVars,2),1);
 resultsTotal.maxDeg = mean(mean(resultsFolds.maxDeg,2),1);
 % mean across folds
 if evalPruning
+    resultsPruning.meanGCV = mean(resultsPruning.GCV,1);
+    [~, resultsPruning.nBasisGCV] = min(resultsPruning.meanGCV);
+    resultsPruning.meanMSEoof = mean(resultsPruning.MSEoof,1);
+    [~, resultsPruning.nBasisMSEoof] = min(resultsPruning.meanMSEoof);
+    % For columns with some NaNs, calculate mean if at least half of the values are not NaN
+    nansSum = sum(isnan(resultsPruning.MSEoof),1);
+    nansIdx = find((nansSum > 0) & (nansSum <= floor(size(resultsPruning.MSEoof,1) / 2)));
+    for i = nansIdx
+    	where = isnan(resultsPruning.MSEoof(:,i));
+    	resultsPruning.meanMSEoof(i) = mean(resultsPruning.MSEoof(~where,i),1);
+    end
+    
     resultsPruning.meanR2GCV = mean(resultsPruning.R2GCV,1);
-    [dummy, resultsPruning.nBasisR2GCV] = max(resultsPruning.meanR2GCV);
+    [~, resultsPruning.nBasisR2GCV] = max(resultsPruning.meanR2GCV);
     resultsPruning.meanR2oof = mean(resultsPruning.R2oof,1);
-    [dummy, resultsPruning.nBasisR2oof] = max(resultsPruning.meanR2oof);
+    [~, resultsPruning.nBasisR2oof] = max(resultsPruning.meanR2oof);
     % For columns with some NaNs, calculate mean if at least half of the values are not NaN
     nansSum = sum(isnan(resultsPruning.R2oof),1);
     nansIdx = find((nansSum > 0) & (nansSum <= floor(size(resultsPruning.R2oof,1) / 2)));
@@ -271,6 +312,8 @@ nVars = zeros(k,dy);
 maxDeg = zeros(k,dy);
 
 if evalPruning
+    evalResults.GCV = NaN(k,1);
+    evalResults.MSEoof = NaN(k,1);
     evalResults.R2GCV = NaN(k,1);
     evalResults.R2oof = NaN(k,1);
 else
@@ -311,18 +354,22 @@ for i = 1 : k
         dataEval.Y = Ytst;
         dataEval.weights = wtst;
     end
-    [model, dummy, res] = aresbuild(Xtr, Ytr, trainParams, w, false, [], dataEval, verbose);
+    [model, ~, res] = aresbuild(Xtr, Ytr, trainParams, w, false, [], dataEval, verbose);
     if evalPruning
         % Accomodate new data, even if bigger than expected
-        sizeOld = size(evalResults.R2GCV,2);
-        sizeNew = size(res.R2GCV,1);
+        sizeOld = size(evalResults.GCV,2);
+        sizeNew = size(res.GCV,1);
         if sizeOld < sizeNew
-            add = NaN(size(evalResults.R2GCV,1),sizeNew-sizeOld);
+            add = NaN(size(evalResults.GCV,1),sizeNew-sizeOld);
+            evalResults.GCV = [evalResults.GCV add];
+            evalResults.MSEoof = [evalResults.MSEoof add];
             evalResults.R2GCV = [evalResults.R2GCV add];
             evalResults.R2oof = [evalResults.R2oof add];
         end
+        evalResults.GCV(i,1:sizeNew) = res.GCV;
+        evalResults.MSEoof(i,1:sizeNew) = res.MSEtest;
         evalResults.R2GCV(i,1:sizeNew) = res.R2GCV;
-        evalResults.R2oof(i,1:sizeNew) = res.R2oof;
+        evalResults.R2oof(i,1:sizeNew) = res.R2test;
     end
     res = arestest(model, Xtst, Ytst, wtst);
     MAE(i,:) = res.MAE;

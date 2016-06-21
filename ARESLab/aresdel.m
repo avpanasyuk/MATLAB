@@ -2,7 +2,8 @@ function model = aresdel(model, funcsToDel, Xtr, Ytr, weights)
 % aresdel
 % Deletes basis functions from ARES model, recalculates model's
 % coefficients and relocates additional knots for piecewise-cubic models
-% (as opposed to aresanovareduce which does not recalculate anything).
+% (as opposed to aresanovareduce which does not recalculate and relocate
+% anything).
 %
 % Call:
 %   model = aresdel(model, funcsToDel, Xtr, Ytr, weights)
@@ -10,10 +11,10 @@ function model = aresdel(model, funcsToDel, Xtr, Ytr, weights)
 % All the input arguments, except the last one, are required.
 %
 % Input:
-%   model         : ARES model or a cell array of ARES models (for
-%                   multi-response modelling).
-%   funcsToDel    : A vector of indices for basis functions to be deleted.
-%                   Intercept term is not indexed, i.e., the ordering is
+%   model         : ARES model or, for multi-response modelling, a cell
+%                   array of ARES models.
+%   funcsToDel    : A vector of indices for basis functions to delete.
+%                   Intercept term is not indexed, i.e., the numbering is
 %                   the same as in model.knotdims, model.knotsites, and
 %                   model.knotdirs.
 %   Xtr, Ytr      : Training data observations. The same data that was used
@@ -29,7 +30,7 @@ function model = aresdel(model, funcsToDel, Xtr, Ytr, weights)
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -45,7 +46,7 @@ function model = aresdel(model, funcsToDel, Xtr, Ytr, weights)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: October 14, 2015
+% Last update: April 25, 2016
 
 if nargin < 4
     error('Not enough input arguments.');
@@ -57,7 +58,7 @@ if isempty(Xtr) || isempty(Ytr)
     error('Data is empty.');
 end
 funcsToDel = unique(funcsToDel(:)');
-n = size(Xtr,1); % number of observations
+[n, d] = size(Xtr); % number of observations and number of input variables
 if size(Ytr,1) ~= n
     error('The number of rows in Xtr and Ytr should be equal.');
 end
@@ -71,6 +72,10 @@ end
 if ((numModels == 1) && any(funcsToDel > length(model.knotdims))) || ...
    ((numModels > 1) && any(funcsToDel > length(model{1}.knotdims)))
     error('funcsToDel contains one or more indices that are out of range.');
+end
+if ((numModels == 1) && (length(model.minX) ~= d)) || ...
+   ((numModels > 1) && (length(model{1}.minX) ~= d))
+    error('The number of columns in Xtr is different from the number when the model was built.');
 end
 if (nargin < 5)
     weights = [];
@@ -94,7 +99,7 @@ function model = delBF(model, listDel, Xtr, Ytr, weights)
 % Deletes basis functions from one model
 listDel = sort(listDel, 2, 'descend');
 for i = listDel % deleting in reverse order
-    %model.coefs(i+1) = [];
+    %model.coefs(i+1) = []; % we don't need this because coefs are completely recalculated below
     model.knotdims(i) = [];
     model.knotsites(i) = [];
     model.knotdirs(i) = [];
@@ -164,7 +169,7 @@ return
 
 function g = gcv(nBasis, MSE, n, c)
 % Calculates GCV from model complexity, its Mean Squared Error, number of
-% observations n, and penalty coefficient c.
+% observations n, and penalty c.
 enp = nBasis + c * (nBasis - 1) / 2; % model's effective number of parameters
 if enp >= n
     g = Inf;
@@ -174,14 +179,14 @@ else
 end
 return
 
-function [coefs, err] = lreg(x, y, weights)
+function [coefs, err] = lreg(x, y, w)
 % Linear regression (unweighted and weighted)
-if isempty(weights)
+if isempty(w)
     coefs = (x' * x) \ (x' * y);
     err = sum((y-x*coefs).^2);
 else
-    x_wd = x' * diag(weights);
-    coefs = (x_wd * x) \ (x_wd * y);
-    err = sum((y-x*coefs).^2.*weights);
+    xw = bsxfun(@times, x, w)';
+    coefs = (xw * x) \ (xw * y);
+    err = sum((y-x*coefs).^2.*w); % later in code this is divided by sum of weights
 end
 return

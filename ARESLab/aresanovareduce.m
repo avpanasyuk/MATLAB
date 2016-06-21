@@ -24,7 +24,7 @@ function [model, usedBasis] = aresanovareduce(model, varsToStay, exact)
 %
 % Output:
 %   model         : Reduced ARES model.
-%   usedBasis     : List of original indexes for basis functions still in
+%   usedBasis     : Vector of original indices for basis functions still in
 %                   use.
 
 % =========================================================================
@@ -32,7 +32,7 @@ function [model, usedBasis] = aresanovareduce(model, varsToStay, exact)
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ end
 
 nBasis = length(model.knotdims);
 notvars = setdiff(1:length(model.minX), varsToStay);
-stay = true(nBasis,1);
+stay = true(1,nBasis);
 
 for i = 1 : nBasis
     if exact && (length(unique(model.knotdims{i})) ~= length(varsToStay))

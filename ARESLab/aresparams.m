@@ -1,27 +1,36 @@
 function trainParams = aresparams(maxFuncs, c, cubic, cubicFastLevel, ...
-selfInteractions, maxInteractions, threshold, prune, fastK, fastBeta, ...
-fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
+    selfInteractions, maxInteractions, threshold, prune, fastK, fastBeta, ...
+    fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, ...
+    newVarPenalty, terminateWhenInfGCV, yesInteract, noInteract, ...
+    allowLinear, forceLinear)
 % aresparams
-% Creates configuration for building ARES models. The structure is for
-% further use with aresbuild, arescv, and arescvc functions.
+% Creates configuration for building ARES models. The output structure is
+% for further use with aresbuild, arescv, and arescvc functions.
 %
 % Call:
 %   trainParams = aresparams(maxFuncs, c, cubic, cubicFastLevel, ...
 %       selfInteractions, maxInteractions, threshold, prune, fastK, ...
 %       fastBeta, fastH, useMinSpan, useEndSpan, maxFinalFuncs, ...
-%       endSpanAdjust, newVarPenalty)
+%       endSpanAdjust, newVarPenalty, terminateWhenInfGCV, yesInteract, ...
+%       noInteract, allowLinear, forceLinear)
 %
 % All the input arguments of this function are optional. Empty values are
-% also accepted (the corresponding default values will be used).
-% Parameters c, prune, and maxFinalFuncs are used in the backward pruning
-% phase. Parameter cubic can be used in both phases depending on
-% cubicFastLevel. All other parameters are used in the forward phase only.
-% For most applications, it can be expected that the most attention should
-% be paid to the following parameters: maxFuncs, c, cubic, maxInteractions,
-% and in some cases maxFinalFuncs. If Fast MARS algorithm is to be used,
-% parameters fastK, fastBeta, and fastH should be looked at. It is quite
-% possible that the default values for maxFuncs and maxInteractions will be
-% far from optimal for your data.
+% also accepted (the corresponding defaults will be used).
+% Parameters prune and maxFinalFuncs are used in the backward pruning
+% phase. Parameters c and cubic may be used in both phases depending on
+% terminateWhenInfGCV, forceLinear, and cubicFastLevel. All other
+% parameters are used in the forward phase only.
+% For many applications, it can be expected that the most attention should
+% be paid to the following parameters: maxFuncs, maxInteractions, cubic, c,
+% and maxFinalFuncs. It is quite possible that the default values for
+% maxFuncs and maxInteractions will be far from optimal for your data.
+% But note that, if you are prepared to use Cross-Validation, choosing a
+% good value for maxFinalFuncs can sometimes release you from being too
+% pedantic about parameters maxFuncs and c, because you can set large
+% enough maxFuncs and not too large c and follow the example in Section 3.3
+% in user's manual.
+% If you have the necessary domain knowledge, it is recommended to also set
+% yesInteract, noInteract, allowLinear, and forceLinear.
 %
 % Input:
 %   maxFuncs      : The maximum number of basis functions included in model
@@ -30,15 +39,14 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 %                   recommended value for this parameter is about two times
 %                   the expected number of basis functions in the final
 %                   model (Friedman, 1991a). Note that the algorithm may
-%                   also not reach this number. This can happen when the
-%                   number of coefficients in the model exceeds the number
-%                   of observations in data or because of the threshold
-%                   parameter. The default value for this parameter is -1
-%                   in which case maxFuncs is calculated automatically
-%                   using formula min(200, max(20, 2d)) + 1, where d is the
-%                   number of input variables (Milborrow, 2015). This is
-%                   fairly arbitrary but can be useful for first
-%                   experiments.
+%                   also not reach this number if some other termination
+%                   condition happens first (see remarks on function
+%                   aresbuild in user's manual). The default value for
+%                   maxFuncs is -1 in which case it is calculated
+%                   automatically using formula min(200, max(20, 2d)) + 1,
+%                   where d is the number of input variables (Milborrow,
+%                   2016). This is fairly arbitrary but can be useful for
+%                   first experiments.
 %                   To enforce an upper bound on the final model size, use
 %                   maxFinalFuncs instead. This is because the forward
 %                   phase can see only one basis function ahead while the
@@ -48,7 +56,7 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 %                   Larger values for c will lead to fewer knots (i.e., the
 %                   final model will have fewer basis functions). A value
 %                   of 0 penalizes only terms, not knots (can be useful,
-%                   e.g., with lots of data, low noise, and highly
+%                   e.g., with lots of data, low or no noise, and highly
 %                   structured underlying function of the data). Generally,
 %                   the choice of the value for c should greatly depend on
 %                   size of the dataset, how structured is the underlying
@@ -61,8 +69,8 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 %                   this parameter is -1 in which case c is chosen
 %                   automatically using the following rule: if
 %                   maxInteractions = 1 (additive modelling) c = 2,
-%                   otherwise c = 3. These are the values recommended by
-%                   Friedman (Friedman, 1991a).
+%                   otherwise c = 3. These are the values recommended in
+%                   Friedman, 1991a.
 %   cubic         : Whether to use piecewise-cubic (true) or piecewise-
 %                   linear (false) type of modelling. In general, it is
 %                   expected that the piecewise-cubic modelling will give
@@ -74,32 +82,31 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 %                   (slow). In level 1, cubic modelling is done only in the
 %                   backward phase (much faster). In level 2, cubic
 %                   modelling is done after both phases, only for the final
-%                   model (fastest). The default and recommended level is 2
-%                   (and it corresponds to the recommendations in
-%                   Friedman's paper (Friedman, 1991a)). Levels 0 and 1 may
-%                   bring extra accuracy in the situations when the
-%                   underlying function of the data has sharp thresholds
-%                   that require knot placements different that those
+%                   model (fastest). The default level is 2 (and it
+%                   corresponds to the recommendations in Friedman, 1991a).
+%                   Levels 0 and 1 may bring extra accuracy in the
+%                   situations when, e.g., the underlying function of the
+%                   data has sharp thresholds that for piecewise-cubic
+%                   modelling require knot placements different that those
 %                   required for piecewise-linear modelling.
 %   selfInteractions : This is experimental feature. The maximum degree of
-%                   self interactions for any input variable. It can be
+%                   self interactions for any input variable. It can be set
 %                   larger than 1 only for piecewise-linear modelling. The
 %                   default, and recommended, value = 1, no self
 %                   interactions.
 %   maxInteractions : The maximum degree of interactions between input
-%                   variables. Set to 1 for additive modelling (i.e., no
-%                   interactions). For maximal interactivity between the
-%                   variables, set the parameter to d * selfInteractions,
-%                   where d is the number of input variables – this way the
-%                   modelling procedure will have the most freedom building
-%                   a complex model. Typically only a low degree of
-%                   interaction is allowed, but higher degrees can be used
-%                   when the data warrants it. (default value = 1)
+%                   variables. Set to 1 (default) for additive modelling
+%                   (i.e., no interactions). For maximal interactivity
+%                   between the variables, set the parameter to
+%                   d * selfInteractions, where d is the number of input
+%                   variables – this way the modelling procedure will have
+%                   the most freedom building a complex model.
 %   threshold     : One of the stopping criteria for the forward phase (see
 %                   remarks section of function aresbuild in user's manual
 %                   for details). Default value = 1e-4. For noise-free
-%                   data, the value may be lowered but setting it to 0 can
-%                   cause numerical issues and instability.
+%                   data, the value may be lowered (e.g., to 1e-6) but
+%                   setting it to 0 can cause numerical issues and
+%                   instability.
 %   prune         : Whether to perform model pruning (the backward phase).
 %                   (default value = true)
 %   fastK         : Parameter (integer) for Fast MARS algorithm (Friedman,
@@ -108,8 +115,8 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 %                   Typical values for fastK are 20, 10, 5 (default value =
 %                   Inf, i.e., no Fast MARS). With lower fastK values
 %                   model building is faster at the expense of some
-%                   accuracy. Good starting values for fast exploratory
-%                   work are fastK = 20, fastBeta = 1, fastH = 5 (Friedman,
+%                   accuracy. Good starting values for exploratory work
+%                   are fastK = 20, fastBeta = 1, fastH = 5 (Friedman,
 %                   1993). Friedman in his paper concluded that, while
 %                   changing the values of fastK and fastH can have big
 %                   effect on training computation times, predictive
@@ -122,7 +129,7 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 %   fastH         : Parameter (integer) for Fast MARS algorithm (Friedman,
 %                   1993, Section 4.0). Number of iterations till next full
 %                   optimization over all input variables for each parent
-%                   basis function. Higher values make the search faster.
+%                   basis function. Larger values make the search faster.
 %                   Typical values for fastH are 1, 5, 10 (default value =
 %                   1, i.e., full optimization in every iteration).
 %                   Computational reduction associated with increasing
@@ -133,44 +140,54 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 %   useMinSpan    : In order to lower the local variance of the estimates,
 %                   a minimum span is imposed that makes the method
 %                   resistant to runs of positive or negative error values
-%                   between knots (by jumping over a minSpan number of
-%                   observations each time the next potential knot
-%                   placement is requested) (Friedman, 1991a). useMinSpan
-%                   allows to disable (set to 0 or 1) the protection so
-%                   that all x values are considered for knot placement in
-%                   each dimension (except, see useEndSpan). Disabling
-%                   minSpan may allow creating a model which is more
-%                   responsive to local variations in the data however this
-%                   can also lead to overfitting. Setting the useMinSpan to
-%                   > 1, enables to manually tune the value. (default and
-%                   recommended value = -1 which corresponds to the
-%                   automatic mode)
+%                   between knots (by taking every useMinSpan-th
+%                   observation for knot placement) (Friedman, 1991a).
+%                   Setting useMinSpan to -1 (default), enables automatic
+%                   mode (see remarks in user's manual). Setting useMinSpan
+%                   to 0 or 1, disables the protection so that all the
+%                   observations are considered for knot placement (except,
+%                   see useEndSpan). Setting useMinSpan to > 1, enables
+%                   manual tuning of the value. Disabling or lowering
+%                   useMinSpan may allow creating a model which is more
+%                   responsive to local variations in the data (can be
+%                   especially useful if the number of data observations is
+%                   small and noise is low) however this can also lead to
+%                   overfitting. For further information and examples of
+%                   usage, see Section 3.4 in user's manual.
 %   useEndSpan    : In order to lower the local variance of the estimates
 %                   near the ends of data intervals, a minimum span is
 %                   imposed that makes the method resistant to runs of
 %                   positive or negative error values between extreme knot
 %                   locations and the corresponding ends of data intervals
-%                   (by not allowing to place a knot too near to the end of
-%                   data interval) (Friedman, 1991a). useEndSpan allows to
-%                   disable (set to 0) the protection so that all the
-%                   observations are considered for knot placement in each
-%                   dimension (except, see useMinSpan). Disabling endSpan
-%                   may allow creating a model which is more responsive to
-%                   local variations in the data however this can also lead
-%                   to a model that is overfitted near the edges of the
-%                   data. Setting the useMinSpan to > 1, enables to
-%                   manually tune the value. (default and recommended
-%                   value = -1 which corresponds to the automatic mode)
+%                   (by not allowing to place knots too near to the ends of
+%                   the intervals) (Friedman, 1991a). Setting useEndSpan to
+%                   -1 (default), enables automatic mode that chooses value
+%                   for this parameter depending on the number of input
+%                   variables (but never lower than 7). Setting useEndSpan
+%                   to 0, disables the protection so that all the
+%                   observations are considered for knot placement (except,
+%                   see useMinSpan). Setting useEndSpan to > 1, enables
+%                   manual tuning of the value. Disabling or lowering
+%                   useEndSpan may allow creating a model which is more
+%                   responsive to local variations near the edges of the
+%                   data (can be especially useful if the number of data
+%                   observations is small and noise is low) however this
+%                   can also lead to overfitting. For further information
+%                   and examples of usage, see remarks for aresparams and
+%                   Section 3.4 in user's manual.
 %   maxFinalFuncs : Maximum number of basis functions (including the
-%                   intercept term) in the pruned model. Use this (rather
-%                   than the maxFuncs parameter) to enforce an upper bound
-%                   on the final model size. (default value = Inf)
-%   endSpanAdjust : For basis functions with variable interactions, endSpan
-%                   gets multiplied by this value. This reduces probability
-%                   of getting overfitted interaction terms supported by
-%                   just a few observations on the boundaries of data
-%                   intervals. Still, at least one knot will always be
-%                   allowed in the middle, even if endSpanAdjust would
+%                   intercept term) in the final pruned model (default
+%                   value = Inf). Use this (rather than the maxFuncs
+%                   parameter) to enforce an upper bound on the final model
+%                   size. See Section 3.3 in user's manual for an example
+%                   on how to choose value for this parameter using Cross-
+%                   Validation.
+%   endSpanAdjust : For basis functions with variable interactions,
+%                   useEndSpan gets multiplied by this value. This reduces
+%                   probability of getting overfitted interaction terms
+%                   supported by just a few observations on the boundaries
+%                   of data intervals. Still, at least one knot will always
+%                   be allowed in the middle, even if endSpanAdjust would
 %                   prohibit it. Useful values range from 1 to 10. (default
 %                   value = 1, i.e., no adjustment)
 %   newVarPenalty : Penalty for adding a new variable to a model in the
@@ -183,8 +200,58 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 %                   As a result, the final model may be easier to interpret
 %                   although usually the built models also will have worse
 %                   predictive performance. Useful non-zero values
-%                   typically range from 0.01 to 0.2 (Milborrow, 2015).
+%                   typically range from 0.01 to 0.2 (Milborrow, 2016).
 %                   (default value = 0, i.e., no penalty)
+%   terminateWhenInfGCV : Whether to check termination condition,
+%                   terminating forward phase when the effective number of
+%                   parameters of a model reaches the number of
+%                   observations in training data, i.e., when GCV for
+%                   such large models would be Inf (see remarks section in
+%                   description of function aresbuild on GCV in user's
+%                   manual). In such cases it could be pointless to
+%                   continue because larger models wouldn't be considered
+%                   as candidates for final model anyway. On the other
+%                   hand, some of the added basis functions could still
+%                   turn out to be useful for inclusion in final model.
+%                   Note that the effective number of parameters is not the
+%                   same as the number of regression coefficients, except
+%                   when c = 0 (in which case enabling terminateWhenInfGCV
+%                   has no additional effect). (default value = false)
+%   yesInteract   : A matrix indicating pairs of input variables that are
+%                   allowed to interact with each other in the ARES model.
+%                   The matrix must have two columns. Each row is a pair of
+%                   indices for the input variables. Default value = [].
+%                   Cannot be used together with noInteract.
+%   noInteract    : A matrix indicating pairs of input variables that are
+%                   not allowed to interact with each other in the ARES
+%                   model. The matrix must have two columns. Each row is a
+%                   pair of indices for the input variables. Default value
+%                   = []. Cannot be used together with yesInteract.
+%   allowLinear   : Whether to allow input variables to enter basis
+%                   functions linearly, i.e., without hinge functions.
+%                   Such basis functions are added to the model one at a
+%                   time, as opposed to basis functions with new hinges
+%                   that are added two at a time - one for each hinge of
+%                   the reflected pair. Set allowLinear to 0 (default), to
+%                   disallow variables entering linearly, i.e., consider
+%                   hinge functions only (except see forceLinear). Set to
+%                   1, to allow, and treat error reduction associated with
+%                   adding such basis function the same way as for a pair
+%                   of basis functions with new hinges. Set to 2, to prefer
+%                   variables entering basis functions linearly. This is
+%                   done by calculating error reduction of such basis
+%                   functions using GCV (instead of sum of squared error),
+%                   resulting in preference of adding a single basis
+%                   function instead of two even when this produces
+%                   slightly smaller error reduction. Note that the R
+%                   package earth (Milborrow, 2016) has options "0" and "1"
+%                   while py-earth (Rudy, 2016) has options "0" and "2".
+%   forceLinear   : A vector of indices of input variables that should be
+%                   forced to enter the model only linearly, i.e., without
+%                   hinge functions. This overrides allowLinear for the
+%                   listed variables. Note that forceLinear does not say
+%                   that a variable must enter the model; only that if it
+%                   enters, it enters linearly. Default value = [].
 %
 % Output:
 %   trainParams   : A structure of parameters for further use with
@@ -196,7 +263,7 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -212,11 +279,14 @@ fastH, useMinSpan, useEndSpan, maxFinalFuncs, endSpanAdjust, newVarPenalty)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: October 14, 2015
+% Last update: May 5, 2016
 
 if (nargin < 1) || isempty(maxFuncs)
     trainParams.maxFuncs = -1; % automatic
 else
+    if ischar(maxFuncs)
+        error('Bad argument value.');
+    end
     trainParams.maxFuncs = maxFuncs;
 end
 
@@ -316,6 +386,36 @@ if (nargin < 16) || isempty(newVarPenalty)
     trainParams.newVarPenalty = 0;
 else
     trainParams.newVarPenalty = newVarPenalty;
+end
+
+if (nargin < 17) || isempty(terminateWhenInfGCV)
+    trainParams.terminateWhenInfGCV = false;
+else
+    trainParams.terminateWhenInfGCV = terminateWhenInfGCV;
+end
+
+if (nargin < 18) || isempty(yesInteract)
+    trainParams.yesInteract = [];
+else
+    trainParams.yesInteract = yesInteract;
+end
+
+if (nargin < 19) || isempty(noInteract)
+    trainParams.noInteract = [];
+else
+    trainParams.noInteract = noInteract;
+end
+
+if (nargin < 20) || isempty(allowLinear)
+    trainParams.allowLinear = 0;
+else
+    trainParams.allowLinear = allowLinear;
+end
+
+if (nargin < 21) || isempty(forceLinear)
+    trainParams.forceLinear = [];
+else
+    trainParams.forceLinear = forceLinear;
 end
 
 return

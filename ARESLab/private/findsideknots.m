@@ -16,7 +16,7 @@ function [t1, t2, diff] = findsideknots(model, knotdim, knotsite, d, minX, maxX,
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ function [t1, t2, diff] = findsideknots(model, knotdim, knotsite, d, minX, maxX,
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: September 30, 2015
+% Last update: April 25, 2016
 
 if isempty(model.knotdims)
     if isempty(knotdim)
@@ -42,10 +42,10 @@ if isempty(model.knotdims)
         t1 = inf(1,d);
         t2 = inf(1,d);
         for di = 1 : d
-            temp = find(knotdim == di);
-            if ~isempty(temp)
-                t1(di) = (minX(di) + knotsite(temp)) / 2;
-                t2(di) = (knotsite(temp) + maxX(di)) / 2;
+            which = find(knotdim == di);
+            if ~isempty(which)
+                t1(di) = (minX(di) + knotsite(which)) / 2;
+                t2(di) = (knotsite(which) + maxX(di)) / 2;
             end
         end
     end
@@ -60,67 +60,74 @@ else
     else
         t1 = inf(length(model.knotdims),d);
         t2 = inf(length(model.knotdims),d);
-        dims = 1 : d;
+        dims = 1 : d; % take all dimensions
     end
-    % "ind" is indexes of functions which are in the di dimension
-    % "knot" is knotsites of those functions in the di dimension
+    % "idx" = indices of functions which are in the di dimension
+    % "knot" = knotsites of those functions in the di dimension
+    % for each dimension, make a list of central knots and place side knots
     for di = dims
         % find all used knotsites in the di dimension
-        ind = zeros(length(model.knotdims)+1,1);
-        knot = ind;
+        idx = zeros(length(model.knotdims)+1,1);
+        knot = idx;
         count = 0;
+        % list existing knots of this dimension
         for i = 1 : length(model.knotdims)
-            temp = model.knotdims{i} == di;
-            if any(temp)
+            which = model.knotdims{i} == di;
+            if any(which)
                 count = count + 1;
-                ind(count) = i;
-                knot(count) = model.knotsites{i}(temp);
+                idx(count) = i;
+                knot(count) = model.knotsites{i}(which);
             end
         end
+        % add the new knot to the list
         if ~isempty(knotdim)
-            temp = knotdim == di;
-            if any(temp)
+            which = knotdim == di;
+            if any(which)
                 count = count + 1;
-                % here ind(count) is already 0
-                knot(count) = knotsite(temp);
+                % here idx(count) is already 0 so we don't set it
+                knot(count) = knotsite(which);
             end
         end
-        ind = ind(1:count);
+        idx = idx(1:count);
         knot = knot(1:count);
         % sort the arrays by knot place
         [knot, ind2] = sort(knot);
-        ind = ind(ind2);
+        idx = idx(ind2);
         % calculate and store t1, t2
         % (it is possible that two or more functions have the same central
         % knot and so the same side knots)
         i = 1;
         while (i <= length(knot))
+            % left side knot t1
             if i == 1
                 temp_t1 = (minX(di) + knot(i)) / 2;
             else
                 temp_t1 = (knot(i-1) + knot(i)) / 2;
             end
-            temp = find(knot == knot(i));
-            for j = 1 : length(temp)
-                if ind(temp(j)) ~= 0
-                    t1(ind(temp(j)),di) = temp_t1;
+            % store location
+            which = find(knot == knot(i));
+            for j = 1 : length(which)
+                if idx(which(j)) ~= 0
+                    t1(idx(which(j)),di) = temp_t1;
                 else
                     t1(end,di) = temp_t1;
                 end
             end
-            if knot(temp(end)) == knot(end)
+            % right side knot t2
+            if knot(which(end)) == knot(end)
                 temp_t2 = (knot(i) + maxX(di)) / 2;
             else
-                temp_t2 = (knot(i) + knot(temp(end)+1)) / 2;
+                temp_t2 = (knot(i) + knot(which(end)+1)) / 2;
             end
-            for j = 1 : length(temp)
-                if ind(temp(j)) ~= 0
-                    t2(ind(temp(j)),di) = temp_t2;
+            % store location
+            for j = 1 : length(which)
+                if idx(which(j)) ~= 0
+                    t2(idx(which(j)),di) = temp_t2;
                 else
                     t2(end,di) = temp_t2;
                 end
             end
-            i = i + length(temp);
+            i = i + length(which);
         end
     end
     % find the difference between old t1,t2 and new t1,t2

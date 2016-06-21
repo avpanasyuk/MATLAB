@@ -3,41 +3,42 @@ function [cBest, results] = arescvc(X, Y, trainParams, cTry, k, shuffle, ...
 % arescvc
 % Finds the "best" value for penalty c of the Generalized Cross-Validation
 % criterion from a set of candidate values using Cross-Validation assuming
-% that all the other parameters for function aresparams would stay fixed.
+% that all the other parameters of function aresparams would stay fixed.
+% For a good alternative to using this function, see Section 3.3 in user's
+% manual.
 %
 % Call:
 %   [cBest, results] = arescvc(X, Y, trainParams, cTry, k, shuffle, ...
 %   	nCross, weights, testWithWeights, verbose)
 %
 % All the input arguments, except the first three, are optional. Empty
-% values are also accepted (the corresponding default values will be used).
+% values are also accepted (the corresponding defaults will be used).
 % Note that, if argument shuffle is set to true, this function employs
 % random number generator for which you can set seed before calling the
 % function.
 %
 % Input:
-%   X, Y          : Observations. See description for function aresbuild.
-%   trainParams   : A structure of training parameters. If not provided,
-%                   default values will be used (see function aresparams
-%                   for details).
-%   cTry          : A set of candidate values for c (default value = 1:5).
+%   X, Y          : The data. See description of function aresbuild.
+%   trainParams   : A structure of training parameters (see function
+%                   aresparams for details).
+%   cTry          : A set of candidate values for c. (default value = 1:5)
 %   k             : Value of k for k-fold Cross-Validation. The typical
 %                   values are 5 or 10. For Leave-One-Out Cross-Validation
 %                   set k equal to n. (default value = 10)
 %   shuffle       : Whether to shuffle the order of the observations before
-%                   performing Cross-Validation (default value = true).
+%                   performing Cross-Validation. (default value = true)
 %   nCross        : How many times to repeat Cross-Validation with
 %                   different data partitioning. This can be used to get
 %                   more stable results. Default value = 1, i.e., no
 %                   repetition. Useless if shuffle = false.
 %   weights       : A vector of weights for observations. See description
-%                   for function aresbuild.
+%                   of function aresbuild.
 %   testWithWeights : Set to true to use weights vector for both, training
 %                   and testing. Set to false to use it for training only.
 %                   This argument has any effect only when weights vector
 %                   is provided. (default value = true)
-%   verbose       : Whether to output additional information to console
-%                   (default value = true).
+%   verbose       : Whether to output additional information to console.
+%                   (default value = true)
 %
 % Output:
 %   cBest         : The best found value for penalty c.
@@ -45,13 +46,22 @@ function [cBest, results] = arescvc(X, Y, trainParams, cTry, k, shuffle, ...
 %                   values from cTry. Second column contains the calculated
 %                   MSE values (averaged across all Cross-Validation folds)
 %                   for the corresponding cTry values.
+%
+% Remarks:
+% This function finds the "best" penalty c value in a clever way. In each
+% Cross-Validation iteration, the forward phase in aresbuild is done only
+% once while the backward phase is done separately for each cTry value. The
+% results will be the same as if each time a full model building process
+% would be performed because in the forward phase the GCV criterion is not
+% used. Except if aresparams parameter terminateWhenInfGCV is set to true -
+% in that case the results may sometimes slightly differ.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -67,9 +77,9 @@ function [cBest, results] = arescvc(X, Y, trainParams, cTry, k, shuffle, ...
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: October 14, 2015
+% Last update: April 25, 2016
 
-if nargin < 2
+if nargin < 3
     error('Not enough input arguments.');
 end
 
@@ -82,12 +92,8 @@ if ny ~= n
     error('The number of rows in X and Y should be equal.');
 end
 
-if (nargin < 3) || isempty(trainParams)
-    trainParams = aresparams();
-else
-    if ~trainParams.prune
-        error('Model pruning is disabled (does not make sense because penalty c is used only in pruning).');
-    end
+if ~trainParams.prune
+	error('Model pruning is disabled (does not make sense because penalty c is for controlling pruning).');
 end
 
 if (nargin < 4) || isempty(cTry)
@@ -136,7 +142,7 @@ for iCross = 1 : nCross
     MSE(:,range) = doCV(X, Y, trainParams, cTry, k, shuffle, weights, testWithWeights, verbose, n, d, dy, cNum);
 end
 MSE = mean(MSE,2); % mean across all folds
-[dummy, ind] = min(MSE);
+[~, ind] = min(MSE);
 cBest = cTry(ind);
 results(:,1) = cTry;
 results(:,2) = MSE;
@@ -205,6 +211,9 @@ for i = 1 : k
         % modelling so that aresbuild does not return a model that is
         % forced to be cubic already before the turned-off backward phase
         trainParams.cubic = false;
+    end
+    if trainParams.terminateWhenInfGCV
+        trainParams.c = min(cTry); % so that forward phase doesn't terminate too soon
     end
     modelUnpruned = aresbuild(Xtr, Ytr, trainParams, w, true, [], [], false); % unpruned model
     trainParams.prune = true;

@@ -6,15 +6,15 @@ function results = arestest(model, Xtst, Ytst, weights)
 %   results = arestest(model, Xtst, Ytst, weights)
 %
 % Input:
-%   model         : ARES model or a cell array of ARES models (for
-%                   multi-response modelling).
+%   model         : ARES model or, for multi-response modelling, a cell
+%                   array of ARES models.
 %   Xtst, Ytst    : Xtst is a matrix with rows corresponding to testing
 %                   observations, and columns corresponding to input
 %                   variables. Ytst is either a column vector of response
 %                   values or, for multi-response data, a matrix with
 %                   columns corresponding to response variables.
 %   weights       : Optional. A vector of weights for observations. See
-%                   description for function aresbuild.
+%                   description of function aresbuild.
 %
 % Output:
 %   results       : A structure of different error measures calculated on
@@ -32,7 +32,7 @@ function results = arestest(model, Xtst, Ytst, weights)
 % Author: Gints Jekabsons (gints.jekabsons@rtu.lv)
 % URL: http://www.cs.rtu.lv/jekabsons/
 %
-% Copyright (C) 2009-2015  Gints Jekabsons
+% Copyright (C) 2009-2016  Gints Jekabsons
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ function results = arestest(model, Xtst, Ytst, weights)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: September 30, 2015
+% Last update: April 25, 2016
 
 if nargin < 3
     error('Not enough input arguments.');
@@ -70,10 +70,15 @@ else
 end
 
 numModels = length(model);
+if dy ~= numModels
+    error('The number of columns in Ytst should match the number of models.');
+end
+if ((numModels == 1) && (length(model.minX) ~= size(Xtst,2))) || ...
+   ((numModels > 1) && (length(model{1}.minX) ~= size(Xtst,2)))
+    error('The number of columns in Xtst is different from the number when the model was built.');
+end
+
 if numModels == 1
-    if dy ~= 1
-        error('Ytst should have one column.');
-    end
     residuals = arespredict(model, Xtst) - Ytst;
     if isempty(weights)
         results.MAE = mean(abs(residuals));
@@ -92,9 +97,6 @@ if numModels == 1
         results.R2 = -Inf;
     end
 else
-    if dy ~= numModels
-        error('The number of columns in Ytst should match the number of models.');
-    end
     results.MAE = Inf(1,dy);
     results.MSE = Inf(1,dy);
     results.RMSE = Inf(1,dy);
