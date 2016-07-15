@@ -15,7 +15,11 @@ function c = struct2cell(s)
     else
       c{1,end+1} = fn{fi};
       % c{2:numel(f)+1,end} = f(:);
+      if isstr(f)
+        c{2,end} = f;
+      else
        for ci=1:numel(f), c{ci+1,end} = f(ci); % no other assignment works
+      end
     end
   end
 end  

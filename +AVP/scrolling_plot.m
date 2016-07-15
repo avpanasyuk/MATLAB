@@ -39,6 +39,8 @@ classdef scrolling_plot < handle
     end
     
     function AddPoints(a,y,x)
+      %> @param y - array[SampleI, ParamI]
+      %> @param x - vector[SampleI]
       if isempty(y), return; end
       n_vars = size(y,2);
       

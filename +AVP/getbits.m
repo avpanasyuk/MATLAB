@@ -7,8 +7,10 @@ function bit = getbits(val, num, lowest)
   
   %% bring everything to common size if possible
   if numel(val) ~= 1, Sz = size(val);
-  else if numel(num) ~= 1, Sz = size(num);
-    else numel(lowest) ~= 1, Sz = size(lowest);
+  else
+    if numel(num) ~= 1, Sz = size(num);
+    else
+      if numel(lowest) ~= 1, Sz = size(lowest); end
     end
   end  
   if numel(val) ~= 1
