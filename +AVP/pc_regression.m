@@ -10,32 +10,22 @@
 % biggest correlation with the Y, and not by SV
 % X and LC 
 function res = pc_regression(X,y,options)
-  SV_range = 3; % the lowest considered Sval is Sval(1)/10^SV_range
   SVvsCorr = 1; % when we choose PC how important is SV vs correlation with Coeff.
 % when  SVvsCorr == 0 it should be analog of SVD. 
 
   if exist('options','var'),
-    if isfield(options,'SV_range'), SV_range = options.SV_range; end
     if isfield(options,'SVvsCorr'), SVvsCorr = options.SVvsCorr; end
   else options = []; end
 
   [U,S,V] = svd(X,0); % X = U*S*V'.
-  % we can not really use all S values, some of then are way too small and
-  % screw things up
-  S = diag(S);
-  LastSVi = find(S > S(1)/10.^SV_range,1,'last');
-  
-  % V = V(:,1:LastSVi);
-  Sinv = 1./S(1:LastSVi);
-  U = U(:,1:LastSVi);
+  Sinv = 1./diag(S);
 
   % calculate all correlations
   Corrs = U.'*y; % no need to normalize, U - orthonormal
   [~,SortI] = sort(abs(Corrs.^SVvsCorr./Sinv.^(1-SVvsCorr)),'descend');
   % Ok, now we just have to reorder matrices in order of best vector correlation
   % and we are done
-  res = struct('V',V(:,SortI),'Sinv',Sinv(SortI),'U',U(:,SortI),...
-    'Ys',y);
+  res = struct('V',V(:,SortI),'Sinv',Sinv(SortI),'U',U(:,SortI),'Corrs',Corrs);
 end
 
 function pc_regression_log
