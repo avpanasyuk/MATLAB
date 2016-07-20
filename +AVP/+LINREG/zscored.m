@@ -14,8 +14,10 @@ classdef zscored < handle
         repmat(a.Std,size(other,1),1);
     end
     
-    function x = reconstruct(a)
-      x = a.D.*repmat(a.Std,size(a.D,1),1) + repmat(a.Mean,size(a.D,1),1);
+    function dezscored = dezscore(a,other)
+      if ~exist('other','var'), other = a.D; end
+      dezscored = other.*repmat(a.Std,size(other,1),1) + ...
+        repmat(a.Mean,size(other,1),1);
     end
   end
 end
