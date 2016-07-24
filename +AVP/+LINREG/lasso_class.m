@@ -17,23 +17,22 @@ classdef lasso_class < AVP.LINREG.input_data
       a = a@AVP.LINREG.input_data(X,y);
     end
     
-    function do_lasso(a,complexity,options,varargin)
-      % default options
-      RelTol = 1e-3;
-      if exist('options','var')
-        if isfield(options,'RelTol'), RelTol = options.RelTol; end
-      else options = [];
+    function do_lasso(a,complexity,varargin)
+      RelErrMin = AVP.CheckOptionalVar('RelErrMin',{},varargin{:}); 
+      if isempty(RelErrMin)
+        weights = ones(numel(a.y.D),1);
+      else
+        weights = 1./(abs(a.y.D) + RelErrMin);
       end
       
-      a.options = options;
+      a.options = varargin;
       a.complexity = complexity;
-      [a.C a.FitInfo] = lasso(a.X.D,a.y.D,'Lambda',10.^(-complexity),...
-        'Standardize',false,'RelTol',RelTol,...
-        'Options',statset('UseParallel',true),varargin{:});
+      [a.C, a.FitInfo] = lasso(a.X.D,a.y.D,'Lambda',10.^(-complexity),...
+        'Standardize',false,'Options',statset('UseParallel',true),...
+        'weights',weights);
     end
     
-    function [C, Offset] = get_C(a, varargin)
-      %> @param varargin (optional) - 'compexity'
+    function [C, Offset] = get_C(a)
       [C, Offset] = a.dezscore_solution(a.C);
     end
     
@@ -47,20 +46,21 @@ classdef lasso_class < AVP.LINREG.input_data
     end
   end
   methods(Static)
-    function [err, Ypredict, C, Offset] = K_fold_err(X,Y,complexity,k)
+    function [err, Ypredict, C, Offset] = K_fold_err(X,Y,complexity,k,varargin)
       %> this is a function for fminbnd to find best complecity
       %> @retval err is normalized by std(Y)
       [Ypredict, C, Offset] = AVP.KfoldCrossVerif(...
-        @(Xpart,Ypart) AVP.LINREG.lasso_class.run(Xpart,Ypart,complexity),X,Y,k);
+        @(Xpart,Ypart) AVP.LINREG.lasso_class.run(Xpart,Ypart,complexity,...
+        varargin{:}),X,Y,k);
       err = std(Ypredict - Y,1,1)./std(Y,1,1);
     end
-    function [Coeffs, Offsets] = run(X,Y,complexity)
+    function [Coeffs, Offsets] = run(X,Y,complexity,varargin)
       % function for AVP.KfoldCrossVerif. 
-      % @retval Coeffs - zscored 
-      % @retval Offsets - zeros (because on zscored data)
+      % @retval Coeffs - dezscored 
+      % @retval Offsets 
       temp = AVP.LINREG.lasso_class(X,Y);
-      temp.do_lasso(complexity);
-      [Coeffs Offsets] = temp.get_C();
+      temp.do_lasso(complexity,varargin{:});
+      [Coeffs, Offsets] = temp.get_C();
     end
   end
 end
