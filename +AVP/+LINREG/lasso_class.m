@@ -36,7 +36,7 @@ classdef lasso_class < AVP.LINREG.input_data
       [C, Offset] = a.dezscore_solution(a.C);
     end
     
-    function [err, training] = K_fold_err(a,complexity,k,all_folds)
+    function [err, training, Ypredict] = K_fold_err(a,complexity,k,all_folds)
       %> @retval err is normalized by std(Y)
       if ~exist('k','var'), k = 10; end
       if exist('all_folds','var') &&  all_folds
@@ -45,24 +45,30 @@ classdef lasso_class < AVP.LINREG.input_data
         num_folds = 1;
       end
       
-      n_test = fix(size(a.X.D,1)/k);
-      err = zeros(1,num_folds);
-      for foldI = 1:num_folds
-        TestIds = (foldI - 1)*n_test + [1:n_test];
-        Xtrain = a.X.D;
+      Ns = size(a.X.D,1);
+      %n_test = fix(Ns/k);
+      Ypred = cell(1,num_folds);
+
+      PartBoundI = round(linspace(1,Ns+1,k+1));
+      X = a.X.reconstruct();
+      y = a.y.reconstruct(); 
+      
+      parfor foldI = 1:num_folds
+        TestIds = [PartBoundI(foldI):PartBoundI(foldI+1)-1];
+        Xtrain = X;
         Xtrain(TestIds,:) = [];
-        y_train = a.y.D;
+        y_train = y;
         y_train(TestIds) = [];
         
         % we are using z_scored X and y here, but it should not make any
         % difference
         training{foldI} = AVP.LINREG.lasso_class(Xtrain,y_train);
         training{foldI}.do_lasso(complexity);
-        test_set = AVP.LINREG.lasso_class(a.X.D(TestIds,:),a.y.D(TestIds));
-        
-        err(foldI) = AVP.rms(test_set.get_error_zscored(training{foldI}.C));
+        [Coeffs Offset] = training{foldI}.get_C();
+        Ypred{foldI} = X(TestIds,:)*Coeffs + Offset;
       end
-      err = median(err);
+      Ypredict = vertcat(Ypred{:});
+      err = std(Ypredict - y,1,1)./std(y,1,1);      
     end
     
     function Err_zscored = get_error_zscored(a,C_other_zscored)
@@ -71,6 +77,10 @@ classdef lasso_class < AVP.LINREG.input_data
     
     function errs = get_self_error(a)
       errs = AVP.rms(a.get_error_zscored(a.C));
+    end
+    
+    function get_fit(a,other_C)
+      if ~exist('other_C','var'), other_C = a.C; end
     end
   end
 end
