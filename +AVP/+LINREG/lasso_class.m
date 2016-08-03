@@ -44,6 +44,21 @@ classdef lasso_class < AVP.LINREG.input_data
     function errs = get_self_error(a)
       errs = AVP.rms(a.get_error_zscored(a.C));
     end
+    
+    function [Merit, Err, Ypredict, C, Offset] = ...
+        CrossDataset_err(a,X2,Y2,complexity,varargin)
+      %> this is a function for fminbnd to find best complecity
+      %> @retval Err is error normalized by std(Y)
+      %> @retval Merit is Err times numel(C)^NumelC_Pwr
+      NumelC_Pwr = AVP.CheckOptionalVar('NumelC_Pwr',0,varargin{:}); 
+
+      a.do_lasso(complexity,varargin{:});
+      [C, Offset] = get_C(a);
+      Ypredict = X2*C + Offset; 
+      Err = std(Ypredict - Y2,1,1)./std(Y2,1,1);
+      Merit = Err*numel(find(C)).^NumelC_Pwr;
+    end
+    
   end
   methods(Static)
     function [err, Ypredict, C, Offset] = K_fold_err(X,Y,complexity,k,varargin)

@@ -86,7 +86,12 @@ classdef scrolling_plot < handle
           for pli=1:n_vars
             subplot(n_vars,1,pli)
             a.plots{pli} = plot(a.data_x(:,pli),a.data_y(:,pli),a.plot_props{:});
-            if ~isempty(a.plot_names), ylabel(a.plot_names{pli}); end
+            if ~isempty(a.plot_names)
+              if numel(a.plot_names) ~= n_vars
+                error('Wrong number of label strings!');
+              end
+              ylabel(a.plot_names{pli}); 
+            end
             axis tight
             if pli == n_vars, a.x_start_lbl = xlabel(x_lbl_str); end
           end

@@ -8,7 +8,7 @@ function [Value, out_varargin] = CheckOptionalVar(VarName,default,varargin)
     Value = default;
     out_varargin = [varargin,VarName,default];
   else
-    Value = varargin{Place+1};
+    Value = varargin{2*Place};
     out_varargin = varargin;
   end  
 end
