@@ -26,7 +26,8 @@ co = [0 0 1;
       0.25 0.25 0.25];
 set(groot,'defaultAxesColorOrder',co)
 
-clearvars -except  PROJECT_DIR REP_ROOT DATA_DIR
+AVP.clearvars()
+
 
 
   
