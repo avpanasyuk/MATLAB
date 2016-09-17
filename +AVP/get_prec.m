@@ -7,4 +7,5 @@ function prec = get_prec
   prec.int8 = 1;
   prec.int16 = 2;
   prec.int32 = 4;
+  prec.float32 = 4;
 end
