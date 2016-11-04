@@ -7,8 +7,8 @@ function [Ypredict, C, Offset] = KfoldCrossVerif(regress_func,X,Y,k,varargin)
   %! @param regress_func is [Coeffs Offsets] = func(X,Y,...)
   %! @retval Ypredict
   %! @retval C
-  func_params = AVP.CheckOptionalVar('func_params',{},varargin{:});
-  RandomPick = AVP.CheckOptionalVar('RandomPick',false,varargin{:});
+  func_params = AVP.opt_param('func_params',{},varargin{:});
+  RandomPick = AVP.opt_param('RandomPick',false,varargin{:});
   
   Ns = size(X,1);
   if Ns ~= size(Y,1)
