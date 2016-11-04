@@ -18,7 +18,7 @@ classdef lasso_class < AVP.LINREG.input_data
     end
     
     function do_lasso(a,complexity,varargin)
-      RelErrMin = AVP.CheckOptionalVar('RelErrMin',{},varargin{:}); 
+      RelErrMin = AVP.opt_param('RelErrMin',{},varargin{:}); 
       if isempty(RelErrMin)
         weights = ones(numel(a.y.D),1);
       else
@@ -50,7 +50,7 @@ classdef lasso_class < AVP.LINREG.input_data
       %> this is a function for fminbnd to find best complecity
       %> @retval Err is error normalized by std(Y)
       %> @retval Merit is Err times numel(C)^NumelC_Pwr
-      NumelC_Pwr = AVP.CheckOptionalVar('NumelC_Pwr',0,varargin{:}); 
+      NumelC_Pwr = AVP.opt_param('NumelC_Pwr',0,varargin{:}); 
 
       a.do_lasso(complexity,varargin{:});
       [C, Offset] = get_C(a);
