@@ -1,27 +1,20 @@
-function varImportance = aresanova(model, Xtr, Ytr, weights)
+function aresanova(model, Xtr, Ytr, weights)
 % aresanova
-% Performs ANOVA decomposition and variable importance assessment of the
-% given ARES model and reports the results. For details, see user's manual
-% as well as Sections 3.5 and 4.3 in (Friedman, 1991a) and Sections 2.4,
-% 4.1, and 4.4 in (Friedman, 1991b).
-% The function works with single-response models only.
+% Performs ANOVA decomposition of given ARES model and reports the results.
+% For details, see remarks on aresanova in user's manual as well as
+% Sections 3.5 and 4.3 in (Friedman, 1991a) and Sections 2.4 and 4.1 in
+% (Friedman, 1991b).
+% For multi-response modelling, supply one submodel at a time.
 %
 % Call:
-%   varImportance = aresanova(model, Xtr, Ytr, weights)
-%
-% All the input arguments, except the last one, are required.
+%   aresanova(model, Xtr, Ytr, weights)
 %
 % Input:
 %   model         : ARES model.
 %   Xtr, Ytr      : Training data observations. The same data that was used
 %                   when the model was built.
-%   weights       : A vector of weights for observations. The same weights
-%                   that were used when the model was built.
-%
-% Output:
-%   varImportance : Relative variable importances. Scaled so that the
-%                   relative importance of the most important variable has
-%                   a value of 100.
+%   weights       : Optional. A vector of weights for observations. The
+%                   same weights that were used when the model was built.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
@@ -44,20 +37,36 @@ function varImportance = aresanova(model, Xtr, Ytr, weights)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: April 25, 2016
+% Last update: May 15, 2016
 
 if nargin < 3
     error('Not enough input arguments.');
 end
+
 if isempty(Xtr) || isempty(Ytr)
     error('Data is empty.');
 end
+if iscell(Xtr) || iscell(Ytr)
+    error('Xtr and Ytr should not be cell arrays.');
+end
+if islogical(Ytr)
+    Ytr = double(Ytr);
+elseif ~isfloat(Ytr)
+    error('Ytr data type should be double or logical.');
+end
+if ~isfloat(Xtr)
+    error('Xtr data type should be double.');
+end
+if any(any(isnan(Xtr)))
+    error('ARESLab cannot handle missing values (NaN).');
+end
+
 [n, d] = size(Xtr); % number of observations and number of input variables
 if size(Ytr,1) ~= n
     error('The number of rows in Xtr and Ytr should be equal.');
 end
 if length(model) > 1
-    error('This function works with single-response models only.');
+    error('This function works with single-response models only. You can supply one submodel at a time.');
 else
     if iscell(model)
         model = model{1};
@@ -112,7 +121,7 @@ for i = 1 : nBasisExI
     priority(i) = sum(sorted .* (nVars .^ ((maxNumInteract-1):-1:0)));
 end
 [~, idx] = sort(priority);
-% Show ANOVA functions ordered by their priority
+% Show ANOVA functions ordered by their priority (i.e., depending on the subset of used variables)
 counterANOVA = 0;
 for i = 1 : length(idx)
     if idx(i) <= 0
@@ -123,26 +132,6 @@ for i = 1 : length(idx)
     for j = usedBasis
         idx(idx == j) = 0;
     end
-end
-
-fprintf('Relative variable importance:\n');
-fprintf('Variable\tImportance\n');
-varImportance = zeros(nVars,1);
-for v = 1 : nVars
-    funcsToDel = [];
-    for i = 1 : nBasisExI
-        if any(model.knotdims{i} == v)
-            funcsToDel = [funcsToDel i];
-        end
-    end
-    if ~isempty(funcsToDel)
-        modelReduced = aresdel(model, funcsToDel, Xtr, Ytr, weights);
-        varImportance(v) = sqrt(modelReduced.GCV) - sqrt(model.GCV);
-    end
-end
-varImportance = varImportance ./ max(varImportance) .* 100;
-for v = 1 : nVars
-    fprintf('%d\t\t\t%10.3f\n', v, varImportance(v));
 end
 return
 
@@ -172,6 +161,7 @@ function usedBasis = printLine(model, Xtr, Ytr, weights, gcvNull, counterANOVA, 
 return
 
 function res = var2(values, weights)
+% Calculates variance either normally or using weights
 if isempty(weights)
     res = var(values, 1);
 else

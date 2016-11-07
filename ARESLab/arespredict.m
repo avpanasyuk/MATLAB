@@ -1,9 +1,9 @@
-function Yq = arespredict(model, Xq)
+function [Yq, BX] = arespredict(model, Xq)
 % arespredict
 % Predicts response values for the given query points Xq using ARES model.
 %
 % Call:
-%   Yq = arespredict(model, Xq)
+%   [Yq, BX] = arespredict(model, Xq)
 %
 % Input:
 %   model         : ARES model or, for multi-response modelling, a cell
@@ -14,6 +14,8 @@ function Yq = arespredict(model, Xq)
 %   Yq            : Either a column vector of predicted response values or,
 %                   for multi-response modelling, a matrix with columns
 %                   corresponding to response variables.
+%   BX            : Basis matrix. Contains values of basis functions
+%                   applied to Xq.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
@@ -36,10 +38,16 @@ function Yq = arespredict(model, Xq)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: April 25, 2016
+% Last update: May 15, 2016
 
 if nargin < 2
     error('Not enough input arguments.');
+end
+if iscell(Xq)
+    error('Xq should not be cell array.');
+end
+if ~isfloat(Xq)
+    error('Xq data type should be double.');
 end
 
 numModels = length(model);
@@ -55,25 +63,25 @@ if length(model.minX) ~= size(Xq,2)
     error('The number of columns in Xq is different from the number when the model was built.');
 end
 
-X = ones(size(Xq,1),length(model.knotdims)+1);
+BX = ones(size(Xq,1),length(model.knotdims)+1);
 if model.trainParams.cubic
     for i = 1 : length(model.knotdims)
-        X(:,i+1) = createbasisfunction(Xq, X, model.knotdims{i}, model.knotsites{i}, ...
+        BX(:,i+1) = createbasisfunction(Xq, BX, model.knotdims{i}, model.knotsites{i}, ...
             model.knotdirs{i}, model.parents(i), model.minX, model.maxX, model.t1(i,:), model.t2(i,:));
     end
 else
     for i = 1 : length(model.knotdims)
-        X(:,i+1) = createbasisfunction(Xq, X, model.knotdims{i}, model.knotsites{i}, ...
+        BX(:,i+1) = createbasisfunction(Xq, BX, model.knotdims{i}, model.knotsites{i}, ...
             model.knotdirs{i}, model.parents(i), model.minX, model.maxX);
     end
 end
 
 if numModels == 1
-    Yq = X * model.coefs;
+    Yq = BX * model.coefs;
 else
     Yq = zeros(size(Xq, 1), numModels);
     for k = 1 : numModels
-        Yq(:,k) = X * models{k}.coefs;
+        Yq(:,k) = BX * models{k}.coefs;
     end
 end
 return

@@ -1,9 +1,25 @@
+ver. 1.13.0
+May 15, 2016
+* New experimental feature: turning ARES models into Generalized Linear Models (and, optionally, reduced using stepwise algorithm or lasso / elastic net / ridge regularization). See functions in folder "experimental". Currently, the functions are tested only with logit and probit. And they don't work with Octave.
+  Beware though, that all existing ARESLab functions that don't have the prefix "glm" in their names, keep seeing the new ARES GLM models as vanilla ARES models.
+* A new function: aresimp. The function estimates input variable importance using four criteria (the first one was used in aresanova in previous ARESLab versions).
+* Function aresanova no longer estimates variable importance.
+* Updated first example of usage to reflect the changes in aresanova / aresimp.
+* aresparams/aresparams2 argument maxInteractions now can be set to -1 so that aresbuild sets it automatically to the number of input variables.
+* New output argument for function arespredict: BX.
+* Function aresbuild:
+  > Output argument resultsEval has a new field: usedVars.
+  > Warning messages are now displayed using the warning function instead of disp.
+* Functions now have additional checks for correct X,Y argument types.
+* Functions now accept logical Y (internally converted to double).
+* In descriptions of some functions, changed the text "The function works with single-response models only." to something that makes it more clear that, in the case of multi-response modelling, the functions are actually able to work with one submodel at a time.
+
 ver. 1.12.1
 May 5, 2016
-* Added a new folder 'demos' containing the code from the examples of usage as well as some other stuff.
+* Added a new folder "demos" containing the code from the examples of usage as well as some other stuff.
 * Function aresplot:
   > The contour plot is now forced to always be at ZLim(1).
-  > The function now returns handle of the created figure.
+  > The function now returns handle to the created figure.
 * Function arescv: The selection of the "best" number of basis functions (example in Section 3.3) now can also be done using MSE (instead of the controversial R2). All the fields of the output argument resultsPruning are just duplicated. Example in Section 3.3 is modified accordingly.
 * A few user's manual touch-ups.
 
@@ -16,7 +32,7 @@ May 2, 2016
 * Function aresplot: If a variable has a knot on minX or maxX, 2D plots now show it. For variables that entered the basis function linearly, no knots are shown. 3D plots show all knots, even the "formal" knots for linear functions.
 * Function aresplot: Defaults for argument vals for binary input variables are now minX instead of (minX+maxX)/2.
 * All functions are updated to properly handle basis functions with variables entering them linearly.
-* Updated the first example of usage in user's manual to reflect all the changes.
+* Updated the first example of usage in user's manual to reflect the changes.
 
 ver. 1.11.0
 April 25, 2016
@@ -42,23 +58,23 @@ April 25, 2016
   > Displays an exclamation mark next to GCV value if deleting that ANOVA function would make its GCV better or unchanged.
   > Bugfix: R2GCV is now calculated as 1-GCV/GCVnull instead of 1-GCV/MSEnull. This change affects only the absolute values of R2GCVs but doesn't affect relative differences between R2GCVs, orderings by R2GCV, as well as simple decisions on deletion comparing R2GCV of full model to R2GCV of reduced model.
 * A new optional termination condition for the forward phase in aresbuild. Enable using the new parameter terminateWhenInfGCV (functions aresparams and arestparams2). False by default for consistency with previous ARESLab versions.
-* Added a new function: aresinfo.
+* A new function: aresinfo.
 * Output argument usedBasis of function aresanovareduce is now a row vector.
 * All functions, that among their input arguments have X and model, now check whether the model expects the same number of columns as there are in X.
 * For functions arescv and arescvc, input argument trainParams is now always required.
 * Various other minor code updates that don't change functionality.
-* A new example of usage in user's manual about useMinSpan and useEndSpan.
+* Added a new example of usage in user's manual about useMinSpan and useEndSpan.
 * Updated user's manual according to the new changes as well as wrote additional comments regarding parameter choices and did numerous touch-ups.
 
 ver. 1.10.3
 January 29, 2016
-* Added a new function: aresgetknots.
+* A new function: aresgetknots.
 * Function aresplot now can plot in 2D even if the dataset contains more than one input variable (as long as the model uses only one of the variables). This also allowed to simplify code for plotting in the first example of usage.
 
 ver. 1.10.2
 January 9, 2016
-* Added a new function: aresparams2. This is an alternative to aresparams for supplying parameters as name/value pairs.
-* Added a new argument noInteract for function aresparams for indicating which input variables are not allowed to interact with each other in the model.
+* A new function: aresparams2. This is an alternative to aresparams for supplying parameters as name/value pairs.
+* A new argument noInteract for function aresparams for indicating which input variables are not allowed to interact with each other in the model.
 * Function areseq now allows custom variable names for any kind of models.
 * Function aresbuild now handles weights slightly faster.
 * In function aresplot, 2D plots now have default gridSize increased to 400.
@@ -88,9 +104,9 @@ September 30, 2015
   arestest and arescv now reports MAE.
   Added a new input argument for arescv and arescvc: testWithWeights.
   arestest, and consequently arescv, now outputs -Inf instead of Inf for Coefficient of Determination when the number of observations in test data is 1.
-* Added a new function: aresdel.
+* A new function: aresdel.
 * Function aresanovareduce now also reduces matrix model.X (if it exists).
-* Reworked function aresanova according to a little newer Friedman's paper (Friedman, 1991b). Added relative variable importance assessment. The function now also handles weights.
+* Reworked function aresanova according to a little newer Friedman's paper (Friedman, 1991b). Added input variable importance estimation. The function now also handles weights.
 * Updated function aresplot: for datasets with one input variable, the function now plots knot locations and the graphs themselves are more accurate.
 * Changed the default value for hideCubicSmoothing in function areseq to true. The outputted cell array is now a column array.
 * If verbose=true, aresbuild now also prints the number of input variables in the final model as well as lists them.
@@ -145,13 +161,13 @@ ver. 1.6.0
 May 17, 2015
 * Fixed a bug in functions arescv and arescvc: if weights vector was provided the functions failed and gave a wrong error message. (Thanks to Marko Wilke for spotting this.)
 * Changed the default value for maxFuncs from 21 to 101 (could be more useful for some problems).
-* Some minor cosmetic changes to the source code according to the 'best practices'.
+* Some minor cosmetic changes to the source code according to the "best practices".
 * Some minor modifications of aresparams description in code as well as in user's manual, hopefully making it more clear.
 * Some additional user's manual touch-ups.
 
 ver. 1.5.1
 June 2, 2011
-* Fixed two little bugs in functions aresanova and aresanovareduce: the functions crashed when piecewise-linear models were used due to 'null index in null matrix' while accessing t1 and t2. (Thanks to Nir Yosef for spotting this.)
+* Fixed two little bugs in functions aresanova and aresanovareduce: the functions crashed when piecewise-linear models were used due to "null index in null matrix" while accessing t1 and t2. (Thanks to Nir Yosef for spotting this.)
 
 ver. 1.5.0
 September 15, 2010

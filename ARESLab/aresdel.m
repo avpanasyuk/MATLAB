@@ -8,8 +8,6 @@ function model = aresdel(model, funcsToDel, Xtr, Ytr, weights)
 % Call:
 %   model = aresdel(model, funcsToDel, Xtr, Ytr, weights)
 %
-% All the input arguments, except the last one, are required.
-%
 % Input:
 %   model         : ARES model or, for multi-response modelling, a cell
 %                   array of ARES models.
@@ -19,8 +17,8 @@ function model = aresdel(model, funcsToDel, Xtr, Ytr, weights)
 %                   model.knotdirs.
 %   Xtr, Ytr      : Training data observations. The same data that was used
 %                   when the model was built.
-%   weights       : A vector of weights for observations. The same weights
-%                   that were used when the model was built.
+%   weights       : Optional. A vector of weights for observations. The
+%                   same weights that were used when the model was built.
 %
 % Output:
 %   model         : Reduced ARES model.
@@ -46,7 +44,7 @@ function model = aresdel(model, funcsToDel, Xtr, Ytr, weights)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: April 25, 2016
+% Last update: May 15, 2016
 
 if nargin < 4
     error('Not enough input arguments.');
@@ -54,9 +52,25 @@ end
 if isempty(funcsToDel)
     return;
 end
+
 if isempty(Xtr) || isempty(Ytr)
     error('Data is empty.');
 end
+if iscell(Xtr) || iscell(Ytr)
+    error('Xtr and Ytr should not be cell arrays.');
+end
+if islogical(Ytr)
+    Ytr = double(Ytr);
+elseif ~isfloat(Ytr)
+    error('Ytr data type should be double or logical.');
+end
+if ~isfloat(Xtr)
+    error('Xtr data type should be double.');
+end
+if any(any(isnan(Xtr)))
+    error('ARESLab cannot handle missing values (NaN).');
+end
+
 funcsToDel = unique(funcsToDel(:)');
 [n, d] = size(Xtr); % number of observations and number of input variables
 if size(Ytr,1) ~= n
@@ -128,9 +142,9 @@ if isfield(model, 'X') % in this case we can do it a bit faster
                 model.knotdirs{i}, 0, model.minX, model.maxX, model.t1(i,:), model.t2(i,:));
         end
     end
-    ws = warning('off');
+    origWarningState = warning('off');
     [model.coefs, model.MSE] = lreg(model.X, Ytr, weights);
-    warning(ws);
+    warning(origWarningState);
 else
     X = ones(n,length(model.knotdims)+1);
     if model.trainParams.cubic
@@ -147,9 +161,9 @@ else
                 model.knotdirs{i}, 0, model.minX, model.maxX);
         end
     end
-    ws = warning('off');
+    origWarningState = warning('off');
     [model.coefs, model.MSE] = lreg(X, Ytr, weights);
-    warning(ws);
+    warning(origWarningState);
 end
 
 if isempty(weights)

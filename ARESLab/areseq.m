@@ -1,7 +1,7 @@
 function eq = areseq(model, precision, varNames, binarySimple, expandParentBF, cubicSmoothing)
 % areseq
 % Prints equations of ARES model.
-% The function works with single-response models only.
+% For multi-response modelling, supply one submodel at a time.
 %
 % Call:
 %   eq = areseq(model, precision, varNames, binarySimple, ...
@@ -76,13 +76,13 @@ function eq = areseq(model, precision, varNames, binarySimple, expandParentBF, c
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: May 2, 2016
+% Last update: May 15, 2016
 
 if nargin < 1
     error('Not enough input arguments.');
 end
 if length(model) > 1
-    error('This function works with single-response models only.');
+    error('This function works with single-response models only. You can supply one submodel at a time.');
 else
     if iscell(model)
         model = model{1};
@@ -226,7 +226,7 @@ eq{end+1,1} = func;
 if model.trainParams.cubic
     if strcmpi(cubicSmoothing, 'hide')
         if isPrint, fprintf('\n'); end
-        fprintf('WARNING: Piecewise-cubic spline smoothing hidden.\n');
+        disp('WARNING: Piecewise-cubic spline smoothing hidden.');
     end
 end
 

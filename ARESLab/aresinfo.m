@@ -8,7 +8,7 @@ function aresinfo(model, Xtr, Ytr, weights, showBF, sortByGCV, binarySimple, exp
 % given full model, a basis function is making an important contribution,
 % or whether it just slightly helps to improve the global GCV score. See
 % remarks below.
-% The function works with single-response models only.
+% For multi-response modelling, supply one submodel at a time.
 %
 % Call:
 %   aresinfo(model, Xtr, Ytr, weights, showBF, sortByGCV, binarySimple, ...
@@ -45,8 +45,8 @@ function aresinfo(model, Xtr, Ytr, weights, showBF, sortByGCV, binarySimple, exp
 %
 % Remarks:
 % 1. If it is determined that by deleting a one specific basis function GCV
-%    would decrease (i.e., model would get better) or stay the same, you
-%    will see an exclamation mark next to the GCV value of that basis
+%    would decrease (i.e., model would get better) or stay about the same,
+%    you will see an exclamation mark next to the GCV value of that basis
 %    function. This can happen either because the basis function is
 %    irrelevant or it's redundant with some other basis function(s) in the
 %    model. But note that if more than one basis function has such mark, it
@@ -94,20 +94,36 @@ function aresinfo(model, Xtr, Ytr, weights, showBF, sortByGCV, binarySimple, exp
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: May 2, 2016
+% Last update: May 15, 2016
 
 if nargin < 3
     error('Not enough input arguments.');
 end
+
 if isempty(Xtr) || isempty(Ytr)
     error('Data is empty.');
 end
+if iscell(Xtr) || iscell(Ytr)
+    error('Xtr and Ytr should not be cell arrays.');
+end
+if islogical(Ytr)
+    Ytr = double(Ytr);
+elseif ~isfloat(Ytr)
+    error('Ytr data type should be double or logical.');
+end
+if ~isfloat(Xtr)
+    error('Xtr data type should be double.');
+end
+if any(any(isnan(Xtr)))
+    error('ARESLab cannot handle missing values (NaN).');
+end
+
 [n, d] = size(Xtr); % number of observations and number of input variables
 if size(Ytr,1) ~= n
     error('The number of rows in Xtr and Ytr should be equal.');
 end
 if length(model) > 1
-    error('This function works with single-response models only.');
+    error('This function works with single-response models only. You can supply one submodel at a time.');
 else
     if iscell(model)
         model = model{1};

@@ -7,7 +7,7 @@ function [model, usedBasis] = aresanovareduce(model, varsToStay, exact)
 % well as for investigation of individual and joint contributions of
 % variables in the model, i.e., the reduced model can then be plotted to
 % visualize the contributions.
-% The function works with single-response models only.
+% For multi-response modelling, supply one submodel at a time.
 %
 % Call:
 %   [model, usedBasis] = aresanovareduce(model, varsToStay, exact)
@@ -48,7 +48,7 @@ function [model, usedBasis] = aresanovareduce(model, varsToStay, exact)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: September 30, 2015
+% Last update: May 15, 2016
 
 if nargin < 2
     error('Not enough input arguments.');
@@ -57,7 +57,7 @@ if isempty(varsToStay)
     error('varsToStay is empty.');
 end
 if length(model) > 1
-    error('This function works with single-response models only.');
+    error('This function works with single-response models only. You can supply one submodel at a time.');
 else
     if iscell(model)
         model = model{1};

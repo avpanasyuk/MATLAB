@@ -35,6 +35,10 @@ legend(h, 'MSE', 'GCV', 'Selected model');
 % Plotting the model. Varying variables 1 and 2. Variables 3, 4, and 5 are fixed at their (min+max)/2
 aresplot(model, [1 2]);
 
+% Variable importance
+disp('Variable importances ================================================');
+aresimp(model, X, Y, resultsEval);
+
 % ANOVA decomposition
 disp('ANOVA decomposition =================================================');
 aresanova(model, X, Y);
@@ -64,7 +68,7 @@ resultsCV = arescv(X, Y, params)
 
 %%
 
-% Code for Section 3.3
+% Code from Section 3.3
 
 clc;
 

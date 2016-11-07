@@ -100,7 +100,10 @@ function trainParams = aresparams(maxFuncs, c, cubic, cubicFastLevel, ...
 %                   between the variables, set the parameter to
 %                   d * selfInteractions, where d is the number of input
 %                   variables – this way the modelling procedure will have
-%                   the most freedom building a complex model.
+%                   the most freedom building a complex model. Set to -1,
+%                   so that aresbuild sets it automatically equal to d
+%                   (maximal interactivity when self interactions are not
+%                   used).
 %   threshold     : One of the stopping criteria for the forward phase (see
 %                   remarks section of function aresbuild in user's manual
 %                   for details). Default value = 1e-4. For noise-free
@@ -117,11 +120,11 @@ function trainParams = aresparams(maxFuncs, c, cubic, cubicFastLevel, ...
 %                   model building is faster at the expense of some
 %                   accuracy. Good starting values for exploratory work
 %                   are fastK = 20, fastBeta = 1, fastH = 5 (Friedman,
-%                   1993). Friedman in his paper concluded that, while
-%                   changing the values of fastK and fastH can have big
-%                   effect on training computation times, predictive
-%                   performance is largely unaffected over a wide range of
-%                   their values (Friedman, 1993).
+%                   1993). Friedman in his paper concluded that changing
+%                   the values of fastK and fastH can have big effect on
+%                   training computation times but predictive performance
+%                   is largely unaffected over a wide range of their values
+%                   (Friedman, 1993).
 %   fastBeta      : Artificial ageing factor for Fast MARS algorithm
 %                   (Friedman, 1993, Section 3.1). Typical value for
 %                   fastBeta is 1 (default value = 0, i.e., no artificial
@@ -251,12 +254,14 @@ function trainParams = aresparams(maxFuncs, c, cubic, cubicFastLevel, ...
 %                   hinge functions. This overrides allowLinear for the
 %                   listed variables. Note that forceLinear does not say
 %                   that a variable must enter the model; only that if it
-%                   enters, it enters linearly. Default value = [].
+%                   enters, it enters linearly. Also note that it has
+%                   nothing to do with whether a variable is allowed to
+%                   interact with other variables. Default value = [].
 %
 % Output:
 %   trainParams   : A structure of parameters for further use with
 %                   aresbuild, arescv, and arescvc functions containing the
-%                   provided values (or default ones, if not provided).
+%                   provided values (or defaults, if not provided).
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
@@ -279,7 +284,7 @@ function trainParams = aresparams(maxFuncs, c, cubic, cubicFastLevel, ...
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: May 5, 2016
+% Last update: May 15, 2016
 
 if (nargin < 1) || isempty(maxFuncs)
     trainParams.maxFuncs = -1; % automatic
@@ -312,10 +317,6 @@ if (nargin < 5) || isempty(selfInteractions)
     trainParams.selfInteractions = 1;
 else
     trainParams.selfInteractions = selfInteractions;
-end
-if (trainParams.cubic) && (trainParams.selfInteractions > 1)
-    trainParams.selfInteractions = 1;
-    disp('Warning: trainParams.selfInteractions value reverted to 1 due to piecewise-cubic setting.');
 end
 
 if (nargin < 6) || isempty(maxInteractions)

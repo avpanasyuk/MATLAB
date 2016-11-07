@@ -1,11 +1,11 @@
 function fh = aresplot(model, idx, vals, minX, maxX, gridSize, showKnots, varargin)
 % aresplot
-% Plots ARES model. For datsets with one input variable, plots the model
+% Plots ARES model. For datasets with one input variable, plots the model
 % together with its knot locations. For datasets with more than one input
 % variable, plots 3D surface. If idx is not provided, checks if the model
 % uses more than one variable and, if not, plots in 2D even if the dataset
 % has more than one input variable.
-% The function works with single-response models only.
+% For multi-response modelling, supply one submodel at a time.
 %
 % Call:
 %   fh = aresplot(model, idx, vals, minX, maxX, gridSize, showKnots, varargin)
@@ -22,9 +22,9 @@ function fh = aresplot(model, idx, vals, minX, maxX, gridSize, showKnots, vararg
 %   vals          : Only used when the number of input variables is larger
 %                   than two. This is a vector of fixed values for all the
 %                   input variables (except that the values for the varied
-%                   variables are not used). By default, for continuous
-%                   variables the values are (minX + maxX) / 2, for binary
-%                   variables (according to model.isBinary) the values are
+%                   variables are not used). By default, continuous
+%                   variables are fixed at (minX + maxX) / 2 but binary
+%                   variables (according to model.isBinary) are fixed at
 %                   minX.
 %   minX, maxX    : Minimum and maximum values for each input variable
 %                   (this is the same type of data as in model.minX and
@@ -56,7 +56,7 @@ function fh = aresplot(model, idx, vals, minX, maxX, gridSize, showKnots, vararg
 %                   and passed to axes.
 %
 % Input:
-%   fh            : Handle of the created figure.
+%   fh            : Handle to the created figure.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
@@ -79,13 +79,13 @@ function fh = aresplot(model, idx, vals, minX, maxX, gridSize, showKnots, vararg
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: May 5, 2016
+% Last update: May 15, 2016
 
 if nargin < 1
     error('Not enough input arguments.');
 end
 if length(model) > 1
-    error('This function works with single-response models only.');
+    error('This function works with single-response models only. You can supply one submodel at a time.');
 else
     if iscell(model)
         model = model{1};
@@ -255,7 +255,7 @@ end
 % Creating grid
 step1 = (maxX(ind1) - minX(ind1)) / gridSize;
 step2 = (maxX(ind2) - minX(ind2)) / gridSize;
-[X1,X2] = meshgrid(minX(ind1):step1:maxX(ind1), minX(ind2):step2:maxX(ind2));
+[X1, X2] = meshgrid(minX(ind1):step1:maxX(ind1), minX(ind2):step2:maxX(ind2));
 XX1 = reshape(X1, numel(X1), 1);
 XX2 = reshape(X2, numel(X2), 1);
 

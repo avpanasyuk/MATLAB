@@ -48,14 +48,30 @@ function results = arestest(model, Xtst, Ytst, weights)
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: April 25, 2016
+% Last update: May 15, 2016
 
 if nargin < 3
     error('Not enough input arguments.');
 end
+
 if isempty(Xtst) || isempty(Ytst)
     error('Data is empty.');
 end
+if iscell(Xtst) || iscell(Ytst)
+    error('Xtst and Ytst should not be cell arrays.');
+end
+if islogical(Ytst)
+    Ytst = double(Ytst);
+elseif ~isfloat(Ytst)
+    error('Ytst data type should be double or logical.');
+end
+if ~isfloat(Xtst)
+    error('Xtst data type should be double.');
+end
+if any(any(isnan(Xtst)))
+    error('ARESLab cannot handle missing values (NaN).');
+end
+
 [n, dy] = size(Ytst); % number of observations and number of output variables
 if (size(Xtst, 1) ~= n)
     error('The number of rows in Xtst and Ytst should be equal.');

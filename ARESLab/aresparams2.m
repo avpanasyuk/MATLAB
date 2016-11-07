@@ -15,7 +15,7 @@ function trainParams = aresparams2(varargin)
 % Output:
 %   trainParams   : A structure of parameters for further use with
 %                   aresbuild, arescv, and arescvc functions containing the
-%                   provided values (or default ones, if not provided).
+%                   provided values (or defaults, if not provided).
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave

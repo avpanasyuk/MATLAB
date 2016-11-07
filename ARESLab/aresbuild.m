@@ -20,11 +20,12 @@ function [model, time, resultsEval] = aresbuild(Xtr, Ytr, trainParams, ...
 %                   structure of the output of this function changes
 %                   depending on whether Ytr is a vector or a matrix (see
 %                   below).
-%                   All values must be numeric. Categorical variables with
-%                   more than two categories must be replaced with
-%                   synthetic binary variables before using aresbuild (or
-%                   any other ARESLab function), for example using function
-%                   dummyvar.
+%                   Xtr type must be double. Ytr type must be double or
+%                   logical (internally converted to double). Categorical
+%                   variables in Xtr with more than two categories must be
+%                   replaced with synthetic binary variables before using
+%                   aresbuild (or any other ARESLab function), for example
+%                   using function dummyvar.
 %                   For multi-response data, each model will have the same
 %                   set of basis functions but different coefficients. The
 %                   models are built and pruned as usual but with the
@@ -164,6 +165,8 @@ function [model, time, resultsEval] = aresbuild(Xtr, Ytr, trainParams, ...
 %                   fields are calculated using piecewise-linear models if
 %                   trainParams.cubicFastLevel = 2 and piecewise-cubic
 %                   models if trainParams.cubicFastLevel < 2.
+%     usedVars    : Logical matrix showing which input variables were used
+%                   in the best candidate model of each size.
 
 % =========================================================================
 % ARESLab: Adaptive Regression Splines toolbox for Matlab/Octave
@@ -190,28 +193,37 @@ function [model, time, resultsEval] = aresbuild(Xtr, Ytr, trainParams, ...
 % Jekabsons G., ARESLab: Adaptive Regression Splines toolbox for Matlab/
 % Octave, 2016, available at http://www.cs.rtu.lv/jekabsons/
 
-% Last update: May 5, 2016
+% Last update: May 15, 2016
 
 if nargin < 2
     error('Not enough input arguments.');
 end
 
-if (isempty(Xtr)) || (isempty(Ytr))
+if isempty(Xtr) || isempty(Ytr)
     error('Training data is empty.');
 end
-if (~isfloat(Xtr)) || (~isfloat(Ytr))
-    error('Data type should be floating-point.');
+if iscell(Xtr) || iscell(Ytr)
+    error('Xtr and Ytr should not be cell arrays.');
+end
+if islogical(Ytr)
+    Ytr = double(Ytr);
+elseif ~isfloat(Ytr)
+    error('Ytr data type should be double or logical.');
+end
+if ~isfloat(Xtr)
+    error('Xtr data type should be double.');
 end
 if any(any(isnan(Xtr)))
-    error('The toolbox cannot handle missing values (NaN).');
+    error('ARESLab cannot handle missing values (NaN).');
 end
+
 [n, d] = size(Xtr); % number of observations and number of input variables
 [ny, dy] = size(Ytr); % number of observations and number of output variables
 if ny ~= n
     error('The number of rows in Xtr and Ytr should be equal.');
 end
 if (ny == 1) && (dy > 1)
-    disp('WARNING: Ytr has one row but more than one column.');
+    warning('Ytr has one row but more than one column.');
 end
 
 if (nargin < 3) || isempty(trainParams)
@@ -219,7 +231,10 @@ if (nargin < 3) || isempty(trainParams)
 end
 if (trainParams.cubic) && (trainParams.selfInteractions > 1)
     trainParams.selfInteractions = 1;
-    disp('WARNING: trainParams.selfInteractions value reverted to 1 due to piecewise-cubic setting.');
+    warning('trainParams.selfInteractions value changed to 1 due to piecewise-cubic setting.');
+end
+if trainParams.maxInteractions < 0
+    trainParams.maxInteractions = d; % for maximal interactivity (except if selfInteractions are used)
 end
 if trainParams.cubic
     doCubicFastLevel = trainParams.cubicFastLevel;
@@ -231,20 +246,20 @@ else
 end
 if (trainParams.endSpanAdjust < 1)
     trainParams.endSpanAdjust = 1;
-    disp('WARNING: trainParams.endSpanAdjust value too small. Reverted to 1.');
+    warning('trainParams.endSpanAdjust value too small. Changed to 1.');
 end
 
 if (trainParams.fastK < 3)
     trainParams.fastK = 3;
-    disp('WARNING: trainParams.fastK value too small. Reverted to 3.');
+    warning('trainParams.fastK value too small. Changed to 3.');
 end
 if (trainParams.fastBeta < 0)
     trainParams.fastBeta = 0;
-    disp('WARNING: trainParams.fastBeta value too small. Reverted to 0.');
+    warning('trainParams.fastBeta value too small. Changed to 0.');
 end
 if (trainParams.fastH < 1)
     trainParams.fastH = 1;
-    disp('WARNING: trainParams.fastH value too small. Reverted to 1.');
+    warning('trainParams.fastH value too small. Changed to 1.');
 end
 
 if trainParams.useMinSpan == 0
@@ -325,7 +340,6 @@ if ~any([0 1 2] == trainParams.allowLinear)
 end
 
 if verbose, fprintf('Building ARES model...\n'); end
-ws = warning('off');
 ttt = tic;
 
 if isempty(weights)
@@ -403,8 +417,17 @@ else
     end
 end
 
+origWarningState = warning;
+if exist('OCTAVE_VERSION', 'builtin')
+    warning('off', 'Octave:nearly-singular-matrix');
+    warning('off', 'Octave:singular-matrix');
+else
+    warning('off', 'MATLAB:nearlySingularMatrix');
+    warning('off', 'MATLAB:singularMatrix');
+end
+
 if trainParams.useEndSpan * 2 >= n
-    disp('WARNING: trainParams.useEndSpan * 2 >= n');
+    warning('trainParams.useEndSpan * 2 >= n');
     if isempty(modelOld)
         isBinary = false(1,d);
         if dy == 1
@@ -1001,7 +1024,7 @@ else
         if verbose && (~isnan(sizeInfGCV)) && (length(model.coefs) >= 5)
             percent = (length(model.coefs) - sizeInfGCV) / length(model.coefs);
             if percent >= 0.2
-                fprintf('WARNING: The last %d%% iterations have models with GCV = Inf. Depending on your data, you might want to try either enabling terminateWhenInfGCV, lowering maxFuncs, or lowering c.\n', round(percent * 100));
+                warning('The last %d%% iterations have models with GCV = Inf. Depending on your data, you might want to try either enabling terminateWhenInfGCV, lowering maxFuncs, or lowering c.', round(percent * 100));
             end
         end
         
@@ -1158,6 +1181,12 @@ else
             end
         end
         
+        
+        if requestingResultsEval
+            resultsEval.usedVars = false(length(model.knotdims)+1,d);
+            resultsEval.usedVars(length(model.knotdims)+1,:) = getUsedVariables(model.knotdims, d);
+        end
+        
         % the main loop of the backward phase
         for j = 1 : length(model.knotdims)
             tmpErr = zeros(1, length(model.knotdims));
@@ -1174,7 +1203,7 @@ else
                     tmpCoefs{k} = inf(length(model.coefs)-1, length(model.knotdims));
                 end
             end
-
+            
             % try to delete basis functions one at a time
             for jj = 1 : length(model.knotdims)
                 Xtmp = X;
@@ -1242,6 +1271,10 @@ else
             model.knotdirs(ind) = [];
             model.parents(ind) = [];
             model.parents = updateParents(model.parents, ind);
+            
+            if requestingResultsEval
+                resultsEval.usedVars(length(model.knotdims)+1,:) = getUsedVariables(model.knotdims, d);
+            end
             
             if trainParams.cubic
                 t1(ind,:) = [];
@@ -1503,6 +1536,8 @@ else
     
 end % end of "if useEndSpan*2 >= n"
 
+warning(origWarningState);
+
 model.trainParams = trainParams;
 model.minX = minX;
 model.maxX = maxX;
@@ -1528,14 +1563,14 @@ if verbose
     end
     fprintf('Highest degree of interactions: %d\n', maxDeg);
     if ~isempty(vars)
-        list = '';
+        listStr = '';
         for i = 1:length(vars)
-            list = [list 'x' int2str(vars(i))];
+            listStr = [listStr 'x' int2str(vars(i))];
             if i < length(vars)
-                list = [list ', '];
+                listStr = [listStr ', '];
             end
         end
-        fprintf('Number of input variables in the model: %d (%s)\n', length(vars), list);
+        fprintf('Number of input variables in the model: %d (%s)\n', length(vars), listStr);
     else
         fprintf('Number of input variables in the model: 0\n');
     end
@@ -1555,7 +1590,6 @@ if dy > 1
     model = modelsY;
 end
 
-warning(ws);
 return
 
 %==========================================================================
@@ -1877,6 +1911,18 @@ for j = 1 : size(Xtr,1)
             break;
         end
     end
+end
+return
+
+function vars = getUsedVariables(knotdims, d)
+% Outputs a logical vector with true for variables that are included in the knotdims
+vars = false(1,d);
+if ~isempty(knotdims)
+    list = [];
+    for i = 1 : length(knotdims)
+        list = union(list, knotdims{i});
+    end
+    vars(list) = true;
 end
 return
 

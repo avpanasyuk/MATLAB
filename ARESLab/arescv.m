@@ -123,7 +123,7 @@ function [resultsTotal, resultsFolds, resultsPruning] = arescv(X, Y, ...
 % along with this program. If not, see <http://www.gnu.org/licenses/>.
 % =========================================================================
 
-% Last update: May 5, 2016
+% Last update: May 15, 2016
 
 if nargin < 3
     error('Not enough input arguments.');
@@ -132,6 +132,21 @@ end
 if isempty(X) || isempty(Y)
     error('Data is empty.');
 end
+if iscell(X) || iscell(Y)
+    error('X and Y should not be cell arrays.');
+end
+if islogical(Y)
+    Y = double(Y);
+elseif ~isfloat(Y)
+    error('Y data type should be double or logical.');
+end
+if ~isfloat(X)
+    error('X data type should be double.');
+end
+if any(any(isnan(X)))
+    error('ARESLab cannot handle missing values (NaN).');
+end
+
 [n, d] = size(X); % number of observations and number of input variables
 [ny, dy] = size(Y); % number of observations and number of output variables
 if ny ~= n
