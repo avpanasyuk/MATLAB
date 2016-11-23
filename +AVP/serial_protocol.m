@@ -231,6 +231,7 @@ classdef serial_protocol < handle
       while cputime() < start + timeout;
         fwrite(s,null_array);
         pause(timeout/10)
+        drawnow
         if s.BytesAvailable > 4 % 4 zeros is the NOOP response
           out = fread(s,s.BytesAvailable);
           if ~any(out(end-3:end)), return; end
