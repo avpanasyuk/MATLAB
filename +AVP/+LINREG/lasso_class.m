@@ -18,11 +18,11 @@ classdef lasso_class < AVP.LINREG.input_data
     end
     
     function do_lasso(a,complexity,varargin)
-      RelErrMin = AVP.opt_param('RelErrMin',{},varargin{:}); 
-      if isempty(RelErrMin)
+      AddForRelErr = AVP.opt_param('AddForRelErr',[],varargin{:}); 
+      if isempty(AddForRelErr) || AddForRelErr == 0
         weights = ones(numel(a.y.D),1);
       else
-        weights = 1./(abs(a.y.D) + RelErrMin);
+        weights = 1./(abs(a.y.D) + AddForRelErr);
       end
       
       a.options = varargin;
@@ -48,26 +48,40 @@ classdef lasso_class < AVP.LINREG.input_data
     function [Merit, Err, Ypredict, C, Offset] = ...
         CrossDataset_err(a,X2,Y2,complexity,varargin)
       %> this is a function for fminbnd to find best complecity
+      %> @param varargin: NumelC_Pwr - a number of coefficient in this power
+      %> is mulitplied by error to get merit function for minimization
       %> @retval Err is error normalized by std(Y)
       %> @retval Merit is Err times numel(C)^NumelC_Pwr
-      NumelC_Pwr = AVP.opt_param('NumelC_Pwr',0,varargin{:}); 
-
+      NumelC_Pwr = AVP.opt_param('NumelC_Pwr',0,varargin{:});
+      
       a.do_lasso(complexity,varargin{:});
       [C, Offset] = get_C(a);
-      Ypredict = X2*C + Offset; 
+      Ypredict = X2*C + Offset;
       Err = std(Ypredict - Y2,1,1)./std(Y2,1,1);
       Merit = Err*numel(find(C)).^NumelC_Pwr;
-    end
-    
+    end 
   end
+  
   methods(Static)
     function [err, Ypredict, C, Offset] = K_fold_err(X,Y,complexity,k,varargin)
       %> this is a function for fminbnd to find best complecity
       %> @retval err is normalized by std(Y)
+     %  MeritDivider = AVP.opt_param('MeritDivider',@() 1,varargin{:});
+      
       [Ypredict, C, Offset] = AVP.KfoldCrossVerif(...
         @(Xpart,Ypart) AVP.LINREG.lasso_class.run(Xpart,Ypart,complexity,...
         varargin{:}),X,Y,k);
-      err = std(Ypredict - Y,1,1)./std(Y,1,1);
+      err = std(Ypredict - Y,1,1)./std(Y,1,1); % /MeritDivider;
+    end
+    function N = K_fold_N(X,Y,complexity,k,varargin)
+      %> this is a function for fminbnd to find best complecity
+      %> @retval err is normalized by std(Y)
+     %  MeritDivider = AVP.opt_param('MeritDivider',@() 1,varargin{:});
+      
+      [Ypredict, C, Offset] = AVP.KfoldCrossVerif(...
+        @(Xpart,Ypart) AVP.LINREG.lasso_class.run(Xpart,Ypart,complexity,...
+        varargin{:}),X,Y,k);
+      N = numel(find(C ~= 0));
     end
     function [Coeffs, Offsets] = run(X,Y,complexity,varargin)
       % function for AVP.KfoldCrossVerif. 

@@ -27,6 +27,8 @@ co = [0 0 1;
 set(groot,'defaultAxesColorOrder',co)
 
 AVP.clearvars()
+format compact 
+format short
 
 
 
