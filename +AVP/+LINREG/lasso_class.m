@@ -81,7 +81,8 @@ classdef lasso_class < AVP.LINREG.input_data
       [Ypredict, C, Offset] = AVP.KfoldCrossVerif(...
         @(Xpart,Ypart) AVP.LINREG.lasso_class.run(Xpart,Ypart,complexity,...
         varargin{:}),X,Y,k);
-      N = numel(find(C ~= 0));
+      N = median(sum(C ~= 0,1));
+      fprintf('Compl=%g, N=%d\n',complexity,N);
     end
     function [Coeffs, Offsets] = run(X,Y,complexity,varargin)
       % function for AVP.KfoldCrossVerif. 

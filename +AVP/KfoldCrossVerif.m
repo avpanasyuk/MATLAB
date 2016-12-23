@@ -5,7 +5,8 @@ function [Ypredict, C, Offset] = KfoldCrossVerif(regress_func,X,Y,k,varargin)
   %! @param X = [Num samples, N variables] matirx of independent variables
   %! @param Y = [Num samples, M variables] vector of dependent variables
   %! @param regress_func is [Coeffs Offsets] = func(X,Y,...)
-  %! @retval Ypredict
+  %! @retval Ypredict - predicted Y, all k parts of each are collected from
+  %! independent data
   %! @retval C
   func_params = AVP.opt_param('func_params',{},varargin{:});
   RandomPick = AVP.opt_param('RandomPick',false,varargin{:});
@@ -44,7 +45,7 @@ function [Ypredict, C, Offset] = KfoldCrossVerif(regress_func,X,Y,k,varargin)
   Ypredict = NaN(size(Y)); % just to set size
   for TestPartI=1:k
     TestSamplesI = SampleI(PartBounds(TestPartI):PartBounds(TestPartI+1)-1);
-    Ypredict(TestSamplesI,:) = X(TestSamplesI,:)*C(:,:,TestPartI) + ...
+    Ypredict(TestSamplesI) = X(TestSamplesI,:)*C(:,:,TestPartI) + ...
       Offset(:,TestPartI);
   end
 end
