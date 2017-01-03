@@ -4,15 +4,17 @@
 %! @param X = [Num samples, Num vars] matrix
 %! @param n = number of variables in an each product
 %! @param do_lower - include lower powers in the resulting matrix as well
+%! @retval Inds = [n,Num var prods] for each column gives indexes of
+%! input vars combined for this term or 0 if DO_LOWER is active and the
+%! order of the term is less then N
+%! @retval Xcross = [num samples,Num var prods] - cross products
 function [Xcross Inds] = n_cross_product(X,n,do_lower)
-  Inds = AVP.n_cross_product_indexes(1:size(X,2),n);
-  Xcross = prod(reshape(X(:,Inds(:)),[],size(Inds,1),n),3);
   if exist('do_lower','var') && do_lower
-    for ni = n-1:-1:1
-      [X1 Inds1] = AVP.n_cross_product(X,ni);
-      Xcross = [X1,Xcross];
-      Inds = [[Inds1,zeros(size(Inds1,1),size(Inds,2)-size(Inds1,2))];...
-        Inds];
-    end
+    [Xcross Inds] = AVP.n_cross_product([ones(size(X,1),1),X],n);
+    Xcross = Xcross(:,2:end);
+    Inds = Inds - 1;
+  else
+    Inds = AVP.n_cross_product_indexes(1:size(X,2),n);
+    Xcross = prod(reshape(X(:,Inds(:)),[],size(Inds,1),n),3);
   end
 end
