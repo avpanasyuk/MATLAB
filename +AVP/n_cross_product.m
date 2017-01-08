@@ -12,7 +12,7 @@ function [Xcross Inds] = n_cross_product(X,n,do_lower)
   if exist('do_lower','var') && do_lower
     [Xcross Inds] = AVP.n_cross_product([ones(size(X,1),1),X],n);
     Xcross = Xcross(:,2:end);
-    Inds = Inds - 1;
+    Inds = Inds(2:end,:) - 1;
   else
     Inds = AVP.n_cross_product_indexes(1:size(X,2),n);
     Xcross = prod(reshape(X(:,Inds(:)),[],size(Inds,1),n),3);

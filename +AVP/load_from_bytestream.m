@@ -31,6 +31,8 @@ function var = load_from_bytestream(bytes)
       end
     case 't'
       var = AVP.pop('char',AVP.pop('uint16'));
+    case 'e'
+      var = [];
     otherwise
       error(['Wrong code "' code '"!'])
   end

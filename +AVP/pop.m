@@ -19,7 +19,7 @@ function out = pop(x,n)
   
   if nargin == 0, x = 1; end
   if isstr(x) % getting typecast value, x is type
-    if ~exist('n','var'), n = 1; end
+    if ~exist('n','var'), n = 1; else n = double(n); end
     if numel(find(size(n) ~= 1)) == 0
       if strcmp(x,'char')
         out = char(AVP.pop(n*AVP.get_size_of_type(x)));
@@ -30,11 +30,12 @@ function out = pop(x,n)
       out = reshape(typecast(AVP.pop(prod(n)*AVP.get_size_of_type(x)),x),n);
     end
   else
+    x = double(x);
     if numel(x) == 1
       if x == 0, out = numel(to_pop_from);
       else
         if numel(to_pop_from) < x, error('Not enough bytes to pop from!'); end
-        out = to_pop_from(1:x);
+        out = uint8(to_pop_from(1:x));
         to_pop_from = to_pop_from(x+1:end);
       end
     else
