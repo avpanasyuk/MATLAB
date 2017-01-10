@@ -34,6 +34,12 @@ classdef linreg_class < AVP.LINREG.input_data
         'weights',weights,'Alpha',Alpha);
     end
     
+    function do_ridge(a,complexity,varargin)
+      a.C = (a.X.D.'*a.X.D + 10.^(-complexity)*diag(ones(1,size(a.X.D,2))))\...
+        (a.X.D.'*a.y.D);
+      a.FitInfo = [];
+    end
+    
     function [C, Offset] = get_C(a)
       [C, Offset] = a.dezscore_solution(a.C);
     end
