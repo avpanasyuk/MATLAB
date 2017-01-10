@@ -35,8 +35,12 @@ classdef linreg_class < AVP.LINREG.input_data
     end
     
     function do_ridge(a,complexity,varargin)
-      a.C = (a.X.D.'*a.X.D + 10.^(-complexity)*diag(ones(1,size(a.X.D,2))))\...
-        (a.X.D.'*a.y.D);
+      ParWeight = AVP.opt_param('ParWeight',ones(1,size(a.X.D,2)),varargin{:});
+      SelectPars = AVP.opt_param('SelectPars',[1:size(a.X.D,2)],varargin{:});
+      a.C = zeros(size(a.X.D,2),1);
+      a.C(SelectPars) = (a.X.D(:,SelectPars).'*a.X.D(:,SelectPars) +...
+        10.^(-complexity)*diag(ParWeight))\...
+        (a.X.D(:,SelectPars).'*a.y.D);
       a.FitInfo = [];
     end
     
