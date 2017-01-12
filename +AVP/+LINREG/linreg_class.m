@@ -6,7 +6,6 @@ classdef linreg_class < AVP.LINREG.input_data
   properties
     C %>< solution for zscored X,y
     FitInfo
-    complexity
     options
   end
   
@@ -15,6 +14,7 @@ classdef linreg_class < AVP.LINREG.input_data
       %> constructor just preprocess variables and do not run lasso
       %> use "do_lasso" member function for this
       a = a@AVP.LINREG.input_data(X,y);
+      a.C = zeros(size(X,2),1);
     end
     
     function do_lasso(a,complexity,varargin)
@@ -27,8 +27,6 @@ classdef linreg_class < AVP.LINREG.input_data
         weights = 1./(abs(a.y.D) + AddForRelErr);
       end
       
-      a.options = varargin;
-      a.complexity = complexity;
       [a.C, a.FitInfo] = lasso(a.X.D,a.y.D,'Lambda',10.^(-complexity),...
         'Standardize',false,'Options',statset('UseParallel',true),...
         'weights',weights,'Alpha',Alpha);
