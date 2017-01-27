@@ -24,7 +24,7 @@ function var = load_from_bytestream(bytes)
         end
       else
         type = AVP.pop('char',AVP.pop);
-        var = AVP.pop(type,prod(sz));
+        var = AVP.pop(type,sz);
         if code == 'x'
           var = complex(var,AVP.pop(type,sz));
         end
