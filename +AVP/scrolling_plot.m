@@ -42,12 +42,14 @@ classdef scrolling_plot < handle
       %> @param y - array[SampleI, ParamI]
       %> @param x - vector[SampleI]
       if isempty(y), return; end
+      if ~isreal(y) && ~a.do_abs, y = [real(y),imag(y)]; end
+        
       n_vars = size(y,2);
       
       % merge data with old track
       % X 
       if ~exist('x','var')
-        x = [1:size(y,1)];
+        x = [1:size(y,1)].';
         if ~isempty(a.data_x), x = x + a.data_x(end,1); end
       else
         x = x - a.start_x;
