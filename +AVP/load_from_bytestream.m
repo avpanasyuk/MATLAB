@@ -18,7 +18,7 @@ function var = load_from_bytestream(bytes)
       ndims = AVP.pop;
       sz = typecast(AVP.pop(2*ndims),'uint16');
       if code == 'c'
-        var = cell(sz);
+        var = cell(double(sz));
         for n=1:prod(sz)
           var{n} = AVP.load_from_bytestream();
         end
