@@ -1,6 +1,6 @@
 function c = curvature_via_diff(y,x)
 % diff on potentially non-uniform grid along the first dimension
-% correct almost everywhere except vertival pieces
+% correct almost everywhere except vertical pieces
 % "curvature" is better, This one is left here to remember analog formula.
 y = y(:); x = x(:);
 sz = size(y);
