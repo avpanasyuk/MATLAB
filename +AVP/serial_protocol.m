@@ -2,15 +2,125 @@ classdef serial_protocol < handle
   %   @see Firmware/AVP_LIBS/General/Protocol.h
   properties(SetAccess=protected, GetAccess=public)
     s % serial port object
-    command_lock = 0; % prevents comamnds sent from timer routine to interfere
+    command_lock = false % prevents comamnds sent from timer routine to interfere
     % the lock is set and checked by send_cmd_wait_result and has to be
     % released in higher level commands or user code after all command
     % return is received
+    prev_command = struct('output_size',0,'ID',[]);
   end
   properties(Constant=true)
     prec = AVP.get_prec;
     SpecErrorCodes = {'Bad checksum','UART overrun'} % defined in AVP_LIB/General/Protocol.h
   end
+  methods(Access=protected)
+    function wait_for_serial(a,N)
+      % standard serial timeout may not allow USB to send/receive, so let's
+      % do it "manually"
+      start = cputime();
+      while get(a.s,'BytesAvailable') < N
+        if ~a.port_status, error('wait_for_serial:COM_died','Oops!'); end
+        if cputime() - start > get(a.s,'Timeout')
+          % dbstack
+          % a.close_serial;
+          error('serial_protocol:wait_for_serial:Timeout',...
+            ['waited for %d bytes, available %d bytes!'],...
+            N,get(a.s,'BytesAvailable'));
+        end
+        drawnow % to allow sending and receiving to complete
+      end
+    end
+    
+    function out = wait_and_read_bytes(a,size)
+      if nargin < 2, size = 1; end
+      a.wait_for_serial(size);
+      out = uint8(fread(a.s,size,'uint8')); % idiosy! serial::fread always
+      % returns double
+    end
+    
+    % precision may be either type of element in byte (in which case bytes
+    % are returned)or type name defined in get_size_of_type
+    % @retval idiosy! serial::fread always returns double, does not matter
+    % what precision is specified. SO THIS FUNCTION ALWAYS RETURNS DOUBLES
+    function out = wait_and_read(a,size,precision)
+      if size == 0, out = []; return; end
+      a.wait_for_serial(prod(size)*a.prec.(precision));
+      out = fread(a.s,size,precision);
+    end % wait_and_read
+    
+    function lock_commands(a)
+      if a.command_lock,
+        error('protocol:command_locked',...
+          'Another command is being executed!');
+      end
+      a.check_messages
+      a.command_lock = true;
+    end
+    
+    function unlock_commands(a)
+      a.command_lock = false;
+      a.check_messages
+    end
+    
+    function check_messages(a)
+      if ~a.port_status || a.command_lock, return; end
+      while get(a.s,'BytesAvailable') ~= 0,
+        size = fread(a.s,1,'uint8');
+        Message = a.receive_message(size);
+        
+        if strncmp(Message,'Error',5),
+          error('check_messages:ErrStatus','%s',Message);
+        else
+          fprintf(1,'%s',Message);
+        end
+      end
+    end % check_messages
+    
+    function Message = receive_message(a,size)
+      % reads size bytes as string and follwoing byte as a checksum and
+      % checks. Verifies that message is ASCII
+      Message  = char(a.wait_and_read(size,'uint8').');
+      if mod(sum(Message),256) ~= a.wait_and_read(1,'uint8')
+        error('Checksum is wrong in message %s!', Message);
+      end
+      
+      if ~isempty(find(Message < 9 | Message > 126,1)), % not ASCII
+        error('ProtocolError: Received binary stream <%s> instead of ASCII!',Message);
+      end
+    end % receive_message
+    
+    function check_cs_and_unlock(a,output)
+      %> reads next byte in incoming stream as checksum, checks it vs output,
+      %> unlocks commands
+      %> @param output - array to checksum
+      rcvd_csum = a.wait_and_read(1,'uint8');
+      a.unlock_commands
+      
+      output_cs = mod(sum([0; output(:)]),256);
+      if output_cs ~= rcvd_csum
+        error('Received CS %hu ~= calculated CS %hu!',rcvd_csum,output_cs);
+      end
+    end % check_cs_and_unlock
+
+    function data = send_new_command(a,cmd_bytes,no_block)
+      err_msg = a.send_cmd_return_status(cmd_bytes);
+      if isempty(err_msg) % command succeeded
+        size = a.wait_and_read(1,'uint16');
+        if size == 0, data = [];
+        else
+          if no_block
+            data = [];
+            a.prev_command.output_size = size;
+            return
+          else
+            data = a.wait_and_read_bytes(size);
+          end
+        end
+        a.check_cs_and_unlock(data);
+      else
+        error('send_command: send_cmd_return_status failed, %s.',err_msg);
+      end
+    end % send_new_command
+  end % protected methods
   methods
     %% STRUCTORS
     function a = serial_protocol(comPort,varargin)
@@ -48,85 +158,6 @@ classdef serial_protocol < handle
     end
     
     %% COMMANDS basic functions
-    function lock_commands(a)
-      if a.command_lock,
-        error('protocol:command_locked',...
-          'Another command is being executed!');
-      end
-      a.check_messages
-      a.command_lock = 1;
-    end
-    
-    function unlock_commands(a)
-      a.command_lock = 0;
-      a.check_messages
-    end
-    
-    function wait_for_serial(a,N)
-      % standard serial timeout may not allow USB to send/receive, so let's
-      % do it "manually"
-      start = cputime();
-      while get(a.s,'BytesAvailable') < N
-        if ~a.port_status, error('wait_for_serial:COM_died','Oops!'); end
-        if cputime() - start > get(a.s,'Timeout')
-          % dbstack
-          % a.close_serial;
-          error('serial_protocol:wait_for_serial:Timeout',...
-            ['waited for %d bytes, available %d bytes!'],...
-            N,get(a.s,'BytesAvailable'));
-        end
-        drawnow % to allow sending and receiving to complete
-      end
-    end
-    
-    function out = wait_and_read_bytes(a,size)
-      if nargin < 2, size = 1; end
-      a.wait_for_serial(size);
-      out = uint8(fread(a.s,size,'uint8')); % idiosy! serial::fread always
-      % returns double
-    end
-    
-    % precision may be either type of element in byte (in which case bytes
-    % are returned)or type name defined in get_size_of_type
-    % @retval idiosy! serial::fread always returns double, does not matter
-    % what precision is specified. SO THIS FUNCTION ALWAYS RETURNS DOUBLES
-    function out = wait_and_read(a,size,precision)
-      if size == 0, out = []; return; end
-      a.wait_for_serial(prod(size)*a.prec.(precision));
-      out = fread(a.s,size,precision);
-    end % wait_and_read
-    
-    function Message = receive_message(a,size)
-      % reads size bytes as string and follwoing byte as a checksum and
-      % checks. Verifies that message is ASCII
-      Message  = char(a.wait_and_read(size,'uint8').');
-      if mod(sum(Message),256) ~= a.wait_and_read(1,'uint8')
-        error('Checksum is wrong in message %s!', Message);
-      end
-      
-      if ~isempty(find(Message < 9 | Message > 126,1)), % not ASCII
-        error('ProtocolError: Received binary stream <%s> instead of ASCII!',Message);
-      end
-    end
-    
-    %%%%%%%%%%
-    % CHECK_MESSAGE - checks for info messages teensy may send from time to time
-    % should not be called when data are expected
-    % If message starts with "Error" error is issued
-    function check_messages(a)
-      if ~a.port_status || a.command_lock, return; end
-      while get(a.s,'BytesAvailable') ~= 0,
-        size = fread(a.s,1,'uint8');
-        Message = a.receive_message(size);
-        
-        if strncmp(Message,'Error',5),
-          error('check_messages:ErrStatus','%s',Message);
-        else 
-          fprintf(1,'%s',Message);
-        end
-      end
-    end % check_messages
-    
     function error_message = send_cmd_return_status(a,cmd_bytes)
       %> This is the lowest level SEND_COMMAND. Reads and displays info
       %> messages. Read end return error messages. Does not read returned
@@ -146,7 +177,7 @@ classdef serial_protocol < handle
       sent_cs = mod(sum(cmd_bytes(:)),256);
       first_try = true;
       while 1 % loop until FW reports that it successfully received the command
-        try 
+        try
           fwrite(a.s,[cmd_bytes(:);sent_cs],'uint8');
         catch ME
           if first_try
@@ -156,7 +187,7 @@ classdef serial_protocol < handle
             a.flush
             fprintf(1,'Something happened to port, reset seems to be successful!\n');
             continue
-          else error('Communication broke!\n'); 
+          else error('Communication broke!');
           end
         end
         while 1 % loop processing all info_messages until status is returned
@@ -182,49 +213,64 @@ classdef serial_protocol < handle
       end
     end % send_cmd_return_status
     
-    function [code output] = send_cmd_return_output(a,cmd_bytes)
-      %> LOW LEVEL send_command, Displays info messages and gets output but
-      %> does not process command errors.
-      %> This function does UNLOCK_COMMANDS in all cases
-      %> @param cmd_bytes is an array containing both command and parameters bytes
-      %> @retval code: 0 if success, 1 if failure
-      %> @retval output data: data bytes if success, error message if failure
-      output = a.send_cmd_return_status(cmd_bytes);
-      if isempty(output) % command succeded
-        code = 0;
-        % reading output
-        size = a.wait_and_read(1,'uint16');
-        if size ~= 0
-          output = uint8(a.wait_and_read([1 size],'uint8'));
-        else output = []; end
-        rcvd_csum = a.wait_and_read(1,'uint8');
-        a.unlock_commands
-        
-        output_cs = mod(sum([0, output]),256);
-        if output_cs ~= rcvd_csum
-          error('Received CS %hu ~= calculated CS %hu!',rcvd_csum,output_cs);
-        end
-      else
-        code = 1;
-      end
-    end % send_cmd_return_output
-    
-    function data = send_command(a,ID,cmd_bytes)
-      %> handles error condition by issuing error
-      %> @retval data - returned bytes
+    function output = send_command(a,ID,cmd_bytes,no_block)
+      %> @detail handles error condition by issuing error. Handles blocking and 
+      %> non-blocking commands
+      %> @param ID -  coomand ID,  may be uint8 or string.
+      %> @param cmd_bytes - vector of command parameters which will be
+      %>    "cast" to uint8
+      %> @param no_block logical 
+      %>    - if true command processing never waits for a serial port
+      %>    it returns immideatly with output of the previous command, if
+      %>    it is the same command and all bytes are already available in port
+      %>    buffer
+      %>    - if false we send command and wait in drawnow loop until all
+      %>    expected return data arrive
+       %> @retval output - returned bytes
+      no_block = exist('no_block','var') && ~isempty(no_block) && no_block;
+      
       if ~exist('cmd_bytes','var'), cmd_bytes = []; end
       if isstr(ID)
         cmd_bytes = [uint8(ID),cmd_bytes(:).'];
       else
         cmd_bytes = [ID,cmd_bytes(:).'];
       end
-      [err_code data] = a.send_cmd_return_output(cmd_bytes);
-      if err_code ~= 0,
-        error('send_command:Command_failed',data);
+      
+      if a.prev_command.output_size == 0 % we are not waiting for prevous command output
+        output = a.send_new_command(cmd_bytes,no_block);
+      else
+        drawnow
+        if a.s.BytesAvailable < a.prev_command.output_size + 1 % plus CS
+          % still not all prevous command output arrived
+          if no_block % drop current command - we have nothing else to do
+            output = [];
+            return
+          else % block until previous command output  is wholly read
+            % we were non_blocking but now we block, so we discard previous
+            % command return
+            old_out = a.wait_and_read_bytes(a.prev_command.output_size);
+            a.check_cs_and_unlock(old_out); % check CS anyway
+            output = a.send_new_command(cmd_bytes,false);
+          end
+        else
+          % we got an old output
+          output = a.wait_and_read_bytes(a.prev_command.output_size);
+          a.check_cs_and_unlock(output);
+          data_new = a.send_new_command(cmd_bytes,no_block);
+          if no_block
+            if ~strcmp(ID,a.prev_command.ID) % different command
+              output = []; % if it is not the same command we drop previous 
+              % command output to avoid confusion
+            end
+            a.prev_command.ID = ID;
+          else
+            output = data_new;
+          end
+        end
       end
     end % send_command
-  end % methods
-  methods(Static)
+  end % public methods
+  methods(Static,Access=protected)
     function flush_port(s, timeout)
       null_array = zeros(10,1);
       start = cputime();
@@ -237,7 +283,7 @@ classdef serial_protocol < handle
           if ~any(out(end-3:end)), return; end
         end
       end
-      error('flush_port:timeout','Flushing timed out!') 
+      error('flush_port:timeout','Flushing timed out!')
     end % flush_port
   end % static methods
 end % serial_protocol
