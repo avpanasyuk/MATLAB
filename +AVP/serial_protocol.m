@@ -120,6 +120,14 @@ classdef serial_protocol < handle
         error('send_command: send_cmd_return_status failed, %s.',err_msg);
       end
     end % send_new_command
+    
+    function [old_output, new_output] = read_old_ouput_and_send_new_command(a,cmd_bytes,no_block)
+      old_output = a.wait_and_read_bytes(a.prev_command.output_size);
+      a.prev_command.output_size = 0; 
+      a.check_cs_and_unlock(old_output); % check CS anyway
+      new_output = a.send_new_command(cmd_bytes,no_block);
+    end % wait_old_and_send_new_command
+
   end % protected methods
   methods
     %% STRUCTORS
@@ -154,6 +162,7 @@ classdef serial_protocol < handle
     % read and discard everything from the serial port
     function flush(a)
       AVP.serial_protocol.flush_port(a.s,1)
+      a.prev_command.output_size = 0;
       a.unlock_commands
     end
     
@@ -213,6 +222,7 @@ classdef serial_protocol < handle
       end
     end % send_cmd_return_status
     
+    
     function output = send_command(a,ID,cmd_bytes,no_block)
       %> @detail handles error condition by issuing error. Handles blocking and 
       %> non-blocking commands
@@ -244,27 +254,19 @@ classdef serial_protocol < handle
           % still not all prevous command output arrived
           if no_block % drop current command - we have nothing else to do
             output = [];
-            return
           else % block until previous command output  is wholly read
             % we were non_blocking but now we block, so we discard previous
             % command return
-            old_out = a.wait_and_read_bytes(a.prev_command.output_size);
-            a.check_cs_and_unlock(old_out); % check CS anyway
-            output = a.send_new_command(cmd_bytes,false);
+            [~, output] = a.read_old_ouput_and_send_new_command(cmd_bytes,false);
           end
-        else
-          % we got an old output
-          output = a.wait_and_read_bytes(a.prev_command.output_size);
-          a.check_cs_and_unlock(output);
-          data_new = a.send_new_command(cmd_bytes,no_block);
+        else % we got an old output in the buffer
+          [old_output, output] = a.read_old_ouput_and_send_new_command(cmd_bytes,no_block);
           if no_block
-            if ~strcmp(ID,a.prev_command.ID) % different command
-              output = []; % if it is not the same command we drop previous 
-              % command output to avoid confusion
+            if strcmp(ID,a.prev_command.ID) % different command
+              output = old_output; % if it is the same command we return output from 
+              % the old command instead, new output should be empty anyway
             end
             a.prev_command.ID = ID;
-          else
-            output = data_new;
           end
         end
       end
