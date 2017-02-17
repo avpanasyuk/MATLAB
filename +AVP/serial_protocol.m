@@ -271,6 +271,13 @@ classdef serial_protocol < handle
         end
       end
     end % send_command
+    
+    function SetRTS(a,state)
+      if state, a.s.RequestToSend = 'on';
+      else, a.s.RequestToSend = 'off';
+      end
+    end % SetRTS
+    
   end % public methods
   methods(Static,Access=protected)
     function flush_port(s, timeout)
