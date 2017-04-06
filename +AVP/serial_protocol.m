@@ -49,7 +49,7 @@ classdef serial_protocol < handle
     
     function lock_commands(a)
       if a.command_lock,
-        error('protocol:command_locked',...
+        error('lock_commands:Locked',...
           'Another command is being executed!');
       end
       a.check_messages
@@ -80,11 +80,11 @@ classdef serial_protocol < handle
       % checks. Verifies that message is ASCII
       Message  = char(a.wait_and_read(size,'uint8').');
       if mod(sum(Message),256) ~= a.wait_and_read(1,'uint8')
-        error('Checksum is wrong in message %s!', Message);
+        error('receive_message:checksum','Checksum is wrong in message %s!', Message);
       end
       
       if ~isempty(find(Message < 9 | Message > 126,1)), % not ASCII
-        error('ProtocolError: Received binary stream <%s> instead of ASCII!',Message);
+        error('receive_message:ProtocolError','Received binary stream <%s> instead of ASCII!',Message);
       end
     end % receive_message
     
@@ -97,7 +97,7 @@ classdef serial_protocol < handle
       
       output_cs = mod(sum([0; output(:)]),256);
       if output_cs ~= rcvd_csum
-        error('Received CS %hu ~= calculated CS %hu!',rcvd_csum,output_cs);
+        error('check_cs_and_unlock:checksum','Received CS %hu ~= calculated CS %hu!',rcvd_csum,output_cs);
       end
     end % check_cs_and_unlock
 
@@ -117,7 +117,7 @@ classdef serial_protocol < handle
         end
         a.check_cs_and_unlock(data);
       else
-        error('send_command: send_cmd_return_status failed, %s.',err_msg);
+        error('send_new_command:failed','Command failed, %s.',err_msg);
       end
     end % send_new_command
     
@@ -126,7 +126,7 @@ classdef serial_protocol < handle
       a.prev_command.output_size = 0; 
       a.check_cs_and_unlock(old_output); % check CS anyway
       new_output = a.send_new_command(cmd_bytes,no_block);
-    end % wait_old_and_send_new_command
+    end % read_old_ouput_and_send_new_command
 
   end % protected methods
   methods
@@ -174,7 +174,7 @@ classdef serial_protocol < handle
       %> BECAUSE IT DOES NOT READ ALL OUTPUT IT DOES NOT DO UNLOCK_COMMANDS
       %> WHEN COMMAND SUCCEDES
       %> @param cmd_bytes is array containing both command byte and parameters bytes
-      %> @retval message - if empty command succedded. If not - error message
+      %> @retval error_message - if empty command succedded. If not - error message
       a.lock_commands
       % command can contain negative arguments, but we have to pass them
       % as uint8. MATLAB cast is totally screwy
