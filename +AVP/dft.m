@@ -39,3 +39,16 @@ function [ft intercept n] = dft(x,y,n,approach)
       ft = complex(Sol(1:n),Sol(n+1:end));
   end
 end
+
+function test_script
+  n = 60;
+  F = [1:n]/n*30.; % linear frequencies
+  N = 3729;
+  CosC = repmat(randi(1,[1,n]),N,1);
+  SinC = repmat(randi(1,[1,n]),N,1);
+  [Nmap, Fmap] = meshgrid([1:N]/N,F); % N changes vertically
+  Signal = sum(cos(Nmap*2*pi.*Fmap)
+  
+  
+end
+
