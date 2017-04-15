@@ -42,12 +42,25 @@ end
 
 function test_script
   n = 60;
-  F = [1:n]/n*30.; % linear frequencies
-  N = 3729;
-  CosC = repmat(randi(1,[1,n]),N,1);
-  SinC = repmat(randi(1,[1,n]),N,1);
-  [Nmap, Fmap] = meshgrid([1:N]/N,F); % N changes vertically
-  Signal = sum(cos(Nmap*2*pi.*Fmap)
+  F = [1:n]-1; %/n*30.; % linear frequencies
+  N = 3012;
+  CosC = repmat(randi(100,[1,n]),N,1);
+  SinC = repmat(randi(100,[1,n]),N,1);
+  [Fmap, Nmap] = meshgrid(F, [1:N]/N); % N changes vertically
+  Signal = sum(cos(Nmap*2*pi.*Fmap).*CosC + sin(Nmap*2*pi.*Fmap).*SinC,2);
+  plot(Signal)
+  ft = AVP.realfft(Signal);
+  
+  % [ft intercept n] = AVP.dft([1:N]/N*2*pi-pi,Signal,2*n,2);
+  subplot(2,2,1)
+  plot(real(ft(1:n)))
+  subplot(2,2,2)
+  plot(CosC(1,1:end))
+  subplot(2,2,3)
+  plot(imag(ft(2:n)))
+  subplot(2,2,4)
+  plot(SinC(1,2:end))
+  
   
   
 end

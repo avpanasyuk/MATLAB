@@ -1,6 +1,7 @@
 %% REal FFT function. real part of return is cosine coeffs, imaginary - sine coeffs. 
 % Last cosine coeff is in 1 position of imaginary, becuase there is end/2+1
 % cos coeff and first sin coeff is always 0
+% size of y should be even
 
 function out = realfft(y)
 coeffs = fft(y)/size(y,1);

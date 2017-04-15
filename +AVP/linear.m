@@ -9,7 +9,7 @@
 function [c e fit]= linear(y,x,show),
 
 n = numel(y);
-if nargin < 2 || isempty(x), x = y; x(:)=1:n; end
+if nargin < 2 || isempty(x), x = y; x(:)=0:n-1; end
 if nargin < 3, show = []; end
 sx = sum(x);
 sx2 = sum(x.^2);
