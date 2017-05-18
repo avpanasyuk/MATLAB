@@ -54,7 +54,7 @@ classdef myridge_class < AVP.LINREG.input_data
       %>            X and Y on K datablocks
       %>        tol - interrupt iterrations when C changes less then this
       %>        fminbnd_options
-      %>        WeightPwr - what power is supppression factor fdrom coeff
+      %>        WeightPwr - what power is supppression factor from coeff
       %>         smallness
       %>        CoeffThres - when coeff is smaller then this part of max in
       %>           WeightPwr power ignore corresponding indep var
@@ -63,12 +63,12 @@ classdef myridge_class < AVP.LINREG.input_data
       
       K = AVP.opt_param('K',10,varargin{:});
       KfoldDividers = [0,... % add 0 in front for convenience
-        AVP.opt_param('KfoldDividers',[1:fix(size(X,1)/K)]*K,varargin{:})];
+        AVP.opt_param('KfoldDividers',fix([1:K]*size(X,1)/K),varargin{:})];
       tol = AVP.opt_param('tol',1e-2,varargin{:});
       fminbnd_options = AVP.opt_param('fminbnd_options',optimset('TolX',0.1),varargin{:});
       WeightPwr = AVP.opt_param('WeightPwr',1.5,varargin{:});
       CoeffThres = AVP.opt_param('CoeffThres',0.035,varargin{:}).^WeightPwr;
-      MaxIters = AVP.opt_param('MaxIters',20,varargin{:});
+      MaxIters = AVP.opt_param('MaxIters',40,varargin{:});
       AVP.vars2struct('options', 'KfoldDividers', 'fminbnd_options', 'WeightPwr',...
         'CoeffThres', 'MaxIters');
       
@@ -96,6 +96,7 @@ classdef myridge_class < AVP.LINREG.input_data
       Niter = 0;
       
       for IterI=1:MaxIters
+        % find minimum Kfold error vs complexity
         inv_merit_func = @(compl) ...
           AVP.LINREG.myridge_class.K_fold_err(...
           l_train, compl, Xtest, ytest, TestIs);
