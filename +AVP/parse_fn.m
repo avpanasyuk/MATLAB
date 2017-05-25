@@ -6,8 +6,8 @@ function [files,values] = parse_fn(scanf_format,varargin)
   %> @retval files - file names matching scan_format
   %> @retval values - array of parced with scanf_format values
   
-  d = AVP.opt_param('dir','.',varargin{:});
-  pattern = AVP.opt_param('pattern','*',varargin{:});
+  d = AVP.opt_param'dir','.';
+  pattern = AVP.opt_param'pattern','*';
   
   t = what();
   old_dir = t.path;

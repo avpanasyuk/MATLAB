@@ -8,8 +8,8 @@ function [Ypredict, C, Offset] = KfoldCrossVerif(regress_func,X,Y,k,varargin)
   %! @retval Ypredict - predicted Y, all k parts of each are collected from
   %! independent data
   %! @retval C
-  func_params = AVP.opt_param('func_params',{},varargin{:});
-  RandomPick = AVP.opt_param('RandomPick',false,varargin{:});
+  func_params = AVP.opt_param'func_params',{};
+  RandomPick = AVP.opt_param'RandomPick',false;
   
   Ns = size(X,1);
   if Ns ~= size(Y,1)

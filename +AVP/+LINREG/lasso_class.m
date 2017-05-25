@@ -20,8 +20,8 @@ classdef lasso_class < AVP.LINREG.input_data
     end
     
     function do_regression(a,complexity,varargin)
-      AddForRelErr = AVP.opt_param('AddForRelErr',[],varargin{:});
-      Alpha = AVP.opt_param('Alpha',1,varargin{:});
+      AddForRelErr = AVP.opt_param'AddForRelErr',[];
+      Alpha = AVP.opt_param'Alpha',1;
       
       if isempty(AddForRelErr) || AddForRelErr == 0
         weights = ones(numel(a.y.D),1);
@@ -57,11 +57,11 @@ classdef lasso_class < AVP.LINREG.input_data
       %>        KfoldDividers - last index of each data block in Kfold
       %>        K - if KfoldDividers is not specidied uniformly divides
       %>            X and Y on K datablocks
-      K = AVP.opt_param('K',10,varargin{:});
+      K = AVP.opt_param'K',10;
       KfoldDividers = [0,... % add 0 in front for convenience
         AVP.opt_param('KfoldDividers',[1:fix(size(X,1)/K)]*K,varargin{:})];
       fminbnd_options = AVP.opt_param('fminbnd_options',optimset('TolX',0.1),varargin{:});
-      AddForRelErr = AVP.opt_param('AddForRelErr',0,varargin{:});
+      AddForRelErr = AVP.opt_param'AddForRelErr',0;
       
       % we divide the whole dataset on datablocks according to KfoldDividers
       % to calculate error for each block we do following: remove it from
@@ -104,7 +104,7 @@ classdef lasso_class < AVP.LINREG.input_data
       % @param Xtest - cell array of independent test parameters
       % @param Ytest - cell array of dependent test parameters
       
-      AddForRelErr = AVP.opt_param('AddForRelErr',0,varargin{:});
+      AddForRelErr = AVP.opt_param'AddForRelErr',0;
       
       % we calculate a total error over all partial datasets
       for dsI = 1:numel(l_train)

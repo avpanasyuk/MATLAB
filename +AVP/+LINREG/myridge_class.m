@@ -61,14 +61,14 @@ classdef myridge_class < AVP.LINREG.input_data
       %>        MaxC_Pwr - in what power MaxC enters merit function
       %> @retval err = AVP.rms(y - Ypredict)/AVP.rms(y);
       
-      K = AVP.opt_param('K',10,varargin{:});
+      K = AVP.opt_param'K',10;
       KfoldDividers = [0,... % add 0 in front for convenience
         AVP.opt_param('KfoldDividers',fix([1:K]*size(X,1)/K),varargin{:})];
-      tol = AVP.opt_param('tol',1e-2,varargin{:});
+      tol = AVP.opt_param'tol',1e-2;
       fminbnd_options = AVP.opt_param('fminbnd_options',optimset('TolX',0.1),varargin{:});
-      WeightPwr = AVP.opt_param('WeightPwr',1.5,varargin{:});
-      CoeffThres = AVP.opt_param('CoeffThres',0.035,varargin{:}).^WeightPwr;
-      MaxIters = AVP.opt_param('MaxIters',40,varargin{:});
+      WeightPwr = AVP.opt_param'WeightPwr',1.5;
+      CoeffThres = AVP.opt_param'CoeffThres',0.035.^WeightPwr;
+      MaxIters = AVP.opt_param'MaxIters',40;
       AVP.vars2struct('options', 'KfoldDividers', 'fminbnd_options', 'WeightPwr',...
         'CoeffThres', 'MaxIters');
       
@@ -145,7 +145,7 @@ classdef myridge_class < AVP.LINREG.input_data
       %> @retval err - not really an error, but error times max C
       %> @param varargin
       %>        MaxC_Pwr - in what power MaxC enters merit function
-      MaxC_Pwr = AVP.opt_param('MaxC_Pwr',0.25,varargin{:});
+      MaxC_Pwr = AVP.opt_param'MaxC_Pwr',0.25;
       
       for dsI = 1:numel(l_train)
         l_train{dsI}.do_regression(compl, varargin{:});

@@ -18,8 +18,8 @@ classdef linreg_class < AVP.LINREG.input_data
     end
     
     function do_lasso(a,complexity,varargin)
-      AddForRelErr = AVP.opt_param('AddForRelErr',[],varargin{:}); 
-      Alpha = AVP.opt_param('Alpha',1,varargin{:});
+      AddForRelErr = AVP.opt_param'AddForRelErr',[]; 
+      Alpha = AVP.opt_param'Alpha',1;
       
       if isempty(AddForRelErr) || AddForRelErr == 0
         weights = ones(numel(a.y.D),1);
@@ -62,7 +62,7 @@ classdef linreg_class < AVP.LINREG.input_data
       %> is mulitplied by error to get merit function for minimization
       %> @retval Err is error normalized by std(Y)
       %> @retval Merit is Err times numel(C)^NumelC_Pwr
-      NumelC_Pwr = AVP.opt_param('NumelC_Pwr',0,varargin{:});
+      NumelC_Pwr = AVP.opt_param'NumelC_Pwr',0;
       
       a.do_lasso(complexity,varargin{:});
       [C, Offset] = get_C(a);

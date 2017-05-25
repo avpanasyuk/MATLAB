@@ -3,7 +3,7 @@ function [Value, out_varargin]=opt_param(name,default)
   %> check varargin on presence of a given variable
   %> USAGE:
   %> function some_function(varargin)
-  %>       RelErrMin = AVP.opt_param('RelErrMin',{},varargin{:});
+  %>       RelErrMin = AVP.opt_param'RelErrMin',{};
   
   %> @retval Value in varargin if present, default if absent
   %> @retval out_varargin if base varargin with added default value
