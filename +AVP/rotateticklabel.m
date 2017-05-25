@@ -1,4 +1,4 @@
-function th=rotateticklabel(h,rot,demo)
+function th=rotateticklabel(h,rot,varargin)
 %ROTATETICKLABEL rotates tick labels
 %   TH=ROTATETICKLABEL(H,ROT) is the calling form where H is a handle to
 %   the axis that contains the XTickLabels that are to be rotated. ROT is
@@ -18,9 +18,11 @@ function th=rotateticklabel(h,rot,demo)
 
 %   Written Oct 14, 2005 by Andy Bliss
 %   Copyright 2005 by Andy Bliss
+demo = AVP.opt_param('demo',false);
+y_shift = AVP.opt_param('y_shift',0);
 
 %DEMO:
-if nargin==3
+if demo
     x=[now-.7 now-.3 now];
     y=[20 35 15];
     figure
@@ -29,12 +31,9 @@ if nargin==3
     h=gca;
     set(h,'position',[0.13 0.35 0.775 0.55])
     rot=90;
+    return
 end
 
-%set the default rotation if user doesn't specify
-if nargin==1
-    rot=90;
-end
 %make sure the rotation is in the range 0:360 (brute force method)
 while rot>360
     rot=rot-360;
@@ -54,7 +53,10 @@ if strcmpi(get(gca,'Ydir'),'reverse'),
   Ypos = repmat(c(end)-.1*(c(end-1)-c(end)),length(b),1);
 else
   Ypos = repmat(c(1)-.1*(c(2)-c(1)),length(b),1);
-end  
+end
+
+Ypos = Ypos + y_shift;
+
 if rot<180
     th=text(b,Ypos,a,'HorizontalAlignment','right','rotation',rot);
 else
