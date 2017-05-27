@@ -21,8 +21,8 @@ classdef myridge_class < AVP.LINREG.input_data
     
     function do_regression(a,complexity,varargin)
       ParSuppressFactor = AVP.opt_param('ParSuppressFactor',...
-        ones(1,size(a.X.D,2)),varargin{:});
-      SelectPars = AVP.opt_param('SelectPars',[1:size(a.X.D,2)],varargin{:});
+        ones(1,size(a.X.D,2)));
+      SelectPars = AVP.opt_param('SelectPars',[1:size(a.X.D,2)]);
       a.C = zeros(size(a.X.D,2),1);
       a.C(SelectPars) = (a.X.D(:,SelectPars).'*a.X.D(:,SelectPars) +...
         10.^(-complexity)*diag(ParSuppressFactor))\...
@@ -61,14 +61,14 @@ classdef myridge_class < AVP.LINREG.input_data
       %>        MaxC_Pwr - in what power MaxC enters merit function
       %> @retval err = AVP.rms(y - Ypredict)/AVP.rms(y);
       
-      K = AVP.opt_param'K',10;
+      K = AVP.opt_param('K',10);
       KfoldDividers = [0,... % add 0 in front for convenience
-        AVP.opt_param('KfoldDividers',fix([1:K]*size(X,1)/K),varargin{:})];
-      tol = AVP.opt_param'tol',1e-2;
-      fminbnd_options = AVP.opt_param('fminbnd_options',optimset('TolX',0.1),varargin{:});
-      WeightPwr = AVP.opt_param'WeightPwr',1.5;
-      CoeffThres = AVP.opt_param'CoeffThres',0.035.^WeightPwr;
-      MaxIters = AVP.opt_param'MaxIters',40;
+        AVP.opt_param('KfoldDividers',fix([1:K]*size(X,1)/K))];
+      tol = AVP.opt_param('tol',1e-2);
+      fminbnd_options = AVP.opt_param('fminbnd_options',optimset('TolX',0.1));
+      WeightPwr = AVP.opt_param('WeightPwr',1.5);
+      CoeffThres = AVP.opt_param('CoeffThres',0.035.^WeightPwr);
+      MaxIters = AVP.opt_param('MaxIters',40);
       AVP.vars2struct('options', 'KfoldDividers', 'fminbnd_options', 'WeightPwr',...
         'CoeffThres', 'MaxIters');
       
@@ -135,7 +135,7 @@ classdef myridge_class < AVP.LINREG.input_data
     
     function [err,Ypredict] = K_fold_err(l_train, compl, Xtest, Ytest, TestIs, ...
         varargin)
-      % function to calculate error for a given complexity ..
+      % function to calculate error (invert of merit value) for a given complexity ..
       % returns and cross_dataset error
       % @param l_train - cell array of linreg_class created with training data
       % @param compl - complexity to calculate with, lambda = 10^(-compl)
@@ -145,7 +145,7 @@ classdef myridge_class < AVP.LINREG.input_data
       %> @retval err - not really an error, but error times max C
       %> @param varargin
       %>        MaxC_Pwr - in what power MaxC enters merit function
-      MaxC_Pwr = AVP.opt_param'MaxC_Pwr',0.25;
+      MaxC_Pwr = AVP.opt_param('MaxC_Pwr',0.25);
       
       for dsI = 1:numel(l_train)
         l_train{dsI}.do_regression(compl, varargin{:});

@@ -18,8 +18,8 @@ classdef linreg_class < AVP.LINREG.input_data
     end
     
     function do_lasso(a,complexity,varargin)
-      AddForRelErr = AVP.opt_param'AddForRelErr',[]; 
-      Alpha = AVP.opt_param'Alpha',1;
+      AddForRelErr = AVP.opt_param('AddForRelErr',[]); 
+      Alpha = AVP.opt_param('Alpha',1);
       
       if isempty(AddForRelErr) || AddForRelErr == 0
         weights = ones(numel(a.y.D),1);
@@ -33,8 +33,8 @@ classdef linreg_class < AVP.LINREG.input_data
     end
     
     function do_ridge(a,complexity,varargin)
-      ParWeight = AVP.opt_param('ParWeight',ones(1,size(a.X.D,2)),varargin{:});
-      SelectPars = AVP.opt_param('SelectPars',[1:size(a.X.D,2)],varargin{:});
+      ParWeight = AVP.opt_param('ParWeight',ones(1,size(a.X.D,2)));
+      SelectPars = AVP.opt_param('SelectPars',[1:size(a.X.D,2)]);
       a.C = zeros(size(a.X.D,2),1);
       a.C(SelectPars) = (a.X.D(:,SelectPars).'*a.X.D(:,SelectPars) +...
         10.^(-complexity)*diag(ParWeight))\...
@@ -62,7 +62,7 @@ classdef linreg_class < AVP.LINREG.input_data
       %> is mulitplied by error to get merit function for minimization
       %> @retval Err is error normalized by std(Y)
       %> @retval Merit is Err times numel(C)^NumelC_Pwr
-      NumelC_Pwr = AVP.opt_param'NumelC_Pwr',0;
+      NumelC_Pwr = AVP.opt_param('NumelC_Pwr',0);
       
       a.do_lasso(complexity,varargin{:});
       [C, Offset] = get_C(a);
@@ -76,7 +76,7 @@ classdef linreg_class < AVP.LINREG.input_data
     function [err, Ypredict, C, Offset] = K_fold_err(X,Y,complexity,k,varargin)
       %> this is a function for fminbnd to find best complecity
       %> @retval err is normalized by std(Y)
-     %  MeritDivider = AVP.opt_param('MeritDivider',@() 1,varargin{:});
+     %  MeritDivider = AVP.opt_param('MeritDivider',@() 1);
       
       [Ypredict, C, Offset] = AVP.KfoldCrossVerif(...
         @(Xpart,Ypart) AVP.LINREG.linreg_class.run(Xpart,Ypart,complexity,...
@@ -86,7 +86,7 @@ classdef linreg_class < AVP.LINREG.input_data
     function N = K_fold_N(X,Y,complexity,k,varargin)
       %> this is a function for fminbnd to find best complecity
       %> @retval err is normalized by std(Y)
-     %  MeritDivider = AVP.opt_param('MeritDivider',@() 1,varargin{:});
+     %  MeritDivider = AVP.opt_param('MeritDivider',@() 1);
       
       [Ypredict, C, Offset] = AVP.KfoldCrossVerif(...
         @(Xpart,Ypart) AVP.LINREG.linreg_class.run(Xpart,Ypart,complexity,...

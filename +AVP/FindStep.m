@@ -15,10 +15,10 @@
 % GoodY - Y vector with AROUND_JUMP points around jump interpolated using polynomial
 %-
 
-function [StepValue GoodY]= AVP_FindStep(y,JumpI,varargin)
+function [StepValue GoodY]= FindStep(y,JumpI,varargin)
 N = length(y);
-x = opt_param'x',1:N;
-aj = opt_param'around_jump',0;
+x = AVP.opt_param('x',1:N);
+aj = AVP.opt_param('around_jump',0);
 if aj > 0,
     from = max([JumpI - aj+1,1]);
     to = min([JumpI + aj,N]);
@@ -29,7 +29,7 @@ if aj > 0,
     N = length(y);
 end
 
-poly_order = opt_param'poly_order',2;
+poly_order = AVP.opt_param('poly_order',2);
 
 if nargin == 3, poly_order = 2; end
 % arrays of power coefficients
