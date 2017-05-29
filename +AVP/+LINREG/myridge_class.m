@@ -71,6 +71,7 @@ classdef myridge_class < AVP.LINREG.input_data
       MaxIters = AVP.opt_param('MaxIters',40);
       AVP.vars2struct('options', 'KfoldDividers', 'fminbnd_options', 'WeightPwr',...
         'CoeffThres', 'MaxIters');
+      err_func = AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)./AVP.rms(data));
       
       % we divide the whole dataset on datablocks according to KfoldDividers
       % to calculate error for each block we do following: remove it from
@@ -98,8 +99,8 @@ classdef myridge_class < AVP.LINREG.input_data
       for IterI=1:MaxIters
         % find minimum Kfold error vs complexity
         inv_merit_func = @(compl) ...
-          AVP.LINREG.myridge_class.K_fold_err(...
-          l_train, compl, Xtest, ytest, TestIs);
+          AVP.LINREG.myridge_class.K_fold_merit(...
+          l_train, compl, Xtest, ytest, TestIs,err_func,varargin{:});
         best_compl = fminbnd(inv_merit_func,...
           Log10_ComplRange(1),Log10_ComplRange(2),fminbnd_options);
         
@@ -119,7 +120,7 @@ classdef myridge_class < AVP.LINREG.input_data
         subplot(2,1,2)
         alpha 0.5
         plot([Ypredict,y],'.')
-        err = AVP.rms(y - Ypredict)/AVP.rms(y);
+        err = err_func(y,Ypredict);
         % set(gca,'XLim',[0 300])
         AVP.legend({'Calculated','True'});
         xlabel(sprintf('Error:%g, Nparam:%d, best_compl:%g',...
@@ -133,20 +134,19 @@ classdef myridge_class < AVP.LINREG.input_data
       [C, Offset] = l_whole.get_C();
     end
     
-    function [err,Ypredict] = K_fold_err(l_train, compl, Xtest, Ytest, TestIs, ...
-        varargin)
-      % function to calculate error (invert of merit value) for a given complexity ..
-      % returns and cross_dataset error
+    function [inv_merit,Ypredict] = K_fold_merit(l_train, compl, Xtest, Ytest, TestIs, ...
+        err_func, varargin)
+      % function to calculate invert of merit value  for a given complexity ..
       % @param l_train - cell array of linreg_class created with training data
       % @param compl - complexity to calculate with, lambda = 10^(-compl)
       % @param Xtest - cell array of independent test parameters
       % @param Ytest - cell array of dependent test parameters
       % we calculate a total error over all partial datasets
-      %> @retval err - not really an error, but error times max C
+      %> @retval inv_merit - error time max(C)^MaxC_Pwr
       %> @param varargin
       %>        MaxC_Pwr - in what power MaxC enters merit function
       MaxC_Pwr = AVP.opt_param('MaxC_Pwr',0.25);
-      
+       
       for dsI = 1:numel(l_train)
         l_train{dsI}.do_regression(compl, varargin{:});
         [C, Offset] = l_train{dsI}.get_C();
@@ -154,15 +154,14 @@ classdef myridge_class < AVP.LINREG.input_data
         Yp = Offset + Xtest{dsI}*C;
         
         YpA{dsI} = Yp;
-        ErrArr(dsI) = AVP.rms(Ytest{dsI}-Yp)/AVP.rms(Ytest{dsI})*...
-          max(abs(l_train{dsI}.C))^MaxC_Pwr;
+        InvMeritArr(dsI) = err_func(Ytest{dsI},Yp)*max(abs(l_train{dsI}.C))^MaxC_Pwr;
       end
       
       for dsI = 1:numel(l_train) % this is mopved here so previous FOR can 
         % be replaced by PARFOR
         Ypredict(TestIs{dsI},1) = YpA{dsI};
       end
-      err = AVP.rms(ErrArr);
+      inv_merit = AVP.rms(InvMeritArr);
     end
   end
 end

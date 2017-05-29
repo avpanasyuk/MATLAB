@@ -28,8 +28,9 @@ set(groot,'defaultAxesColorOrder',co)
 
 AVP.clearvars()
 format compact 
-format short
-set(0,'defaulttextinterpreter','none')
+format shortg
+set(groot,'defaulttextinterpreter','none')
+set(groot,'DefaultFigureWindowStyle','docked')
 
 
 
