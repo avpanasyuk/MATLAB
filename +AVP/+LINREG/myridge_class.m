@@ -58,7 +58,7 @@ classdef myridge_class < AVP.LINREG.input_data
       %>         smallness
       %>        CoeffThres - when coeff is smaller then this part of max in
       %>           WeightPwr power ignore corresponding indep var
-      %>        MaxC_Pwr - in what power MaxC enters merit function
+      %>        SumSqrC_Pwr - in what power MaxC enters merit function
       %> @retval err = AVP.rms(y - Ypredict)/AVP.rms(y);
       
       K = AVP.opt_param('K',10);
@@ -142,10 +142,10 @@ classdef myridge_class < AVP.LINREG.input_data
       % @param Xtest - cell array of independent test parameters
       % @param Ytest - cell array of dependent test parameters
       % we calculate a total error over all partial datasets
-      %> @retval inv_merit - error time max(C)^MaxC_Pwr
+      %> @retval inv_merit - error time max(C)^SumSqrC_Pwr
       %> @param varargin
-      %>        MaxC_Pwr - in what power MaxC enters merit function
-      MaxC_Pwr = AVP.opt_param('MaxC_Pwr',0.25);
+      %>        SumSqrC_Pwr - in what power MaxC enters merit function
+      SumSqrC_Pwr = AVP.opt_param('SumSqrC_Pwr',0.5);
        
       for dsI = 1:numel(l_train)
         l_train{dsI}.do_regression(compl, varargin{:});
@@ -154,7 +154,8 @@ classdef myridge_class < AVP.LINREG.input_data
         Yp = Offset + Xtest{dsI}*C;
         
         YpA{dsI} = Yp;
-        InvMeritArr(dsI) = err_func(Ytest{dsI},Yp)*max(abs(l_train{dsI}.C))^MaxC_Pwr;
+        % InvMeritArr(dsI) = err_func(Ytest{dsI},Yp)*max(abs(l_train{dsI}.C))^MaxC_Pwr;
+        InvMeritArr(dsI) = err_func(Ytest{dsI},Yp)*sum(l_train{dsI}.C.^2)^SumSqrC_Pwr;
       end
       
       for dsI = 1:numel(l_train) % this is mopved here so previous FOR can 
@@ -164,5 +165,20 @@ classdef myridge_class < AVP.LINREG.input_data
       inv_merit = AVP.rms(InvMeritArr);
     end
   end
+end
+
+
+function test
+  Ns = 1000;
+  x = rand(Ns,50);
+  c = rand(50,1);
+  c(21:end) = 0;
+  y = x*c + rand(Ns,1);
+  
+  [err, Ypredict, C, Offset] = ...
+    AVP.LINREG.myridge_class.do_shebang(x,y,[-4,2],...
+    'fminbnd_options',optimset('Display','iter','TolX',0.1));
+  
+  plot([c,C])
 end
 

@@ -24,13 +24,13 @@ co = [0 0 1;
       0.75 0 0.75;
       0.75 0.75 0;
       0.25 0.25 0.25];
-set(groot,'defaultAxesColorOrder',co)
+set(0,'defaultAxesColorOrder',co)
 
 AVP.clearvars()
 format compact 
 format shortg
-set(groot,'defaulttextinterpreter','none')
-set(groot,'DefaultFigureWindowStyle','docked')
+set(0,'defaulttextinterpreter','none')
+set(0,'DefaultFigureWindowStyle','docked')
 
 
 
