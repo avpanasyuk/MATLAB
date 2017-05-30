@@ -145,7 +145,7 @@ classdef myridge_class < AVP.LINREG.input_data
       %> @retval inv_merit - error time max(C)^SumSqrC_Pwr
       %> @param varargin
       %>        SumSqrC_Pwr - in what power MaxC enters merit function
-      SumSqrC_Pwr = AVP.opt_param('SumSqrC_Pwr',0.5);
+      SumSqrC_Pwr = AVP.opt_param('SumSqrC_Pwr',0.25);
        
       for dsI = 1:numel(l_train)
         l_train{dsI}.do_regression(compl, varargin{:});
