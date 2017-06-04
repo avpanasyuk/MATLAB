@@ -4,7 +4,7 @@
 classdef scrolling_plot_active < AVP.scrolling_plot
   properties (SetAccess=protected,GetAccess=public)
     %defiined properties
-    y_only = []
+    y_only
     % service properties
     timer_obj
     func
@@ -16,21 +16,15 @@ classdef scrolling_plot_active < AVP.scrolling_plot
     %> [Ys(numvars,numpoints),Xs(numpoints)] = func() or
     %> [Y_name{numvars}] = func(1)
     %> @param period in seconds
-    function a=scrolling_plot_active(func,period,options)
+    function a=scrolling_plot_active(func,period,varargin)
       % ok, we can set things up only after we know what func returns, and
       % it may start returning something only later. So, we postpone
       % setting things up until the last moment
-      
-      if ~exist('options','var'), options = {};
-      else
-        if isfield(options,'y_only'), y_only = options.y_only; end
-      end
-      
-      a = a@AVP.scrolling_plot(options);
+      a = a@AVP.scrolling_plot(varargin{:});
       % set(a.fig,'DeleteFcn',@(varargin) a.delete); - no need, where is
       % no virtual functions in MATLAB
-      a.func = func;
-      
+      a.y_only = AVP.opt_param('y_only',[]);
+      a.func = func;      
       a.timer_obj = timer('ExecutionMode','fixedSpacing',...
         'Period',period,'timerFcn',@(varargin) a.timer_func,...
         'BusyMode','drop');

@@ -18,17 +18,14 @@ classdef scrolling_plot < handle
     next_plot % cputime of the last plot to avod calling too often
   end
   methods
-    function a=scrolling_plot(options)
+    function a=scrolling_plot(varargin)
       a.fig = figure('DeleteFcn',@(varargin) a.delete,'BusyAction','cancel',...
         'Interruptible','off');
-      if exist('options','var')
-        if isfield(options,'plot_names'), a.plot_names = options.plot_names; end
-        if isfield(options,'x_npoints'), a.x_npoints = options.x_npoints; end
-        if isfield(options,'same_plot'), a.same_plot = options.same_plot; end
-        if isfield(options,'plot_props'), a.plot_props = options.plot_props; end
-        if isfield(options,'min_period'), a.min_period = options.min_period; end
-        if isfield(options,'do_abs'), a.do_abs = options.do_abs; end
-      end
+      a.plot_names = AVP.opt_param('plot_names',{});
+      a.x_npoints = AVP.opt_param('x_npoints',1000);
+      a.same_plot = AVP.opt_param('same_plot',false);
+      a.plot_props = AVP.opt_param('plot_props',{});
+      a.do_abs = AVP.opt_param('do_abs',false);
       a.next_plot = cputime;
     end
     
