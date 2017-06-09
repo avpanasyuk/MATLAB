@@ -56,15 +56,15 @@ classdef scrolling_plot_active < AVP.scrolling_plot
             while isempty(Y), Y = a.func(); end
           end
         end
-        if a.y_only,
-          while isempty(Y), Y = a.func(); end
+        if a.y_only
+          Y = a.func();
           a.AddPoints(Y)
         else
-          while isempty(Y), [Y,X] = a.func(); end
+          [Y,X] = a.func();
           a.AddPoints(Y,X)
         end
       catch ME1
-        if ~strcmp(ME1.identifier,'protocol:command_locked'), rethrow(ME1); end
+        if ~strcmp(ME1.identifier,'lock_commands:Locked'), rethrow(ME1); end
       end
     end % first_time_func
     
