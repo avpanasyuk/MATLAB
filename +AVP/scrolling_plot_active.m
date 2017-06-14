@@ -28,6 +28,7 @@ classdef scrolling_plot_active < AVP.scrolling_plot
       a.timer_obj = timer('ExecutionMode','fixedSpacing',...
         'Period',period,'timerFcn',@(varargin) a.timer_func,...
         'BusyMode','drop');
+      set(a.fig,'DeleteFcn',@(varargin) a.delete);
       a.start
     end % scrolling_plot_active
     
@@ -36,6 +37,7 @@ classdef scrolling_plot_active < AVP.scrolling_plot
         a.stop
         delete(a.timer_obj)
       end
+      delete@AVP.scrolling_plot(a)
     end
     
     function timer_func(a)

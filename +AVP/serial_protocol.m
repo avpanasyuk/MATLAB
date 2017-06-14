@@ -16,10 +16,10 @@ classdef serial_protocol < handle
     function wait_for_serial(a,N)
       % standard serial timeout may not allow USB to send/receive, so let's
       % do it "manually"
-      start = cputime();
+      start = tic();
       while get(a.s,'BytesAvailable') < N
         if ~a.port_status, error('wait_for_serial:COM_died','Oops!'); end
-        if cputime() - start > get(a.s,'Timeout')
+        if toc(start) > get(a.s,'Timeout')
           % dbstack
           % a.close_serial;
           error('serial_protocol:wait_for_serial:Timeout',...
@@ -282,8 +282,8 @@ classdef serial_protocol < handle
   methods(Static,Access=protected)
     function flush_port(s, timeout)
       null_array = zeros(10,1);
-      start = cputime();
-      while cputime() < start + timeout;
+      start = tic();
+      while toc(start) < timeout;
         fwrite(s,null_array);
         pause(timeout/10)
         drawnow

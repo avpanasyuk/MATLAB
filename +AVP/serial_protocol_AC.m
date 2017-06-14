@@ -16,8 +16,8 @@ classdef serial_protocol_AC < AVP.serial_protocol
       % now we have to skip all the beacon stuff until we get
       % NOOP's reply whoch should be 0 byte status 0 16-bit size
       % of data and 0 checksum
-      T1 = cputime + 1;
-      while cputime < T1
+      start = tic;
+      while toc(start) < 1
         if s.BytesAvailable >= 4
           if fread(s,1,'uint8') == 0, % possible skipping remaining broadcast
             fread(s,3,'uint8');  % 2 bytes size and 1 byte checksum
@@ -35,8 +35,8 @@ classdef serial_protocol_AC < AVP.serial_protocol
       s = serial(Port,varargin{:});
       try
         fopen(s);
-        T1 = cputime + 0.5; % timeout
-        while cputime < T1
+        start = tic; % timeout
+        while toc(start) < 0.5
           if s.BytesAvailable >= numel(Code)*2-1, % yes, port is transmitting something
             str = char(fread(s,numel(Code)*2-1)); % make sure that captures string is long
             % enough to contain the whole code
