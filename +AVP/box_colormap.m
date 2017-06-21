@@ -2,7 +2,7 @@ function map = box_colormap(N,min_lum)
 %+
 % uniformly distributes N points in RGB cube, avoiding too bright colors
 % MIN_LUM (optional) defines minimum luminocity is scale where white is 1 
-% and black is 1. We should use 1/sqrt(27) at most (it is limited internally). 
+% and black is 0. We should use 1/sqrt(27) at most (it is limited internally). 
 % because our volume calculation does not work with bigger values
 % we can use it as a default value.
 %-
