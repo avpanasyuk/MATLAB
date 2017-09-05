@@ -1,0 +1,1 @@
+function x = to_column(x), x = x(:); end
