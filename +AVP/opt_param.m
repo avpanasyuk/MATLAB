@@ -1,5 +1,5 @@
 
-function [Value, out_varargin]=opt_param(name,default,remove)
+function Value=opt_param(name,default,remove)
   %> check varargin on presence of a given variable
   %> @param name - string, optional variable name as specified in varargin
   %> @param default - default value
@@ -12,12 +12,14 @@ function [Value, out_varargin]=opt_param(name,default,remove)
     
   if isempty(Place)
     Value = default;
-    out_varargin = {Varargin{:},name,default};
+    assignin('caller','varargin',{Varargin{:},name,Value})
   else
     Value = Varargin{2*Place};
-    out_varargin = Varargin;
     if exist('remove','var') && remove 
       evalin('caller',['varargin{',num2str(2*Place-1),'} = '''';'])
     end
+  end
+  if nargout == 0
+    assignin('caller',name,Value);
   end
 end

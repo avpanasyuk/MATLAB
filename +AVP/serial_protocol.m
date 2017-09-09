@@ -161,7 +161,7 @@ classdef serial_protocol < handle
     
     % read and discard everything from the serial port
     function flush(a)
-      AVP.serial_protocol.flush_port(a.s,1)
+      AVP.serial_protocol.flush_port(a.s)
       a.prev_command.output_size = 0;
       a.unlock_commands
     end
@@ -280,17 +280,17 @@ classdef serial_protocol < handle
     
   end % public methods
   methods(Static,Access=protected)
-    function flush_port(s, timeout)
-      null_array = zeros(10,1);
+    function flush_port(s)
       start = tic();
-      while toc(start) < timeout;
-        fwrite(s,null_array);
-        pause(timeout/10)
+      for k=1:7
+        fwrite(s,zeros(2^k,1));
+        pause(s.Timeout/20)
         drawnow
         if s.BytesAvailable > 4 % 4 zeros is the NOOP response
           out = fread(s,s.BytesAvailable);
           if ~any(out(end-3:end)), return; end
         end
+        if toc(start) > s.Timeout, break; end 
       end
       error('flush_port:timeout','Flushing timed out!')
     end % flush_port
