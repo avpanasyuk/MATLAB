@@ -9,14 +9,15 @@ function Value=opt_param(name,default,remove)
   %> @retval out_varargin if base varargin with added default value
   Varargin = evalin('caller','varargin');
   Place = find([strcmp(Varargin(1:2:end),name)],1,'last');
+  remove =  exist('remove','var') && ~isempty(remove) && remove;
     
   if isempty(Place)
     Value = default;
-    assignin('caller','varargin',{Varargin{:},name,Value})
+    if ~remove, assignin('caller','varargin',{Varargin{:},name,Value}); end
   else
     Value = Varargin{2*Place};
-    if exist('remove','var') && remove 
-      evalin('caller',['varargin{',num2str(2*Place-1),'} = '''';'])
+    if remove 
+      evalin('caller',['varargin(',num2str(2*Place-1),':',num2str(2*Place),') = [];'])
     end
   end
   if nargout == 0
