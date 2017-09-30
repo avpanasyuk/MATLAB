@@ -27,7 +27,11 @@ function [X,Y] = findzero(fun, range, varargin)
   if sign(y(1)) ~= sign(y(2))
     while ItersLeft
       % Ok, we do  linear interpolation between 
-      % edge points and bisecting in turnes
+      % edge points and bisecting in turns. We can do not use linear
+      % interpolation alone because depending on function shape it may
+      % converge very fast, or very slow. And X steps may be very small but still far away from the solution.
+      % BISECTION converges with the same
+      % speed, so when we have both we get kinda optinal situation
       if mod(ItersLeft,2) == 0
         X = x(1) - (x(2) - x(1))/(y(2)-y(1))*y(1);
       else 
@@ -45,7 +49,7 @@ function [X,Y] = findzero(fun, range, varargin)
         y = [y(1); Y];
       end
       if abs(X - OldX) < tolX, break, end
-      if mod(ItersLeft,2) == 0, OldX = X; end
+      if mod(ItersLeft,2) == 0, OldX = X; end % OldX tracks only linear interpolation
       
       ItersLeft = ItersLeft - 1;
     end
