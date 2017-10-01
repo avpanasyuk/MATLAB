@@ -51,7 +51,7 @@ classdef myridge_class < AVP.LINREG.input_data
   end
   
   methods(Static)
-    function [err, Ypredict, C, Offset, options] = do_shebang(X,y,Log10_ComplRange,varargin)
+    function [err, Ypredict, C, Offset, best_compl, options] = do_shebang(X,y,Log10_ComplRange,varargin)
       %> @param X - [NumSamples,NumIndepParam] matrix
       %> @param y - [NumSamples] vector of dependent parameters
       %> @param Log10_ComplRange - complexity range
@@ -66,9 +66,11 @@ classdef myridge_class < AVP.LINREG.input_data
       %>        CoeffThres - when coeff is smaller then this part of max in
       %>           WeightPwr power ignore corresponding indep var
       %>        SumSqrC_Pwr - in what power MaxC enters merit function
+      %>        err_func - function err_func(data,fit) to estimate an
+      %>           error. Returns a single error value      
       %> @retval err = AVP.rms(y - Ypredict)/AVP.rms(y);
       
-      AVP.opt_param('K',10,true);
+      AVP.opt_param('K',5,true);
       KfoldDividers = [0,... % add 0 in front for convenience
         AVP.opt_param('KfoldDividers',fix([1:K]*size(X,1)/K),true)];
       AVP.opt_param('tol',1e-2,true);
@@ -78,8 +80,7 @@ classdef myridge_class < AVP.LINREG.input_data
       AVP.opt_param('MaxIters',40,true);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)./AVP.rms(data),true);
       AVP.opt_param('SumSqrC_Pwr',0);
-      AVP.vars2struct('options', 'KfoldDividers', 'fminbnd_options', 'WeightPwr',...
-        'CoeffThres', 'MaxIters','err_func','SumSqrC_Pwr');
+      AVP.vars2struct('options');
       
       % we divide the whole dataset on datablocks according to KfoldDividers
       % to calculate error for each block we do following: remove it from
