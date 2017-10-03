@@ -1,4 +1,5 @@
 function err = err_func(data,fit,dim,degree)
+  %> works with complex data and fit
   delta = data - fit;
   if ~exist('degree','var') || isempty(degree)
     degree = 2;
