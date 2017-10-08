@@ -62,25 +62,28 @@ classdef myridge_class < AVP.LINREG.input_data
       %>        tol - interrupt iterrations when C changes less then this
       %>        fminbnd_options
       %>        WeightPwr - what power is supppression factor from coeff
-      %>         smallness
+      %>         smallness. The smaller it is, the smaller the error but 
+      %>         more coefficients. 
       %>        CoeffThres - when abs(coeff)/max(coeff) is smaller than
-      %>          err*CoeffThres we drop corresponding indep var
+      %>          err*CoeffThres we drop corresponding indep var. Tuned.
       %>        SumSqrC_Pwr - in what power the sum of coeffs squares
-      %>          enters merit function
+      %>          enters merit function. Bigger values restrict
+      %>          coefficients from growing too big. Tuned
       %>        err_func - function err_func(data,fit) to estimate an
-      %>           error. Returns a single normalized error value      
+      %>           error. Returns a single normalized error value
+      %>        Log10_ComplRange - range of complixity changes, tuned.
       %> @retval err = AVP.rms(y - Ypredict)/AVP.rms(y);
       
       AVP.opt_param('K',5,true);
       KfoldDividers = [0,... % add 0 in front for convenience
         AVP.opt_param('KfoldDividers',fix([1:K]*size(X,1)/K),true)];
       AVP.opt_param('tol',1e-2,true);
-      AVP.opt_param('fminbnd_options',optimset('TolX',0.2),true);
+      AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.2),true);
       AVP.opt_param('WeightPwr',4,true);
       AVP.opt_param('CoeffThres',0.1,true);
       AVP.opt_param('MaxIters',40,true);
-      AVP.opt_param('Log10_ComplRange',[-1,7],true);     
-      AVP.opt_param('SumSqrC_Pwr',0.05);
+      AVP.opt_param('Log10_ComplRange',[0,7],true); % range is well tuned!
+      AVP.opt_param('SumSqrC_Pwr',0.1);
       AVP.vars2struct('options');
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)./AVP.rms(data),true);
       
@@ -107,7 +110,7 @@ classdef myridge_class < AVP.LINREG.input_data
       OldC = [];
       
       %best_compl = Log10_ComplRange(2);
-       
+      
       for IterI=1:MaxIters
         % find minimum Kfold error vs complexity
         inv_merit_func = @(compl) ...
@@ -131,18 +134,35 @@ classdef myridge_class < AVP.LINREG.input_data
         AVP.legend({'Calculated','True'});
         xlabel(sprintf('Error:%g, Nparam:%d, best_compl:%g',...
           err,numel(SelectPars),best_compl));
+        
+        fprintf('c:%3.1f,e:%6.4f,n:%d | ',best_compl,err,numel(find(l_whole.C)));
         drawnow
+        
+        if max(abs(l_whole.C)) > 10
+          SumSqrC_Pwr = SumSqrC_Pwr*1.1;
+          fprintf('\nSumSqrC_Pwr raised to %f due to high abs(C)\n', SumSqrC_Pwr);
+        end
         
         CoeffNorm = abs(l_whole.C); %/max(abs(l_whole.C));
         SelectPars = find(CoeffNorm > err*CoeffThres);
+        if numel(SelectPars) == 0
+          SumSqrC_Pwr = SumSqrC_Pwr/1.1;
+          fprintf('\nSumSqrC_Pwr lowered to %f due to convergence to constant\n', SumSqrC_Pwr);
+          ParSuppressFactor = ones(1,size(X,2)); 
+          SelectPars = [1:size(X,2)]; 
+          OldC = [];
+          IterI=1;
+          continue
+        end
         ParSuppressFactor = (CoeffNorm(SelectPars)).^(-WeightPwr);
- 
+        
         if ~isempty(OldC) && max(abs(OldC - l_whole.C)) < max(abs(OldC))*tol
           break
         end
       end
       
       [C, Offset] = l_whole.get_C();
+      options.SumSqrC_Pwr = SumSqrC_Pwr;
     end
     
     function [inv_merit,Ypredict] = K_fold_merit(l_train, compl, Xtest, Ytest, TestIs, ...
@@ -155,7 +175,7 @@ classdef myridge_class < AVP.LINREG.input_data
       %> @param SumSqrC_Pwr - in what power NumC enters merit function
       %> we calculate a total error over all partial datasets
       %> @retval inv_merit - error time max(C)^SumSqrC_Pwr
-        
+      
       for dsI = 1:numel(l_train)
         l_train{dsI}.do_regression(compl, ParSuppressFactor,SelectPars);
         [C, Offset] = l_train{dsI}.get_C();
@@ -163,9 +183,9 @@ classdef myridge_class < AVP.LINREG.input_data
         Yp = Offset + Xtest{dsI}*C;
         
         YpA{dsI} = Yp;
-%         err = err_func(Ytest{dsI},Yp);
-%         non0 = find(abs(l_train{dsI}.C) > err/CoeffThres);
-%         InvMeritArr(dsI) = err*(0.1+sum(l_train{dsI}.C(non0).^2))^SumSqrC_Pwr;
+        %         err = err_func(Ytest{dsI},Yp);
+        %         non0 = find(abs(l_train{dsI}.C) > err/CoeffThres);
+        %         InvMeritArr(dsI) = err*(0.1+sum(l_train{dsI}.C(non0).^2))^SumSqrC_Pwr;
         InvMeritArr(dsI) = err_func(Ytest{dsI},Yp)*(0.1+sum(l_train{dsI}.C.^2)^SumSqrC_Pwr);
       end
       
@@ -186,9 +206,9 @@ function test
   c(21:end) = 0;
   y = x*c + 2*rand(Ns,1);
   
-  [err, Ypredict, C, Offset] = ...
-    AVP.LINREG.myridge_class.do_shebang(x,y,'Log10_ComplRange',[-1,7],'SumSqrC_Pwr',0.05,...
-    'WeightPwr',4,'fminbnd_options',optimset('Display','iter','TolX',0.1));
+  [err, Ypredict, C, Offset, ~, options] = ...
+    AVP.LINREG.myridge_class.do_shebang(x,y,'Log10_ComplRange',[0,7],'SumSqrC_Pwr',0.1,...
+    'WeightPwr',4,'CoeffThres',0.1,'fminbnd_options',optimset('Display','none','TolX',0.2));
   
   plot([c,C])
 end
