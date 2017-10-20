@@ -5,17 +5,17 @@ function var = load_from_bytestream(bytes)
   code = AVP.pop('char');
   switch code
     case 'v'
-      var = AVP.pop(AVP.pop('char',AVP.pop));
+      var = AVP.pop(AVP.pop('char',AVP.pop(1)));
     case 'z'
-      type = AVP.pop('char',AVP.pop);
+      type = AVP.pop('char',AVP.pop(1));
       var = complex(AVP.pop(type),AVP.pop(type));
     case 's'
-      for fi=1:AVP.pop
-        fn = AVP.pop('char',AVP.pop);
+      for fi=1:AVP.pop(1)
+        fn = AVP.pop('char',AVP.pop(1));
         var.(fn) = AVP.load_from_bytestream();
       end
     case {'a','x','c'}
-      ndims = AVP.pop;
+      ndims = AVP.pop(1);
       sz = typecast(AVP.pop(2*ndims),'uint16');
       if code == 'c'
         var = cell(double(sz));
@@ -23,7 +23,7 @@ function var = load_from_bytestream(bytes)
           var{n} = AVP.load_from_bytestream();
         end
       else
-        type = AVP.pop('char',AVP.pop);
+        type = AVP.pop('char',AVP.pop(1));
         var = AVP.pop(type,sz);
         if code == 'x'
           var = complex(var,AVP.pop(type,sz));
