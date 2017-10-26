@@ -1,8 +1,7 @@
 % ok, let's find project root directory which should be somewhere  up the tree. 
-global PROJECT_DIR REP_ROOT DATA_DIR
+global PROJECT_DIR REP_ROOT 
 PROJECT_DIR = pwd; PROJECT_DIR(1) = upper(PROJECT_DIR(1)); 
 REP_ROOT = PROJECT_DIR; % looking for the root of git repository
-DATA_DIR = 'c:\Dropbox\JEF Core\Sasha\DATA\';
 
 while ~isempty(REP_ROOT)
 	if exist([REP_ROOT '\MATLAB'],'dir'), break; end
@@ -13,10 +12,6 @@ if isempty(REP_ROOT)
   error('Can not find repository root which has MATLAB subdirectory!')
 end
     
-addpath([REP_ROOT '\MATLAB'], [REP_ROOT '\MATLAB\AVP_LIB'], ...
-  [REP_ROOT '\MATLAB\AVP_LIB\ARESLab']); % , [REP_ROOT '\MATLAB\AVP_LIB\+CONTRIB']);
-
-
 % SET OLD PLOT PALETTE,BUT WITH CLEAR SEQUENCE RGBCMYKG
 co = [1.00 0.00 0.00;
   0.00 0.50 0.00;
@@ -35,6 +30,9 @@ format compact
 format shortg
 set(0,'defaulttextinterpreter','none')
 set(0,'DefaultFigureWindowStyle','docked')
+
+run('..\mystartup.m')
+
 
 
 
