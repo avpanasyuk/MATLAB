@@ -1,15 +1,15 @@
-% ok, let's find project root directory which should be somewhere  up the tree. 
+% ok, let's find project root directory which should be somewhere up the tree. 
 global PROJECT_DIR REP_ROOT 
 PROJECT_DIR = pwd; PROJECT_DIR(1) = upper(PROJECT_DIR(1)); 
 REP_ROOT = PROJECT_DIR; % looking for the root of git repository
 
 while ~isempty(REP_ROOT)
-	if exist([REP_ROOT '\MATLAB'],'dir'), break; end
+	if exist([REP_ROOT '\.git'],'dir'), break; end
   REP_ROOT = fileparts(REP_ROOT);
 end
 
 if isempty(REP_ROOT)
-  error('Can not find repository root which has MATLAB subdirectory!')
+  error('Can not find repository root which has .git subdirectory!')
 end
     
 % SET OLD PLOT PALETTE,BUT WITH CLEAR SEQUENCE RGBCMYKG
@@ -28,7 +28,7 @@ set(0,'defaultAxesColorOrder',co)
 AVP.clearvars()
 format compact 
 format shortg
-set(0,'defaulttextinterpreter','none')
+% set(0,'defaulttextinterpreter','none')
 set(0,'DefaultFigureWindowStyle','docked')
 
 run('..\mystartup.m')
