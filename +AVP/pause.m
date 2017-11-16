@@ -1,7 +1,7 @@
-% pause with drawnow
-function pause(t)
-  start = tic;
-  while toc(start) < t, drawnow; end
+
+function pause(varargin)
+  fprintf('PAUSED, PRESS KEY ...\n')
+  pause(varargin{:});
+  fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
 end
 
- 

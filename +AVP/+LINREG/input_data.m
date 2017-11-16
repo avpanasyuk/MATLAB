@@ -18,8 +18,8 @@ classdef input_data < handle
       %> @retval C - coeff vector for original data [x_varI,1]
       %> @retval Offset - offset vector for original data
       
-      C = C_zscored./a.X.Std.'*a.y.Std;
-      Offset  = a.y.Mean - a.X.Mean*C;
+      C = C_zscored./a.X.Std*a.y.Std;
+      Offset  = a.y.Mean - a.X.Mean*C.';
     end
   end
 end

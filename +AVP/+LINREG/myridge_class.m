@@ -30,9 +30,9 @@ classdef myridge_class < AVP.LINREG.input_data
       %>      coefficients, the smaller coefficient the higher is suppress
       %>      factor
       
-      a.C = zeros(size(a.X.D,2),1);
+      a.C = zeros(1,size(a.X.D,2));
       a.C(SelectPars) = (a.X.D(:,SelectPars).'*a.X.D(:,SelectPars) +...
-        10.^(-complexity)*diag(ParSuppressFactor)*size(a.X.D,1))\...
+        10.^(1-complexity^2)*diag(ParSuppressFactor)*size(a.X.D,1))\...
         (a.X.D(:,SelectPars).'*a.y.D);
     end
     
@@ -54,49 +54,47 @@ classdef myridge_class < AVP.LINREG.input_data
     function [err, Ypredict, C, Offset, best_compl, options] = do_shebang(X,y,varargin)
       %> @param X - [NumSamples,NumIndepParam] matrix
       %> @param y - [NumSamples] vector of dependent parameters
-      %> @param Log10_ComplRange - complexity range
+      %> @param ComplRange - complexity range
       %> @param varargin
-      %>        KfoldDividers - last index of each data block in Kfold
+      %>        KfoldDividers - last index of each data block in Kfold.
+      %>            First elements should be 0
       %>        K - if KfoldDividers is not specidied uniformly divides
       %>            X and Y on K datablocks
       %>        tol - interrupt iterrations when C changes less then this
       %>        fminbnd_options
       %>        WeightPwr - what power is supppression factor from coeff
-      %>         smallness. The smaller it is, the smaller the error but 
-      %>         more coefficients. 
-      %>        CoeffThres - when abs(coeff)/max(coeff) is smaller than
-      %>          err*CoeffThres we drop corresponding indep var. Tuned.
+      %>         smallness. The smaller it is, the smaller the error but
+      %>         more coefficients.
       %>        SumSqrC_Pwr - in what power the sum of coeffs squares
       %>          enters merit function. Bigger values restrict
       %>          coefficients from growing too big. Tuned
       %>        err_func - function err_func(data,fit) to estimate an
       %>           error. Returns a single normalized error value
-      %>        Log10_ComplRange - range of complixity changes, tuned.
-      %> @retval err = AVP.rms(y - Ypredict)/AVP.rms(y);
+      %>        ComplRange - range of complixity changes, tuned.
+      %> @retval err = err_func(y,Ypredict)
       
       AVP.opt_param('K',5,true);
-      KfoldDividers = [0,... % add 0 in front for convenience
-        AVP.opt_param('KfoldDividers',fix([1:K]*size(X,1)/K),true)];
+      KfoldDividers = AVP.opt_param('KfoldDividers',round(0:size(X,1)/K:size(X,1)),true); % first element is 0 for convenience
       AVP.opt_param('tol',1e-2,true);
       AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.2),true);
       AVP.opt_param('WeightPwr',4,true);
-      AVP.opt_param('CoeffThres',0.1,true);
       AVP.opt_param('MaxIters',40,true);
-      AVP.opt_param('Log10_ComplRange',[0,7],true); % range is well tuned!
-      AVP.opt_param('SumSqrC_Pwr',0.1);
-      AVP.vars2struct('options');
+      AVP.opt_param('ComplRange',[0,3],true); % range is well tuned!
+      AVP.opt_param('SumSqrC_Pwr',0);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)./AVP.rms(data),true);
+      AVP.vars2struct('options');
+      AVP.opt_param('DoPar',false);
       
       % we divide the whole dataset on datablocks according to KfoldDividers
       % to calculate error for each block we do following: remove it from
       % dataset, calculate regression from this dataset and then calculate
       % error using removed block and RMS all such errors
-      for dsI = 1:numel(KfoldDividers) - 1
-        TrainIs = [1:KfoldDividers(dsI),KfoldDividers(dsI+1)+1:KfoldDividers(end)];
-        l_train{dsI} = AVP.LINREG.myridge_class(X(TrainIs,:),y(TrainIs));
-        TestIs{dsI} = [KfoldDividers(dsI)+1:KfoldDividers(dsI+1)];
-        Xtest{dsI} = X(TestIs{dsI},:);
-        ytest{dsI} = y(TestIs{dsI});
+      for Ki = 1:numel(KfoldDividers) - 1
+        TrainIs = [1:KfoldDividers(Ki),KfoldDividers(Ki+1)+1:KfoldDividers(end)];
+        l_train{Ki} = AVP.LINREG.myridge_class(X(TrainIs,:),y(TrainIs));
+        TestIs{Ki} = [KfoldDividers(Ki)+1:KfoldDividers(Ki+1)];
+        Xtest{Ki} = X(TestIs{Ki},:);
+        ytest{Ki} = y(TestIs{Ki});
       end
       
       l_whole = AVP.LINREG.myridge_class(X,y); % does normalizations
@@ -109,16 +107,16 @@ classdef myridge_class < AVP.LINREG.input_data
       % SelectPars are indexes of remaining parameters
       OldC = [];
       
-      %best_compl = Log10_ComplRange(2);
+      %best_compl = ComplRange(2);
       
       for IterI=1:MaxIters
         % find minimum Kfold error vs complexity
         inv_merit_func = @(compl) ...
           AVP.LINREG.myridge_class.K_fold_merit(...
           l_train, compl, Xtest, ytest, TestIs,err_func,...
-          ParSuppressFactor,SelectPars,CoeffThres,SumSqrC_Pwr);
+          ParSuppressFactor,SelectPars,SumSqrC_Pwr,DoPar);
         best_compl = fminbnd(inv_merit_func,...
-          Log10_ComplRange(1),Log10_ComplRange(2),fminbnd_options);
+          ComplRange(1),ComplRange(2),fminbnd_options);
         
         OldC = l_whole.C;
         l_whole.do_regression(best_compl,ParSuppressFactor,SelectPars);
@@ -135,26 +133,34 @@ classdef myridge_class < AVP.LINREG.input_data
         xlabel(sprintf('Error:%g, Nparam:%d, best_compl:%g',...
           err,numel(SelectPars),best_compl));
         
-        fprintf('c:%3.1f,e:%6.4f,n:%d | ',best_compl,err,numel(find(l_whole.C)));
+        fprintf('compl:%3.1f,err:%6.4f,nC:%d\n',best_compl,err,numel(find(l_whole.C)));
         drawnow
         
         if max(abs(l_whole.C)) > 10
-          SumSqrC_Pwr = SumSqrC_Pwr*1.1;
+          SumSqrC_Pwr = SumSqrC_Pwr+0.1;
           fprintf('\nSumSqrC_Pwr raised to %f due to high abs(C)\n', SumSqrC_Pwr);
         end
         
-        CoeffNorm = abs(l_whole.C); %/max(abs(l_whole.C));
-        SelectPars = find(CoeffNorm > err*CoeffThres);
+        % we are suppressing small coefficients
+        CoeffNorm = abs(l_whole.C)/rms(l_whole.C);
+        NewParSuppressFactor = CoeffNorm(SelectPars).^(-WeightPwr);
+        IsParGood = NewParSuppressFactor*10^(1-ComplRange(1)^2) < 1e8;
+        if all(IsParGood) % we have not discarded any new parameters
+          ParSuppressFactor = sqrt(ParSuppressFactor.*NewParSuppressFactor);
+        else
+          SelectPars = SelectPars(find(IsParGood));
+          ParSuppressFactor = CoeffNorm(SelectPars).^(-WeightPwr);
+        end
+        
         if numel(SelectPars) == 0
           SumSqrC_Pwr = SumSqrC_Pwr/1.1;
           fprintf('\nSumSqrC_Pwr lowered to %f due to convergence to constant\n', SumSqrC_Pwr);
-          ParSuppressFactor = ones(1,size(X,2)); 
-          SelectPars = [1:size(X,2)]; 
+          ParSuppressFactor = ones(1,size(X,2));
+          SelectPars = [1:size(X,2)];
           OldC = [];
           IterI=1;
           continue
         end
-        ParSuppressFactor = (CoeffNorm(SelectPars)).^(-WeightPwr);
         
         if ~isempty(OldC) && max(abs(OldC - l_whole.C)) < max(abs(OldC))*tol
           break
@@ -165,8 +171,9 @@ classdef myridge_class < AVP.LINREG.input_data
       options.SumSqrC_Pwr = SumSqrC_Pwr;
     end
     
+    
     function [inv_merit,Ypredict] = K_fold_merit(l_train, compl, Xtest, Ytest, TestIs, ...
-        err_func, ParSuppressFactor,SelectPars,CoeffThres,SumSqrC_Pwr)
+        err_func, ParSuppressFactor,SelectPars,SumSqrC_Pwr, DoPar)
       %> function to calculate invert of merit value  for a given complexity ..
       %> @param l_train - cell array of linreg_class created with training data
       %> @param compl - complexity to calculate with, lambda = 10^(-compl)
@@ -176,22 +183,30 @@ classdef myridge_class < AVP.LINREG.input_data
       %> we calculate a total error over all partial datasets
       %> @retval inv_merit - error time max(C)^SumSqrC_Pwr
       
-      for dsI = 1:numel(l_train)
-        l_train{dsI}.do_regression(compl, ParSuppressFactor,SelectPars);
-        [C, Offset] = l_train{dsI}.get_C();
+      function [Yp,InvMeritArr] = do_regression(l_train, Xtest, Ytest)
+        l_train.do_regression(compl, ParSuppressFactor,SelectPars);
+        [C, Offset] = l_train.get_C();
         
-        Yp = Offset + Xtest{dsI}*C;
+        Yp = Offset + Xtest*C.';
         
-        YpA{dsI} = Yp;
-        %         err = err_func(Ytest{dsI},Yp);
-        %         non0 = find(abs(l_train{dsI}.C) > err/CoeffThres);
-        %         InvMeritArr(dsI) = err*(0.1+sum(l_train{dsI}.C(non0).^2))^SumSqrC_Pwr;
-        InvMeritArr(dsI) = err_func(Ytest{dsI},Yp)*(0.1+sum(l_train{dsI}.C.^2)^SumSqrC_Pwr);
+        InvMeritArr = err_func(Ytest,Yp)*(0.1+sum(l_train.C.^2)^SumSqrC_Pwr);       
       end
       
-      for dsI = 1:numel(l_train) % this is moved here so previous FOR can
+      hloop = @do_regression;
+      
+      if DoPar
+        parfor Ki = 1:numel(l_train)
+          [YpA{Ki},InvMeritArr(Ki)] = feval(hloop,l_train{Ki}, Xtest{Ki}, Ytest{Ki});
+        end
+      else
+        for Ki = 1:numel(l_train)
+           [YpA{Ki},InvMeritArr(Ki)] = do_regression(l_train{Ki}, Xtest{Ki}, Ytest{Ki});
+       end
+      end
+      
+      for Ki = 1:numel(l_train) % this is moved here so previous FOR can
         % be replaced by PARFOR
-        Ypredict(TestIs{dsI},1) = YpA{dsI};
+        Ypredict(TestIs{Ki},1) = YpA{Ki};
       end
       inv_merit = AVP.rms(InvMeritArr);
     end % K_fold_merit
@@ -202,14 +217,14 @@ end % myridge_class
 function test
   Ns = 1000;
   x = rand(Ns,50);
-  c = rand(50,1);
+  c = rand(1,50);
   c(21:end) = 0;
-  y = x*c + 2*rand(Ns,1);
+  y = x*c.' + 2*rand(Ns,1);
   
   [err, Ypredict, C, Offset, ~, options] = ...
-    AVP.LINREG.myridge_class.do_shebang(x,y,'Log10_ComplRange',[0,7],'SumSqrC_Pwr',0.1,...
-    'WeightPwr',4,'CoeffThres',0.1,'fminbnd_options',optimset('Display','none','TolX',0.2));
+    AVP.LINREG.myridge_class.do_shebang(x,y,'ComplRange',[0,7],'SumSqrC_Pwr',0,...
+    'WeightPwr',4,'fminbnd_options',optimset('Display','none','TolX',0.2));
   
-  plot([c,C])
+  plot([c;C].')
 end
 

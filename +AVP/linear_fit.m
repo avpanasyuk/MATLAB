@@ -1,4 +1,4 @@
-function [a,b,err_a,err_b,yfit,residuals] = linear_fit(y,x,w,options)
+function [a,b,err_a,err_b,yfit,residuals] = linear_fit(y,x,w,varargin)
 %+
 % linear fit. See GoogleDoc "linear fit with weights". Errors are divided
 % by sum(w) because it makes them right :-)
@@ -7,16 +7,10 @@ function [a,b,err_a,err_b,yfit,residuals] = linear_fit(y,x,w,options)
 
 %% PARSE OPTIONS
 % defaults
-robust_iters = 0; % maximum number of robust iterations, they stop if
-robust_tol = 1e-4; % robust_tol is reached first
-do_plot = false;
-b_is_0 = false;
-if exist('options','var')
-  if isfield(options,'robust_iters'), robust_iters = options.robust_iters; end
-  if isfield(options,'do_plot'), do_plot = options.do_plot; end
-  if isfield(options,'robust_tol'), robust_tol = options.robust_tol; robust_iters = 100; end
-  if isfield(options,'b_is_0'), b_is_0 = options.b_is_0; b = 0; end
-end
+AVP.opt_param('robust_iters',0);
+AVP.opt_param('do_plot',false);
+AVP.opt_param('robust_tol',1e-4);
+AVP.opt_param('b_is_0',false);
 
 n = numel(y);
 if ~exist('x','var') || isempty(x), x=[1:n]; end
@@ -45,12 +39,13 @@ for ri=1:robust_iters+1, % first iteration is not robust
   
   yfit = a*x + b;
   residuals = y - yfit;
+  res_sqr = residuals.^2/median(residuals.^2);
   
   % calculate robust w
   if all(w_init == 1)
-    w = 1./(median(residuals.^2)+residuals.^2); % in case we have no residuals
+    w = 1./sqrt(1+res_sqr); 
   else
-    w = 1./sqrt(((1./w_init).^2+residuals.^4)/2); % in case we have no residuals
+    w = 1./sqrt(1./w_init.^2+res_sqr.^2); 
   end
   % if a == 0 || b == 0, break; end % otherwise there is no way to get relative tolarance
   if ((a-old_a)/(a+old_a)*2).^2 < robust_tol.^2 && ...
