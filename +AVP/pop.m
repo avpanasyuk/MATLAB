@@ -26,7 +26,7 @@ else
         out = typecast(AVP.pop(n*AVP.get_size_of_type(x)),x);
       end
     else
-      out = reshape(typecast(AVP.pop(prod(n)*AVP.get_size_of_type(x)),x),n);
+      out = reshape(typecast(AVP.pop(prod(n)*AVP.get_size_of_type(x)),x),n(:).');
     end
   else
     x = double(x);

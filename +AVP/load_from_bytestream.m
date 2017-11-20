@@ -33,6 +33,8 @@ function var = load_from_bytestream(bytes)
       var = AVP.pop('char',AVP.pop('uint16'));
     case 'e'
       var = [];
+    case 'l'
+      var = struct2table(AVP.load_from_bytestream(AVP.pop(AVP.pop('uint32'))));
     otherwise
       error(['Wrong code "' code '"!'])
   end

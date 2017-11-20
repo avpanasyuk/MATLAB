@@ -21,25 +21,30 @@ function bytes = save2bytestream(x)
         bytes = [uint8('t'),typecast(uint16(numel(x)),'uint8')];
         bytes = [bytes,AVP.to_bytes(uint8(x))];
       else
-        if numel(x) == 0, bytes = uint8('e'); else
-          type = class(x(1));
-          if numel(x) ~= 1
-            if isreal(x(1))
-              code = 'a';
+        if istable(x)
+          b = AVP.save2bytestream(table2struct(x,'ToScalar',true));
+          bytes = [uint8('l'),AVP.to_bytes(uint32(numel(b))),b];
+        else
+          if numel(x) == 0, bytes = uint8('e'); else
+            type = class(x(1));
+            if numel(x) ~= 1
+              if isreal(x(1))
+                code = 'a';
+              else
+                code = 'x';
+              end
+              bytes = [uint8([code,ndims(x)]),...
+                typecast(uint16(size(x)),'uint8')];
             else
-              code = 'x';
+              if isreal(x(1))
+                code = 'v';
+              else
+                code = 'z';
+              end
+              bytes = uint8(code);
             end
-            bytes = [uint8([code,ndims(x)]),...
-              typecast(uint16(size(x)),'uint8')];
-          else
-            if isreal(x(1))
-              code = 'v';
-            else
-              code = 'z';
-            end
-            bytes = uint8(code);
+            bytes = [bytes,uint8([numel(type),type]), AVP.to_bytes(x)];
           end
-          bytes = [bytes,uint8([numel(type),type]), AVP.to_bytes(x)];
         end
       end
     end
