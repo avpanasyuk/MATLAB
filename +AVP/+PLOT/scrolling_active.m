@@ -1,7 +1,7 @@
 %> @brief scrolling_plot_active is given a callback function and it calls it by
 %> itself
 %> @param func 
-classdef scrolling_plot_active < AVP.scrolling_plot
+classdef scrolling_plot_active < AVP.PLOT.scrolling
   properties (SetAccess=protected,GetAccess=public)
     %defiined properties
     y_only
@@ -20,7 +20,7 @@ classdef scrolling_plot_active < AVP.scrolling_plot
       % ok, we can set things up only after we know what func returns, and
       % it may start returning something only later. So, we postpone
       % setting things up until the last moment
-      a = a@AVP.scrolling_plot(varargin{:});
+      a = a@AVP.PLOT.scrolling(varargin{:});
       % set(a.fig,'DeleteFcn',@(varargin) a.delete); - no need, where is
       % no virtual functions in MATLAB
       a.y_only = AVP.opt_param('y_only',[]);
@@ -37,7 +37,7 @@ classdef scrolling_plot_active < AVP.scrolling_plot
         a.stop
         delete(a.timer_obj)
       end
-      delete@AVP.scrolling_plot(a)
+      delete@AVP.PLOT.scrolling(a)
     end
     
     function timer_func(a)

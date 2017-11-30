@@ -1,6 +1,6 @@
 function levels = level_at_sigma(x,zero_centered,sigma)
   %> assuming normal distribution x finds levels
-  %> corresponding to given sigmas.
+  %> corresponding to given sigmas along columns  
   %> @param zero_centered, if true, assumes the distribution is zero centered, takes 
   %> abs(x) and and returns one level. If false, assumes reverse and
   %> returns two

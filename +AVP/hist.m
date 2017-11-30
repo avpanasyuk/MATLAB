@@ -12,7 +12,7 @@ function [density values ydivs] = hist(y,nbins,show),
     if nargin < 2 || isempty(nbins), nbins = ceil(sqrt(n)); end % by default the number of bins 
     if nargin < 3 || isempty(show), show = 0; end
     
-    idivs = round(linspace(1,n,nbins));
+    idivs = round(linspace(1,n,nbins)).';
     y = sort(y);
     ydivs = y(idivs);
     

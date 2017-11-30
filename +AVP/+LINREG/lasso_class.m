@@ -89,7 +89,7 @@ classdef lasso_class < AVP.LINREG.input_data
       subplot(2,1,2)
       plot([y,Ypredict])
       set(gca,'XLim',[500 600])
-      AVP.legend({'Calculated','True'});
+      AVP.PLOT.legend({'Calculated','True'});
       xlabel(sprintf('Error:%g, best_compl:%g',err,best_compl));
       drawnow
       
