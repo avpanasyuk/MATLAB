@@ -1,8 +1,16 @@
 classdef myridge_class < AVP.LINREG.input_data
   %> myridge_class evaluates iterrating ridge regression, supressing and
-  %> eliminating useless parameters. Errors are aveluated using Kfold,
+  %> eliminating useless parameters (that's my contribution').
+  %> Errors are aveluated using Kfold,
   %> either uniformly dividing on data blocks  or specified by the last index of
   %> each data block
+  %> ridge regression is a regression which minimizes RMS error plus RMS
+  %> coefficients*a.ComplFunc(complexity). Complexity is optimized in such 
+  %> a way that Kfold error is minimal.
+  %> The problem with ridge regression is that it minimizes big coefficient
+  %> is incensitive to small coefficients. I suggest to calculate RMS of
+  %> coeffcients with weights, we makes smaller coefficients to get
+  %> suprossed faster, eliminating them.  
   %> USE static myridge_class.do_regression(X,y) to do everything
   
   properties
@@ -60,35 +68,38 @@ classdef myridge_class < AVP.LINREG.input_data
       %> @param y - [NumSamples] vector of dependent parameters
       %> @param ComplRange - complexity range
       %> @param varargin
-      %>        KfoldDividers - last index of each data block in Kfold.
+      %>        - KfoldDividers - last index of each data block in Kfold.
       %>            First elements should be 0
-      %>        K - if KfoldDividers is not specidied uniformly divides
+      %>        - K - if KfoldDividers is not specidied uniformly divides
       %>            X and Y on K datablocks
-      %>        tol - interrupt iterrations when C changes less then this
-      %>        fminbnd_options
-      %>        WeightPwr - what power is supppression factor from coeff
-      %>         smallness. The smaller it is, the smaller the error but
-      %>         more coefficients.
-      %>        SumSqrC_Pwr - in what power the sum of coeffs squares
-      %>          enters merit function. Bigger values restrict
-      %>          coefficients from growing too big. Tuned
-      %>        err_func - function err_func(data,fit) to estimate an
-      %>           error. Returns a single normalized error value.
-      %>        ComplRange - range of complixity changes, tuned.
-      %>        comb_merit_fun - combine inv_merit for each patient into a
-      %>          single number to use for complexity optimization
+      %>        - ntol - interrupt iterrations when C changes less then this
+      %>            fminbnd_options
+      %>        - WeightPwr - what power is supppression factor from coeff
+      %>            smallness. The smaller it is, the smaller the error but
+      %>             more coefficients.
+      %>        - TuneWeightPwr - whether to tune WeightPwr in run time. 
+      %>        - SumSqrC_Pwr - in what power the sum of coeffs squares
+      %>            enters merit function. Bigger values restrict
+      %>            coefficients from growing too big. Tuned
+      %>        - err_func - function err_func(data,fit) to estimate an
+      %>             error. Returns a single normalized error value.
+      %>        - ComplRange - range of complixity changes, tuned.
+      %>        - comb_merit_fun - combine inv_merit for each patient into a
+      %>            single number to use for complexity optimization
       %> @retval err = err_func(y,Ypredict)
       
       AVP.opt_param('K',5,true);
       KfoldDividers = AVP.opt_param('KfoldDividers',round(0:size(X,1)/K:size(X,1)),true); % first element is 0 for convenience
       AVP.opt_param('tol',1e-2,true);
-      AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.1),true);
-      AVP.opt_param('WeightPwr',3,true);
+      AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.05),true);
+      AVP.opt_param('WeightPwr',2,true); % 
       AVP.opt_param('MaxIters',40,true);
       AVP.opt_param('ComplRange',[0,3],true); % range is well tuned!
       AVP.opt_param('SumSqrC_Pwr',0);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)/AVP.rms(data),true);
       AVP.opt_param('comb_merit_fun',@AVP.rms); 
+      AVP.opt_param('TuneWeightPwr',true); 
+      AVP.opt_param('compl_step',0.4); 
       AVP.vars2struct('options');
       AVP.opt_param('DoPar',false);
       
@@ -115,6 +126,7 @@ classdef myridge_class < AVP.LINREG.input_data
       OldC = [];
       
       %best_compl = ComplRange(2);
+      SameNumParIter = 1; %<> number of iterration with the same number of parameters
       
       for IterI=1:MaxIters
         % find minimum Kfold error vs complexity
@@ -137,10 +149,10 @@ classdef myridge_class < AVP.LINREG.input_data
         err = err_func(y,Ypredict);
         % set(gca,'XLim',[0 300])
         AVP.PLOT.legend({'Calculated','True'});
-        xlabel(sprintf('err\\_func:%g, Nparam:%d, best\\_compl:%g, best\\_merit:%g',...
+        xlabel(sprintf('err\\_func:%5.3f, Nparam:%d, best\\_compl:%4.2f, best\\_merit:%5.3f',...
           err,numel(SelectPars),best_compl,best_merit));
         
-        fprintf('compl:%3.1f,err:%6.4f,nC:%d,Merit:%6.4f\n',best_compl,err,numel(find(l_whole.C)),best_merit);
+        fprintf('compl:%4.2f,err:%6.4f,nC:%d,Merit:%6.4f\n',best_compl,err,numel(find(l_whole.C)),best_merit);
         drawnow
         
         if max(abs(l_whole.C)) > 10
@@ -149,26 +161,32 @@ classdef myridge_class < AVP.LINREG.input_data
         end
         
         % we are suppressing small coefficients
-        CoeffNorm = abs(l_whole.C)/rms(l_whole.C);
-        NewParSuppressFactor = CoeffNorm(SelectPars).^(-WeightPwr);
+        CoeffNorm = abs(l_whole.C(SelectPars))/rms(l_whole.C(SelectPars));
+        NewParSuppressFactor = CoeffNorm.^(-WeightPwr);
         IsParGood = NewParSuppressFactor*AVP.LINREG.myridge_class.ComplFunc(ComplRange(1)) < 1e8;
         if all(IsParGood) % we have not discarded any new parameters
-          ParSuppressFactor = sqrt(ParSuppressFactor.*NewParSuppressFactor);
-          WeightPwr = WeightPwr + (4 - WeightPwr)/8; % number of parameters is dropping too slow
-          fprintf('WeightPwr is raised to %f because number of parameters is not decreasing\n', WeightPwr);
+          if SameNumParIter == 1
+            ParSuppressFactor = NewParSuppressFactor;
+          else
+            steps = abs(best_compl - OldBestCompl)/compl_step;
+            ParSuppressFactor = (ParSuppressFactor.^steps.*NewParSuppressFactor).^(1/(steps+1));
+            if TuneWeightPwr && SameNumParIter > 4
+              WeightPwr = WeightPwr + (4 - WeightPwr)/8; % number of parameters is dropping too slow
+              fprintf('WeightPwr is raised to %f because number of parameters is not decreasing\n', WeightPwr);
+            end
+          end
+          OldBestCompl = best_compl;
+          SameNumParIter = SameNumParIter + 1;
         else
+          SameNumParIter = 1; 
           GoodI = find(IsParGood);
           SelectPars = SelectPars(GoodI);
           ParSuppressFactor = NewParSuppressFactor(GoodI);
-          if numel(IsParGood) > numel(GoodI)*3/2 % number of parameters is dropping too fast
-            WeightPwr = WeightPwr - (WeightPwr - 2)/4;
-            fprintf('WeightPwr is dropped to %f because number of parameters is dropping too fast\n', WeightPwr);
-          end
         end
         
         if numel(SelectPars) == 0
           SumSqrC_Pwr = SumSqrC_Pwr/1.1;
-          fprintf('SumSqrC_Pwr lowered to %f due to convergence to constant\n', SumSqrC_Pwr);
+          fprintf('SumSqrC_Pwr lowered to %f due to convergence to a constant\n', SumSqrC_Pwr);
           ParSuppressFactor = ones(1,size(X,2));
           SelectPars = [1:size(X,2)];
           OldC = [];
