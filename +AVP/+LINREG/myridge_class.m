@@ -92,7 +92,8 @@ classdef myridge_class < AVP.LINREG.input_data
       KfoldDividers = AVP.opt_param('KfoldDividers',round(0:size(X,1)/K:size(X,1)),true); % first element is 0 for convenience
       AVP.opt_param('tol',1e-2,true);
       AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.05),true);
-      AVP.opt_param('WeightPwr',2,true); % 
+      AVP.opt_param('WeightPwr',3,true); % 
+      AVP.opt_param('CoeffScale',0.01,true); % 
       AVP.opt_param('MaxIters',40,true);
       AVP.opt_param('ComplRange',[0,3],true); % range is well tuned!
       AVP.opt_param('SumSqrC_Pwr',0);
@@ -162,7 +163,7 @@ classdef myridge_class < AVP.LINREG.input_data
         
         % we are suppressing small coefficients
         CoeffNorm = abs(l_whole.C(SelectPars))/rms(l_whole.C(SelectPars));
-        NewParSuppressFactor = CoeffNorm.^(-WeightPwr);
+        NewParSuppressFactor = (CoeffNorm/CoeffScale).^(-WeightPwr);
         IsParGood = NewParSuppressFactor*AVP.LINREG.myridge_class.ComplFunc(ComplRange(1)) < 1e8;
         if all(IsParGood) % we have not discarded any new parameters
           if SameNumParIter == 1
