@@ -14,7 +14,7 @@ classdef indexed_fn
       l = dir([Dir Prefix '*']);
       if ~isempty(l),
         ind_strs = cellfun(@(s) sscanf(s,[Prefix '%d']),{l.name},'UniformOutput',false);
-        if ~isempty(ind_strs), last_ind = max([ind_strs{:}]); end
+        if ~isempty([ind_strs{:}]), last_ind = max([ind_strs{:}]); end
       end
     end %get_last_idx
     
@@ -31,8 +31,13 @@ classdef indexed_fn
       end
     end % get_last
     
+    function name = get_next_name(Dir, Prefix)
+      % keyboard
+      name = [Prefix num2str(AVP.indexed_fn.get_last_idx(Dir, Prefix)+1)];
+    end % get_next
+
     function name = get_next(Dir, Prefix)
-      name = [Dir Prefix num2str(AVP.indexed_fn.get_last_idx(Dir, Prefix)+1)];
+      name = [Dir AVP.indexed_fn.get_next_name(Dir, Prefix)];
     end % get_next
     
   end % methods

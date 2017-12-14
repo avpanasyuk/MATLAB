@@ -1,6 +1,6 @@
 % ok, let's find project root directory which should be somewhere up the tree. 
 global PROJECT_DIR REP_ROOT 
-PROJECT_DIR = pwd; PROJECT_DIR = upper(PROJECT_DIR(1)); 
+PROJECT_DIR = pwd; PROJECT_DIR(1) = upper(PROJECT_DIR(1)); 
 CurDir = PROJECT_DIR;
 
 while ~isempty(CurDir)
@@ -11,15 +11,18 @@ while ~isempty(CurDir)
       REP_ROOT = CurDir;
       break
   end
-  CurDir = fileparts(CurDir)
+  CurDir = fileparts(CurDir);
 end
 
 if exist([PROJECT_DIR '\MATLAB\mystartup.m'],'file')
-  run([PROJECT_DIR '\MATLAB\mystartup.m'])
+  addpath([PROJECT_DIR '\MATLAB']);
+  addpath([PROJECT_DIR '\MATLAB\AVP_LIB']);
 end
 
-if exist([PROJECT_DIR '\mystartup.m'],'file')
-  run([PROJECT_DIR '\mystartup.m'])
+try
+  run('mystartup.m')
+catch
+  fprintf('You can define  mystartup.m and put it into MATLAB directory!\n')
 end
     
 % SET OLD PLOT PALETTE,BUT WITH CLEAR SEQUENCE RGBCMYKG
@@ -40,7 +43,6 @@ format compact
 format shortg
 % set(0,'defaulttextinterpreter','none')
 set(0,'DefaultFigureWindowStyle','docked')
-
 
 
 
