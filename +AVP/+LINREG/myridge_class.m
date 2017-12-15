@@ -92,8 +92,8 @@ classdef myridge_class < AVP.LINREG.input_data
       KfoldDividers = AVP.opt_param('KfoldDividers',round(0:size(X,1)/K:size(X,1)),true); % first element is 0 for convenience
       AVP.opt_param('tol',1e-2,true);
       AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.05),true);
-      AVP.opt_param('WeightPwr',3,true); % 
-      AVP.opt_param('CoeffScale',0.01,true); % 
+      AVP.opt_param('WeightPwr',2.5,true); % 
+      AVP.opt_param('SmallnessThres',1e-2,true); % 
       AVP.opt_param('MaxIters',40,true);
       AVP.opt_param('ComplRange',[0,3],true); % range is well tuned!
       AVP.opt_param('SumSqrC_Pwr',0);
@@ -128,6 +128,8 @@ classdef myridge_class < AVP.LINREG.input_data
       
       %best_compl = ComplRange(2);
       SameNumParIter = 1; %<> number of iterration with the same number of parameters
+      PSFarr = [];
+      ErrArr = [];
       
       for IterI=1:MaxIters
         % find minimum Kfold error vs complexity
@@ -161,29 +163,45 @@ classdef myridge_class < AVP.LINREG.input_data
           fprintf('SumSqrC_Pwr raised to %f due to high abs(C)\n', SumSqrC_Pwr);
         end
         
-        % we are suppressing small coefficients
+        % we are suppressing and discarding small coefficients
+%         CoeffNorm = abs(l_whole.C)/rms(l_whole.C);
+%         NewParSuppressFactor = CoeffNorm(SelectPars).^(-WeightPwr);
         CoeffNorm = abs(l_whole.C(SelectPars))/rms(l_whole.C(SelectPars));
-        NewParSuppressFactor = (CoeffNorm/CoeffScale).^(-WeightPwr);
-        IsParGood = NewParSuppressFactor*AVP.LINREG.myridge_class.ComplFunc(ComplRange(1)) < 1e8;
-        if all(IsParGood) % we have not discarded any new parameters
-          if SameNumParIter == 1
-            ParSuppressFactor = NewParSuppressFactor;
-          else
-            steps = abs(best_compl - OldBestCompl)/compl_step;
-            ParSuppressFactor = (ParSuppressFactor.^steps.*NewParSuppressFactor).^(1/(steps+1));
-            if TuneWeightPwr && SameNumParIter > 4
-              WeightPwr = WeightPwr + (4 - WeightPwr)/8; % number of parameters is dropping too slow
-              fprintf('WeightPwr is raised to %f because number of parameters is not decreasing\n', WeightPwr);
-            end
-          end
-          OldBestCompl = best_compl;
-          SameNumParIter = SameNumParIter + 1;
-        else
-          SameNumParIter = 1; 
-          GoodI = find(IsParGood);
-          SelectPars = SelectPars(GoodI);
-          ParSuppressFactor = NewParSuppressFactor(GoodI);
-        end
+        IsParGood = CoeffNorm > SmallnessThres*tol; % discarding 
+        GoodI = find(IsParGood);
+        SelectPars = SelectPars(GoodI);
+        ParSuppressFactor = CoeffNorm(GoodI).^(-WeightPwr); % suppressing
+        % IsParGood = NewParSuppressFactor*AVP.LINREG.myridge_class.ComplFunc(ComplRange(1)) < SmallnessThres;
+%         if all(IsParGood) % we have not discarded any new parameters
+%           % I have a problem in that solution starts to oscullate between
+%           % two different complexity values. I've got to put dumping here.
+%           % I mix ParSuppressFactor between old and new, and the bigger is
+%           % difference between consequitive complexities the slower
+%           % ParSuppressFactor changes
+%           if SameNumParIter == 1
+%             ParSuppressFactor = sqrt(ParSuppressFactor.*NewParSuppressFactor);
+%           else
+%             steps = abs(best_compl - OldBestCompl)/compl_step;
+%             ParSuppressFactor = (ParSuppressFactor.^(steps+1).*NewParSuppressFactor).^(1/(steps+2));
+%             if TuneWeightPwr && SameNumParIter > 3
+%               WeightPwr = WeightPwr + (8 - WeightPwr)/4; % number of parameters is dropping too slow
+%               fprintf('WeightPwr is raised to %f because number of parameters is not decreasing\n', WeightPwr);
+%             end
+%           end
+%           OldBestCompl = best_compl;
+%           SameNumParIter = SameNumParIter + 1;
+%           PSFarr = [PSFarr; ParSuppressFactor];
+%           ErrArr = [ErrArr; err];
+%         else
+%           GoodI = find(IsParGood);
+%           SelectPars = SelectPars(GoodI);
+%           [~,minErrI] = min(ErrArr);
+%           ParSuppressFactor = PSFarr(minErrI,GoodI);
+%             
+%           PSFarr = [];
+%           ErrArr = [];
+%           SameNumParIter = 1; 
+%         end
         
         if numel(SelectPars) == 0
           SumSqrC_Pwr = SumSqrC_Pwr/1.1;
