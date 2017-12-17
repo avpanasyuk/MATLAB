@@ -5,12 +5,12 @@ classdef myridge_class < AVP.LINREG.input_data
   %> either uniformly dividing on data blocks  or specified by the last index of
   %> each data block
   %> ridge regression is a regression which minimizes RMS error plus RMS
-  %> coefficients*a.ComplFunc(complexity). Complexity is optimized in such 
+  %> coefficients*a.ComplFunc(complexity). Complexity is optimized in such
   %> a way that Kfold error is minimal.
   %> The problem with ridge regression is that it minimizes big coefficient
   %> is incensitive to small coefficients. I suggest to calculate RMS of
   %> coeffcients with weights, we makes smaller coefficients to get
-  %> suprossed faster, eliminating them.  
+  %> suprossed faster, eliminating them.
   %> USE static myridge_class.do_regression(X,y) to do everything
   
   properties
@@ -77,7 +77,7 @@ classdef myridge_class < AVP.LINREG.input_data
       %>        - WeightPwr - what power is supppression factor from coeff
       %>            smallness. The smaller it is, the smaller the error but
       %>             more coefficients.
-      %>        - TuneWeightPwr - whether to tune WeightPwr in run time. 
+      %>        - TuneWeightPwr - whether to tune WeightPwr in run time.
       %>        - SumSqrC_Pwr - in what power the sum of coeffs squares
       %>            enters merit function. Bigger values restrict
       %>            coefficients from growing too big. Tuned
@@ -92,15 +92,15 @@ classdef myridge_class < AVP.LINREG.input_data
       KfoldDividers = AVP.opt_param('KfoldDividers',round(0:size(X,1)/K:size(X,1)),true); % first element is 0 for convenience
       AVP.opt_param('tol',1e-2,true);
       AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.05),true);
-      AVP.opt_param('WeightPwr',2.5,true); % 
-      AVP.opt_param('SmallnessThres',1e-2,true); % 
+      AVP.opt_param('WeightPwr',3,true); %
+      AVP.opt_param('SmallnessThres',0.1,true); %
       AVP.opt_param('MaxIters',40,true);
-      AVP.opt_param('ComplRange',[0,3],true); % range is well tuned!
+      AVP.opt_param('ComplRange',[0,2.4],true); % range is well tuned!
       AVP.opt_param('SumSqrC_Pwr',0);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)/AVP.rms(data),true);
-      AVP.opt_param('comb_merit_fun',@AVP.rms); 
-      AVP.opt_param('TuneWeightPwr',true); 
-      AVP.opt_param('compl_step',0.4); 
+      AVP.opt_param('comb_merit_fun',@AVP.rms);
+      AVP.opt_param('TuneWeightPwr',true);
+      AVP.opt_param('compl_step',0.3);
       AVP.vars2struct('options');
       AVP.opt_param('DoPar',false);
       
@@ -127,9 +127,9 @@ classdef myridge_class < AVP.LINREG.input_data
       OldC = [];
       
       %best_compl = ComplRange(2);
-      SameNumParIter = 1; %<> number of iterration with the same number of parameters
-      PSFarr = [];
-      ErrArr = [];
+      SameNumParIter = 0; %<> number of iterration with the same number of parameters
+      %PSFarr = [];
+      %ErrArr = [];
       
       for IterI=1:MaxIters
         % find minimum Kfold error vs complexity
@@ -164,44 +164,42 @@ classdef myridge_class < AVP.LINREG.input_data
         end
         
         % we are suppressing and discarding small coefficients
-%         CoeffNorm = abs(l_whole.C)/rms(l_whole.C);
-%         NewParSuppressFactor = CoeffNorm(SelectPars).^(-WeightPwr);
+        %         CoeffNorm = abs(l_whole.C)/rms(l_whole.C);
+        %         NewParSuppressFactor = CoeffNorm(SelectPars).^(-WeightPwr);
         CoeffNorm = abs(l_whole.C(SelectPars))/rms(l_whole.C(SelectPars));
-        IsParGood = CoeffNorm > SmallnessThres*tol; % discarding 
+        NewParSuppressFactor = CoeffNorm.^(-WeightPwr); % suppressing
+        
+        IsParGood = CoeffNorm > SmallnessThres*tol; % discarding
         GoodI = find(IsParGood);
         SelectPars = SelectPars(GoodI);
-        ParSuppressFactor = CoeffNorm(GoodI).^(-WeightPwr); % suppressing
-        % IsParGood = NewParSuppressFactor*AVP.LINREG.myridge_class.ComplFunc(ComplRange(1)) < SmallnessThres;
-%         if all(IsParGood) % we have not discarded any new parameters
-%           % I have a problem in that solution starts to oscullate between
-%           % two different complexity values. I've got to put dumping here.
-%           % I mix ParSuppressFactor between old and new, and the bigger is
-%           % difference between consequitive complexities the slower
-%           % ParSuppressFactor changes
-%           if SameNumParIter == 1
-%             ParSuppressFactor = sqrt(ParSuppressFactor.*NewParSuppressFactor);
-%           else
-%             steps = abs(best_compl - OldBestCompl)/compl_step;
-%             ParSuppressFactor = (ParSuppressFactor.^(steps+1).*NewParSuppressFactor).^(1/(steps+2));
-%             if TuneWeightPwr && SameNumParIter > 3
-%               WeightPwr = WeightPwr + (8 - WeightPwr)/4; % number of parameters is dropping too slow
-%               fprintf('WeightPwr is raised to %f because number of parameters is not decreasing\n', WeightPwr);
-%             end
-%           end
-%           OldBestCompl = best_compl;
-%           SameNumParIter = SameNumParIter + 1;
-%           PSFarr = [PSFarr; ParSuppressFactor];
-%           ErrArr = [ErrArr; err];
-%         else
-%           GoodI = find(IsParGood);
-%           SelectPars = SelectPars(GoodI);
-%           [~,minErrI] = min(ErrArr);
-%           ParSuppressFactor = PSFarr(minErrI,GoodI);
-%             
-%           PSFarr = [];
-%           ErrArr = [];
-%           SameNumParIter = 1; 
-%         end
+        
+        if all(IsParGood) % we have not discarded any new parameters
+          % I have a problem in that solution starts to oscullate between
+          % two different complexity values. I've got to put dumping here.
+          % I mix ParSuppressFactor between old and new, and the bigger is
+          % difference between consequitive complexities the slower
+          % ParSuppressFactor changes
+          if SameNumParIter == 0 % first iter with this number of parameters occured
+            steps = 0;
+          else
+            steps = abs(best_compl - OldBestCompl)/compl_step;
+          end
+          ParSuppressFactor = (ParSuppressFactor.^(steps+1).*NewParSuppressFactor).^(1/(steps+2));
+          if TuneWeightPwr && SameNumParIter > 2
+            WeightPwr = WeightPwr + (8 - WeightPwr)/4; % number of parameters is dropping too slow
+            fprintf('WeightPwr is raised to %f because number of parameters is not decreasing\n', WeightPwr);
+          end
+          SameNumParIter = SameNumParIter + 1;
+          OldBestCompl = best_compl;
+          %ParSuppressFactor = ParSuppressFactor(GoodI);
+        else % next iterration has a different number of parameters
+          SameNumParIter = 0;
+          % ParSuppressFactor = ones(1,numel(GoodI));
+          ParSuppressFactor = NewParSuppressFactor;
+          % ParSuppressFactor = ParSuppressFactor(GoodI);           
+        end
+        
+        ParSuppressFactor = ParSuppressFactor(GoodI);
         
         if numel(SelectPars) == 0
           SumSqrC_Pwr = SumSqrC_Pwr/1.1;
@@ -243,7 +241,7 @@ classdef myridge_class < AVP.LINREG.input_data
         
         Yp = Offset + Xtest*C.';
         
-        InvMeritArr = err_func(Ytest,Yp)*(0.1+sum(l_train.C.^2)^SumSqrC_Pwr);       
+        InvMeritArr = err_func(Ytest,Yp)*(0.1+sum(l_train.C.^2)^SumSqrC_Pwr);
       end
       
       hloop = @do_regression;
@@ -254,8 +252,8 @@ classdef myridge_class < AVP.LINREG.input_data
         end
       else
         for Ki = 1:numel(l_train)
-           [YpA{Ki},InvMeritArr(Ki)] = do_regression(l_train{Ki}, Xtest{Ki}, Ytest{Ki});
-       end
+          [YpA{Ki},InvMeritArr(Ki)] = do_regression(l_train{Ki}, Xtest{Ki}, Ytest{Ki});
+        end
       end
       
       for Ki = 1:numel(l_train) % this is moved here so previous FOR can
@@ -276,7 +274,7 @@ function test
   y = x*c.' + 2*rand(Ns,1);
   
   [err, Ypredict, C, Offset, ~, options] = ...
-    AVP.LINREG.myridge_class.do_shebang(x,y,'SumSqrC_Pwr',0,...
+    AVP.LINREG.myridge_class.do_shebang(x,y,'SumSqrC_Pwr',0,'SmallnessThres',0.01,...
     'WeightPwr',3,'fminbnd_options',optimset('Display','none','TolX',0.1));
   
   plot([c;C].')
