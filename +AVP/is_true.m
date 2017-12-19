@@ -1,0 +1,6 @@
+function out = is_true(var_name)
+  %> returs true only if variable exists and is true
+  out = evalin('caller',['exist(''' var_name ...
+    ''',''var'') && ~isempty(' var_name ...
+    ') && ' var_name ';']);
+end

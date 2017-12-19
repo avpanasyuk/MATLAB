@@ -13,9 +13,9 @@ AVP.opt_param('robust_tol',1e-4);
 AVP.opt_param('b_is_0',false);
 
 n = numel(y);
-if ~exist('x','var') || isempty(x), x=[1:n]; end
+if ~exist('x','var') || isempty(x), x=[1:n].'; end
 if ~exist('w','var') || isempty(w), w=ones(size(x)); end
-good = find(isfinite(y) & isfinite(x));
+good = find(isfinite(y(:)) & isfinite(x));
 y = y(good); x = x(good); w=w(good);
 
 old_a = 0; old_b = 0; w_init = w; % for robust iterations
@@ -53,7 +53,7 @@ for ri=1:robust_iters+1, % first iteration is not robust
   old_a = a; old_b = b;
 end
 
-if nargout > 2,
+if nargout > 2 || do_plot,
   if b_is_0
     % taking into account DOF calculate sqrt(N-DOF)
     DOF = 1;
@@ -74,8 +74,11 @@ if nargout > 2,
 end
 
 if do_plot,
-  errorbar(x,y,1./w_init,'r.'); hold on
-  plot(x,yfit,'g-'); hold off
+  % errorbar(x,y,1./w_init,'r.'); hold on
+  plot(x,y,'+'); hold on
+  plot(x,(a+err_a)*x+b+err_b,'g');
+   plot(x,(a-err_a)*x+b-err_b,'g');
+    plot(x,yfit,'b'); hold off
 end
 end
 
