@@ -92,8 +92,9 @@ classdef myridge_class < AVP.LINREG.input_data
       KfoldDividers = AVP.opt_param('KfoldDividers',round(0:size(X,1)/K:size(X,1)),true); % first element is 0 for convenience
       AVP.opt_param('tol',1e-2,true);
       AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.05),true);
-      AVP.opt_param('WeightPwr',3,true); %
+      AVP.opt_param('WeightPwr',4,true); %
       AVP.opt_param('SmallnessThres',0.1,true); %
+      AVP.opt_param('ComplPwr',3,true); %
       AVP.opt_param('MaxIters',40,true);
       AVP.opt_param('ComplRange',[0,2.4],true); % range is well tuned!
       AVP.opt_param('SumSqrC_Pwr',0);
@@ -141,7 +142,7 @@ classdef myridge_class < AVP.LINREG.input_data
           ComplRange(1),ComplRange(2),fminbnd_options);
         
         OldC = l_whole.C;
-        l_whole.do_regression(best_compl,ParSuppressFactor,SelectPars);
+        l_whole.do_regression(best_compl,ParSuppressFactor,SelectPars); % calculate new C
         
         % plot results
         subplot(2,1,1)
@@ -152,6 +153,7 @@ classdef myridge_class < AVP.LINREG.input_data
         err = err_func(y,Ypredict);
         % set(gca,'XLim',[0 300])
         AVP.PLOT.legend({'Calculated','True'});
+        ylabel('1-off prediction');
         xlabel(sprintf('err\\_func:%5.3f, Nparam:%d, best\\_compl:%4.2f, best\\_merit:%5.3f',...
           err,numel(SelectPars),best_compl,best_merit));
         
@@ -167,7 +169,7 @@ classdef myridge_class < AVP.LINREG.input_data
         %         CoeffNorm = abs(l_whole.C)/rms(l_whole.C);
         %         NewParSuppressFactor = CoeffNorm(SelectPars).^(-WeightPwr);
         CoeffNorm = abs(l_whole.C(SelectPars))/rms(l_whole.C(SelectPars));
-        NewParSuppressFactor = CoeffNorm.^(-WeightPwr); % suppressing
+        NewParSuppressFactor = (CoeffNorm*best_compl^ComplPwr).^(-WeightPwr); % suppressing
         
         IsParGood = CoeffNorm > SmallnessThres*tol; % discarding
         GoodI = find(IsParGood);
@@ -179,6 +181,10 @@ classdef myridge_class < AVP.LINREG.input_data
           % I mix ParSuppressFactor between old and new, and the bigger is
           % difference between consequitive complexities the slower
           % ParSuppressFactor changes
+          if ~isempty(OldC) && max(abs(OldC - l_whole.C)) < max(abs(OldC))*tol
+            break
+          end
+          
           if SameNumParIter == 0 % first iter with this number of parameters occured
             steps = 0;
           else
@@ -191,12 +197,15 @@ classdef myridge_class < AVP.LINREG.input_data
           end
           SameNumParIter = SameNumParIter + 1;
           OldBestCompl = best_compl;
-          %ParSuppressFactor = ParSuppressFactor(GoodI);
+          
+          subplot(2,1,1)
+          plot(CoeffNorm)
+          subplot(2,1,2)
+          semilogy([ParSuppressFactor;NewParSuppressFactor].')
+          
         else % next iterration has a different number of parameters
           SameNumParIter = 0;
-          % ParSuppressFactor = ones(1,numel(GoodI));
-          ParSuppressFactor = NewParSuppressFactor;
-          % ParSuppressFactor = ParSuppressFactor(GoodI);           
+          ParSuppressFactor = sqrt(NewParSuppressFactor.*ParSuppressFactor);
         end
         
         ParSuppressFactor = ParSuppressFactor(GoodI);
@@ -209,10 +218,6 @@ classdef myridge_class < AVP.LINREG.input_data
           OldC = [];
           IterI=1;
           continue
-        end
-        
-        if ~isempty(OldC) && max(abs(OldC - l_whole.C)) < max(abs(OldC))*tol
-          break
         end
       end
       
