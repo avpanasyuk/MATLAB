@@ -89,18 +89,18 @@ classdef myridge_class < AVP.LINREG.input_data
       %> @retval err = err_func(y,Ypredict)
       
       AVP.opt_param('K',5,true);
-      KfoldDividers = AVP.opt_param('KfoldDividers',round(0:size(X,1)/K:size(X,1)),true); % first element is 0 for convenience
+      AVP.opt_param('KfoldDividers',round(0:size(X,1)/K:size(X,1)),true); % first element is 0 for convenience
       AVP.opt_param('tol',1e-2,true);
       AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.05),true);
-      AVP.opt_param('WeightPwr',4,true); %
-      AVP.opt_param('SmallnessThres',0.1,true); %
+      AVP.opt_param('WeightPwr',3,true); %
+      AVP.opt_param('SmallnessThres',0.01,true); %
       AVP.opt_param('ComplPwr',3,true); %
-      AVP.opt_param('MaxIters',40,true);
-      AVP.opt_param('ComplRange',[0,2.4],true); % range is well tuned!
+      AVP.opt_param('MaxIters',100,true);
+      AVP.opt_param('ComplRange',[1,3],true); % range is well tuned!
       AVP.opt_param('SumSqrC_Pwr',0);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)/AVP.rms(data),true);
       AVP.opt_param('comb_merit_fun',@AVP.rms);
-      AVP.opt_param('TuneWeightPwr',true);
+      AVP.opt_param('TuneWeightPwr',false);
       AVP.opt_param('compl_step',0.3);
       AVP.vars2struct('options');
       AVP.opt_param('DoPar',false);
@@ -160,10 +160,10 @@ classdef myridge_class < AVP.LINREG.input_data
         fprintf('compl:%4.2f,err:%6.4f,nC:%d,Merit:%6.4f\n',best_compl,err,numel(find(l_whole.C)),best_merit);
         drawnow
         
-        if max(abs(l_whole.C)) > 10
-          SumSqrC_Pwr = SumSqrC_Pwr+0.1;
-          fprintf('SumSqrC_Pwr raised to %f due to high abs(C)\n', SumSqrC_Pwr);
-        end
+%         if max(abs(l_whole.C)) > 10
+%           SumSqrC_Pwr = SumSqrC_Pwr+0.1;
+%           fprintf('SumSqrC_Pwr raised to %f due to high abs(C)\n', SumSqrC_Pwr);
+%         end
         
         % we are suppressing and discarding small coefficients
         %         CoeffNorm = abs(l_whole.C)/rms(l_whole.C);
@@ -210,15 +210,16 @@ classdef myridge_class < AVP.LINREG.input_data
         
         ParSuppressFactor = ParSuppressFactor(GoodI);
         
-        if numel(SelectPars) == 0
-          SumSqrC_Pwr = SumSqrC_Pwr/1.1;
-          fprintf('SumSqrC_Pwr lowered to %f due to convergence to a constant\n', SumSqrC_Pwr);
-          ParSuppressFactor = ones(1,size(X,2));
-          SelectPars = [1:size(X,2)];
-          OldC = [];
-          IterI=1;
-          continue
-        end
+%         if numel(SelectPars) == 0
+%           SumSqrC_Pwr = SumSqrC_Pwr/1.1;
+%           fprintf('SumSqrC_Pwr lowered to %f due to convergence to a constant\n', SumSqrC_Pwr);
+%           ParSuppressFactor = ones(1,size(X,2));
+%           SelectPars = [1:size(X,2)];
+%           OldC = [];
+%           IterI=1;
+%           continue
+%         end
+        % pause
       end
       
       [C, Offset] = l_whole.get_C();
