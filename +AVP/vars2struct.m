@@ -5,6 +5,8 @@ function vars2struct(struct_name,varargin)
     varargin = evalin('caller','who()');
   end
   for ni=1:numel(varargin)
-    evalin('caller',[struct_name '.' varargin{ni} '=' varargin{ni} ';']);
+    if ~strcmp(varargin{ni},struct_name) % no circular inclusion
+      evalin('caller',[struct_name '.' varargin{ni} '=' varargin{ni} ';']);
+    end
   end
 end

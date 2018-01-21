@@ -153,7 +153,7 @@ classdef myridge_class < AVP.LINREG.input_data
         err = err_func(y,Ypredict);
         % set(gca,'XLim',[0 300])
         AVP.PLOT.legend({'Calculated','True'});
-        ylabel('1-off prediction');
+        ylabel('Kfold prediction');
         xlabel(sprintf('err\\_func:%5.3f, Nparam:%d, best\\_compl:%4.2f, best\\_merit:%5.3f',...
           err,numel(SelectPars),best_compl,best_merit));
         
