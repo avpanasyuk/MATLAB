@@ -160,10 +160,10 @@ classdef myridge_class < AVP.LINREG.input_data
         fprintf('compl:%4.2f,err:%6.4f,nC:%d,Merit:%6.4f\n',best_compl,err,numel(find(l_whole.C)),best_merit);
         drawnow
         
-%         if max(abs(l_whole.C)) > 10
-%           SumSqrC_Pwr = SumSqrC_Pwr+0.1;
-%           fprintf('SumSqrC_Pwr raised to %f due to high abs(C)\n', SumSqrC_Pwr);
-%         end
+        %         if max(abs(l_whole.C)) > 10
+        %           SumSqrC_Pwr = SumSqrC_Pwr+0.1;
+        %           fprintf('SumSqrC_Pwr raised to %f due to high abs(C)\n', SumSqrC_Pwr);
+        %         end
         
         % we are suppressing and discarding small coefficients
         %         CoeffNorm = abs(l_whole.C)/rms(l_whole.C);
@@ -206,19 +206,21 @@ classdef myridge_class < AVP.LINREG.input_data
         else % next iterration has a different number of parameters
           SameNumParIter = 0;
           ParSuppressFactor = sqrt(NewParSuppressFactor.*ParSuppressFactor);
+          % ParSuppressFactor = sqrt(NewParSuppressFactor);
+          % ParSuppressFactor = ones(1,size(X,2)); % we will be removing useless parameters by
         end
         
         ParSuppressFactor = ParSuppressFactor(GoodI);
         
-%         if numel(SelectPars) == 0
-%           SumSqrC_Pwr = SumSqrC_Pwr/1.1;
-%           fprintf('SumSqrC_Pwr lowered to %f due to convergence to a constant\n', SumSqrC_Pwr);
-%           ParSuppressFactor = ones(1,size(X,2));
-%           SelectPars = [1:size(X,2)];
-%           OldC = [];
-%           IterI=1;
-%           continue
-%         end
+        %         if numel(SelectPars) == 0
+        %           SumSqrC_Pwr = SumSqrC_Pwr/1.1;
+        %           fprintf('SumSqrC_Pwr lowered to %f due to convergence to a constant\n', SumSqrC_Pwr);
+        %           ParSuppressFactor = ones(1,size(X,2));
+        %           SelectPars = [1:size(X,2)];
+        %           OldC = [];
+        %           IterI=1;
+        %           continue
+        %         end
         % pause
       end
       

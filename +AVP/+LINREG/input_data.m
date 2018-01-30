@@ -1,4 +1,5 @@
 classdef input_data < handle
+  %>         y = Offset + Xtest*C.';
   properties
     X %> AVP.LINREG.zscored
     y %> AVP.LINREG.zscored
