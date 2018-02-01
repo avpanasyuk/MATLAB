@@ -93,7 +93,7 @@ classdef myridge_class < AVP.LINREG.input_data
       AVP.opt_param('tol',1e-2,true);
       AVP.opt_param('fminbnd_options',optimset('Display','none','TolX',0.05),true);
       AVP.opt_param('WeightPwr',3,true); %
-      AVP.opt_param('SmallnessThres',0.01,true); %
+      AVP.opt_param('SmallnessThres',0.1,true); %
       AVP.opt_param('ComplPwr',3,true); %
       AVP.opt_param('MaxIters',100,true);
       AVP.opt_param('ComplRange',[1,3],true); % range is well tuned!

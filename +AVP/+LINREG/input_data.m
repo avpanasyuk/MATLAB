@@ -12,7 +12,7 @@ classdef input_data < handle
     end
     
     function [C, Offset] = dezscore_solution(a,C_zscored)
-      %> converts C_zscored which is X_zscored*C_zscored=y_zscored to
+      %> converts C_zscored which is X_zscored*C_zscored.'=y_zscored to
       %> X*C+Offset = y;
       %> @param C_zscored - is regression solution for zscored data
       %> zscored offset = 0

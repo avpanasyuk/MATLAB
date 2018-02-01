@@ -10,7 +10,7 @@ function cont = getkey_index(IndexName,LastValue)
   %>  - , :(or left arraw) - decreases Index (may wrap)
   %>  -  everything else : - increases Index and returns Index <= LastValue
   
-  if evalin('caller',['exist(',IndexName,')'])
+  if evalin('caller',['exist(''',IndexName,''')'])
     Index = evalin('caller',IndexName);
   else
     Index = 0;

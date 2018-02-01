@@ -23,13 +23,11 @@ classdef myridge_mdl < handle
         function C = do_regression(SuppressPar,train_data,SelectParIs)
         %> lowest level function which calculated regression by LQR inversion with
         %> independent parameters selection and coefficients suppression
-        %> @param complexity - log-scaled value, suppress amplitude of all
-        %>      coefficients uniformly
-        %> @param SelectPars - vector  of indexes of independent parameters we
+        %> @param SelectParIs - vector  of indexes of independent parameters we
         %>      use, the rest is ignored
-        %> @param ParSuppressFactor - individual suppression factor for each of
-        %>      coefficients, the smaller coefficient the higher is suppress
-        %>      factor
+        %> @param SuppressPar - individual suppression factor for each of
+        %>      coefficients
+        %> @param train_data: AVP.LINREG.input_data class
         
         C = zeros(1,size(train_data.X.D,2));
         C(SelectParIs) = (train_data.X.D(:,SelectParIs).'*train_data.X.D(:,SelectParIs) +...
@@ -84,6 +82,8 @@ classdef myridge_mdl < handle
       
       for IterI=1:MaxIters
         % find minimum Kfold error vs complexity
+        % we need something we can ffed to AVP.LINREG.kfold_class.predict
+        % as REGRESS_FUNC, which returns Ypredict
         regress_func = @(compl, train_data) AVP.LINREG.myridge_mdl.do_regression(...
           SuppressFunc(compl)*ParSuppressFactor, train_data, SelectParIs);
         
