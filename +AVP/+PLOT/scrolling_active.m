@@ -1,7 +1,7 @@
-%> @brief scrolling_plot_active is given a callback function and it calls it by
+%> @brief scrolling_active is given a callback function and it calls it by
 %> itself
 %> @param func 
-classdef scrolling_plot_active < AVP.PLOT.scrolling
+classdef scrolling_active < AVP.PLOT.scrolling
   properties (SetAccess=protected,GetAccess=public)
     %defiined properties
     y_only
@@ -16,7 +16,7 @@ classdef scrolling_plot_active < AVP.PLOT.scrolling
     %> [Ys(numvars,numpoints),Xs(numpoints)] = func() or
     %> [Y_name{numvars}] = func(1)
     %> @param period in seconds
-    function a=scrolling_plot_active(func,period,varargin)
+    function a=scrolling_active(func,period,varargin)
       % ok, we can set things up only after we know what func returns, and
       % it may start returning something only later. So, we postpone
       % setting things up until the last moment
@@ -30,7 +30,7 @@ classdef scrolling_plot_active < AVP.PLOT.scrolling
         'BusyMode','drop');
       set(a.fig,'DeleteFcn',@(varargin) a.delete);
       a.start
-    end % scrolling_plot_active
+    end % scrolling_active
     
     function delete(a)
       if isvalid(a.timer_obj)
@@ -73,4 +73,4 @@ classdef scrolling_plot_active < AVP.PLOT.scrolling
     function start(a), start(a.timer_obj); end
     function stop(a), stop(a.timer_obj); end
   end % methods
-end % scrolling_plot_active
+end % scrolling_active

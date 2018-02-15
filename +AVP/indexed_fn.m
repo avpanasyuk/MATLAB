@@ -33,7 +33,7 @@ classdef indexed_fn
     
     function name = get_next_name(Dir, Prefix)
       % keyboard
-      name = [Prefix num2str(AVP.indexed_fn.get_last_idx(Dir, Prefix)+1)];
+      name = [Dir Prefix num2str(AVP.indexed_fn.get_last_idx(Dir, Prefix)+1)];
     end % get_next
 
     function name = get_next(Dir, Prefix)
