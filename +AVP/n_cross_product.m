@@ -1,6 +1,6 @@
 %! If we have a matrix [num samples, num vars]  of independent variables
 %! and we want to create matrix with cross-products of variables up to n
-%! degree. This function does it.
+%! degree. This function does it. IT DOES NOT INSERT UNITY ROW
 %! @param X = [Num samples, Num vars] matrix
 %! @param n = number of variables in an each product
 %! @param do_lower - include lower powers in the resulting matrix as well

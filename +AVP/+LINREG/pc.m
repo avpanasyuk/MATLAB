@@ -1,6 +1,6 @@
 % no sense
 function C = pc_regress(X,Y,min_sv)
-  if ~exist('min_sv','var'), min_sv = 1e-3; end
+  if ~AVP.is_defined('min_sv'), min_sv = 1e-3; end
   C = zeros(size(X,2),1);
 
   % remove linearly dependent columns in X

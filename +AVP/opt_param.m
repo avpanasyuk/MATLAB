@@ -1,22 +1,24 @@
 
-function Value=opt_param(name,default,remove)
+function Value=opt_param(name,default,action)
   %> check varargin on presence of a given variable
   %> @param name - string, optional variable name as specified in varargin
   %> @param default - default value
-  %> @param remove - removes given variable name form varargin, so
-  %> nested functions do not see it
+  %> @param action: logical bitmap
+  %>     - if bit 1 is true removes given variable name form varargin
+  %>     - if bit 2 is true adds default value to varargin if absent (default)
   %> @retval Value in varargin if present, default if absent
   %> @retval out_varargin if base varargin with added default value
+  
   Varargin = evalin('caller','varargin');
   Place = find([strcmp(Varargin(1:2:end),name)],1,'last');
-  remove =  exist('remove','var') && ~isempty(remove) && remove;
+  if ~AVP.is_defined('action'), action = 2; end
     
   if isempty(Place)
     Value = default;
-    if ~remove, assignin('caller','varargin',{Varargin{:},name,Value}); end
+    if AVP.getbit(action,2), assignin('caller','varargin',{Varargin{:},name,Value}); end
   else
     Value = Varargin{2*Place};
-    if remove 
+    if AVP.getbit(action,1) 
       evalin('caller',['varargin(',num2str(2*Place-1),':',num2str(2*Place),') = [];'])
     end
   end

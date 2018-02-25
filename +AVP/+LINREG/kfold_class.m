@@ -6,7 +6,8 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
   properties
     Xin %>< original data
     yin %>< original data
-    KfoldDivs %>< array[K+1] of last indexes in each Kold. First element is 0
+    KfoldDivs %>< either
+    %>< array[K+1] of last indexes in each Kold. First element is 0.
     train %>< cell array[K] of AVP.LINREG.input_data objects - Kfold training sets zscored
   end % properties
   
@@ -46,37 +47,42 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
       y = a.yin(TestInds);
     end
     
-    function Ypredict = predict(a,regress_func,DoParallel)
+    function Ypredict = predict(a, regress_func, DoParallel)
       %> goes through Kfolds and applies REGRESS_FUNC to each training set,
       %> calculates prediction for corresponding test set, and combines all
       %> predictions into Ypredict
       %> @param regress_func(train_data), where train_data are
-      %>               AVP.LINREG.input_data
+      %>               AVP.LINREG.input_data, and which returns C is either
+      %>               [x_varI] vector or [x_varI,num_solutions] matrix
+      %>               (latter is when several cases/complexities are
+      %>               calculated simultanously
+      %> @retval Ypredict is [sampleI,num_solutions] array
+      
       function y = predict(train_data, Xtest)
         %> function does regression of the train_data
         %>       (AVP.LINREG.input_data class)
         %>       and applies result to Xtest, which is not zscaled data
-        C0 = regress_func(train_data);
-        [C, Offset] = train_data.dezscore_solution(C0);        
-        y = Offset + Xtest*C.';
+        %> retval y - predicted results array [num_samples,num_solutions]
+        C0 = regress_func(train_data); % C0 may be matrix  [x_varI,num_solutions]
+        [C, Offset] = train_data.dezscore_solution(C0);
+        y = repmat(Offset,size(Xtest,1),1) + Xtest*C;
       end
       
+      Ycell = {};
       hloop = @predict;
-      
       if AVP.is_true('DoParallel')
-        Ycell = {};
-        parfor foldI = 1:numel(a.train)
+        parfor foldI = numel(a.train):-1:1
           Inds = a.get_test_inds(foldI);
           Ycell{foldI}  = feval(hloop,a.train{foldI}, a.Xin(Inds,:));
         end
-        Ypredict = vertcat(Ycell{:});
       else
-        Ypredict = zeros(size(a.yin));
-        for foldI = 1:numel(a.train)
+        % Ypredict = zeros(size(a.yin),);
+        for foldI = numel(a.train):-1:1
           Inds = a.get_test_inds(foldI);
-          Ypredict(Inds) = predict(a.train{foldI}, a.Xin(Inds,:));
+          Ycell{foldI} = predict(a.train{foldI}, a.Xin(Inds,:));
         end
       end
+      Ypredict = vertcat(Ycell{:});
     end % do_regress
   end % methods
 end % class
