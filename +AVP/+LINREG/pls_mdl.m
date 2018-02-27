@@ -60,13 +60,16 @@ classdef pls_mdl < handle
       AVP.opt_param('tol',1e-3);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)./AVP.rms(data));
       AVP.opt_param('DoPar',false,0);
-      AVP.opt_param('SV_range',3);
+      AVP.opt_param('MaxIters',size(Kfold_data.Xin,2));
+      
+      CoeffsToThrowOutPerIter = fix(size(Kfold_data.Xin,2)/MaxIters);
+      
       
       a.options = struct(varargin{:});
       
       SelectParIs = 1:size(Kfold_data.Xin,2);
       
-      for IterI=1:size(Kfold_data.Xin,2) % because we throw away some parameters at each
+      for IterI=1:MaxIters % because we throw away some parameters at each
         % iteration, we can not have more iterations than parameters
         
         % for each Kfold we have to run AVP.mysvd_mdl.do_regression once and
@@ -102,13 +105,17 @@ classdef pls_mdl < handle
         
         
         % find low sensitivity parameters
-        SmallParIs = find(BestC(SelectParIs,IterI) < tol);
+        SmallParIs = find(abs(BestC(SelectParIs,IterI)) < tol);
         a.SelectParIs{IterI} = SelectParIs;
         
-        if isempty(SmallParIs) % no low-sens parameters, lets throw out least sensitive
-          [~,LeastI] = min(BestC(SelectParIs,IterI));
-          SelectParIs(LeastI) = [];
+        if numel(SmallParIs) < CoeffsToThrowOutPerIter % lets throw out least sensitive
+          [~,SortedI] = sort(abs(BestC(SelectParIs,IterI)));
+          %[~,LeastI] = min(abs(BestC(SelectParIs,IterI)));
+          fprintf('Throwing out small coeffs!\n');
+          if numel(SortedI) < CoeffsToThrowOutPerIter, break; end
+          SelectParIs(SortedI(1:CoeffsToThrowOutPerIter)) = [];
         else
+          fprintf('Number of small coeffs: %d\n',numel(SmallParIs));
           SelectParIs(SmallParIs) = [];
         end
         if isempty(SelectParIs), break; end % we ran out of parameters
@@ -117,7 +124,7 @@ classdef pls_mdl < handle
       % ok, lets see what is the best iteration
       subplot(3,1,3)
       NumParams = cellfun(@numel,a.SelectParIs);
-      semilogy(NumParams,a.KfoldErr)
+      semilogy(NumParams,a.KfoldErr,'-+')
       xlabel('Number of Params')
       ylabel('Error')
       drawnow

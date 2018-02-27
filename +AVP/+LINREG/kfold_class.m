@@ -71,7 +71,7 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
       Ycell = {};
       hloop = @predict;
       if AVP.is_true('DoParallel')
-        parfor foldI = numel(a.train):-1:1
+        parfor foldI = 1:numel(a.train)
           Inds = a.get_test_inds(foldI);
           Ycell{foldI}  = feval(hloop,a.train{foldI}, a.Xin(Inds,:));
         end
