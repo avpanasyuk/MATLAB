@@ -1,10 +1,12 @@
 classdef pls_mdl < handle
   %> NOTE does not seem to reduce the numver of coeffs too well
   %> this class works with regression algorithm which can easily evaluate
-  %> solution for different complexities simultaniously
+  %> solution for different complexities simultaniously. It goes through
+  %> iterations, selecting best complecity on each and throwing away small
+  %> coefficients. We can select best iteration solution afterwards.
   properties
-    C %>< solution for zscored Kfold_data.X.D,y
-    Offset = 0
+    C %>< dezscored solution Kfold_data.X.D,y
+    Offset = 0 %>< dezscored solution Kfold_data.X.D,y
     options = struct;
     SelectParIs = {} % cell array of selected indep par indexes for each iteration
     KfoldErr = [] % array [num_iter] - error for each iteration
@@ -57,14 +59,13 @@ classdef pls_mdl < handle
         error('Kfold_data should be AVP.LINREG.kfold_class!');
       end
       
-      AVP.opt_param('tol',1e-3);
+      AVP.opt_param('tol',1e-2);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)./AVP.rms(data));
       AVP.opt_param('DoPar',false,0);
-      AVP.opt_param('MaxIters',size(Kfold_data.Xin,2));
+      AVP.opt_param('MaxIters',min([20,size(Kfold_data.Xin,2)]));
       
       CoeffsToThrowOutPerIter = fix(size(Kfold_data.Xin,2)/MaxIters);
-      
-      
+            
       a.options = struct(varargin{:});
       
       SelectParIs = 1:size(Kfold_data.Xin,2);

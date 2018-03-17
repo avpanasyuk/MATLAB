@@ -11,6 +11,7 @@ classdef indexed_fn
     function last_ind = get_last_idx(Dir, Prefix)
       last_ind = 0;
       
+      if ~exist(Dir,'dir'), mkdir(Dir); end
       l = dir([Dir Prefix '*']);
       if ~isempty(l),
         ind_strs = cellfun(@(s) sscanf(s,[Prefix '%d']),{l.name},'UniformOutput',false);
@@ -37,7 +38,7 @@ classdef indexed_fn
     end % get_next
 
     function name = get_next(Dir, Prefix)
-      name = [Dir AVP.indexed_fn.get_next_name(Dir, Prefix)];
+      name = AVP.indexed_fn.get_next_name(Dir, Prefix);
     end % get_next
     
   end % methods

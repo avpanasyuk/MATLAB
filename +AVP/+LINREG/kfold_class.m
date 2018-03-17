@@ -15,13 +15,13 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
     function a = kfold_class(X,y,KfoldDivs)
       %> X and y may not be zscored
       %> @param KfoldDivs: either array giving the last index of each fold
-      %>       (first element is NOT 0)
+      %>       (first element is the end of the first fold, not 0)
       %>       or scalar giving K: number of uniformly distributed folds
       a = a@AVP.LINREG.input_data(X,y);
       a.Xin = X;
       a.yin = y;
       
-      if numel(KfoldDivs) == 1.
+      if numel(KfoldDivs) == 1
         a.KfoldDivs = [0:round(size(X,1)/KfoldDivs):size(X,1)];
         a.KfoldDivs(end) = size(X,1);
       else
@@ -29,7 +29,7 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
       end
       
       for foldI = numel(a.KfoldDivs)-1:-1:1
-        TrainInds = [1:a.KfoldDivs(foldI),a.KfoldDivs(foldI+1)+1:a.KfoldDivs(end)];
+        TrainInds = [1:a.KfoldDivs(foldI),a.KfoldDivs(foldI+1)+1:a.KfoldDivs(end)]; % everything except of test fold
         
         a.train{foldI} =  ...
           AVP.LINREG.input_data(X(TrainInds,:), y(TrainInds)); % does zscore
@@ -58,14 +58,14 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
       %>               calculated simultanously
       %> @retval Ypredict is [sampleI,num_solutions] array
       
-      function y = predict(train_data, Xtest)
+      function y_test = predict(train_data, Xtest)
         %> function does regression of the train_data
         %>       (AVP.LINREG.input_data class)
         %>       and applies result to Xtest, which is not zscaled data
         %> retval y - predicted results array [num_samples,num_solutions]
         C0 = regress_func(train_data); % C0 may be matrix  [x_varI,num_solutions]
         [C, Offset] = train_data.dezscore_solution(C0);
-        y = repmat(Offset,size(Xtest,1),1) + Xtest*C;
+        y_test = repmat(Offset,size(Xtest,1),1) + Xtest*C;
       end
       
       Ycell = {};
