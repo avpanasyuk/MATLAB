@@ -27,6 +27,7 @@ for ri=1:robust_iters+1, % first iteration is not robust
   
   if b_is_0
     a = sxy/sx2;
+    b =  0;   
   else
     sx = sum(x.*w)/sw;
     sy = sum(y.*w)/sw;
@@ -43,7 +44,7 @@ for ri=1:robust_iters+1, % first iteration is not robust
   
   % calculate robust w
   if all(w_init == 1)
-    w = 1./sqrt(1+res_sqr); 
+    w = 1./sqrt(1+res_sqr)
   else
     w = 1./sqrt(1./w_init.^2+res_sqr.^2); 
   end
