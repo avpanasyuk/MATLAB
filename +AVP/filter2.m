@@ -1,5 +1,5 @@
 function d = filter2(f,d)
-%> basically FILTER2 only standard one assumes there are zeros outside the
+%> basically MATLAB FILTER2, only the standard one assumes there are zeros outside the
 %> input image. This one mirrors image relatiovely to the edge
 %> @param f - filter d is getting convolved with
 %> @param d - data
