@@ -17,7 +17,8 @@ function [density values ydivs] = hist(y,varargin)
   AVP.opt_param('show',false);
   idivs = round(linspace(1,n,nbins)).';
   y = sort(y);
-  ydivs = y(idivs);
+  [ydivs Inds] = unique(y(idivs));
+  idivs = idivs(Inds);
   
   density = (idivs(2:end)-idivs(1:end-1))./(ydivs(2:end)-ydivs(1:end-1));
   values = (ydivs(2:end)+ydivs(1:end-1))/2;
