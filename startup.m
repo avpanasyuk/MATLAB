@@ -17,8 +17,13 @@ while ~isempty(CurDir)
   CurDir = fileparts(CurDir);
 end
 
-addpath(MATLAB_DIR, [MATLAB_DIR '\AVP_LIB']);
+addpath(MATLAB_DIR)
+if exist([MATLAB_DIR '\AVP_LIB'],'dir'), addpath([MATLAB_DIR '\AVP_LIB']); end
+
+try
 run mystartup.m
+catch
+end
 
 %% let's open  files from the last visit
 % I do not want to close and open the same file
@@ -32,17 +37,19 @@ if exist([MATLAB_DIR '\matlab.files'],'file')
     l = fgetl(f);
     if ~ischar(l), break; end
     
+    if exist(l,'file')    
     OpenI = strcmp(l,Filenames);
-    if ~any(OpenI) && exist(l,'file')
-      eval(['edit ' l])
+    if ~any(OpenI)
+      eval(['edit ''' l '''']);
     else
       KeepI(OpenI) = true;
+    end
     end
   end
   
   % now we have to close files we do not need
-  h(~KeepI).close
-  fclose(f)
+  h(~KeepI).close;
+  fclose(f);
 end
 
 %% SET OLD PLOT PALETTE,BUT WITH CLEAR SEQUENCE RGBCMYKG
