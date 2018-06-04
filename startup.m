@@ -1,5 +1,5 @@
 % ok, let's find project root directory which should be somewhere up the tree.
-global PROJECT_DIR
+global PROJECT_DIR MATLAB_DIR
 PROJECT_DIR = pwd; PROJECT_DIR(1) = upper(PROJECT_DIR(1));
 CurDir = PROJECT_DIR;
 
@@ -14,13 +14,38 @@ while ~isempty(CurDir)
     PROJECT_DIR = CurDir;
     break
   end
-  CurDir = fileparts(CurDir)
+  CurDir = fileparts(CurDir);
 end
 
 addpath(MATLAB_DIR, [MATLAB_DIR '\AVP_LIB']);
 run mystartup.m
 
-% SET OLD PLOT PALETTE,BUT WITH CLEAR SEQUENCE RGBCMYKG
+%% let's open  files from the last visit
+% I do not want to close and open the same file
+if exist([MATLAB_DIR '\matlab.files'],'file')
+  h = matlab.desktop.editor.getAll;
+  Filenames = {h.Filename};
+  KeepI = zeros(1,numel(h));
+  
+  f = fopen([MATLAB_DIR '\matlab.files']);
+  while 1
+    l = fgetl(f);
+    if ~ischar(l), break; end
+    
+    OpenI = strcmp(l,Filenames);
+    if ~any(OpenI) && exist(l,'file')
+      eval(['edit ' l])
+    else
+      KeepI(OpenI) = true;
+    end
+  end
+  
+  % now we have to close files we do not need
+  h(~KeepI).close
+  fclose(f)
+end
+
+%% SET OLD PLOT PALETTE,BUT WITH CLEAR SEQUENCE RGBCMYKG
 co = [1.00 0.00 0.00;
   0.00 0.50 0.00;
   0.00 0.00 1.00;
