@@ -1,8 +1,8 @@
 % ok, let's find project root directory which should be somewhere up the tree.
-global PROJECT_DIR MATLAB_DIR MFILES_DIR
-PROJECT_DIR = pwd; PROJECT_DIR(1) = upper(PROJECT_DIR(1));
-OrigDir = PROJECT_DIR;
-CurDir = PROJECT_DIR;
+global PROJECT_DIR MATLAB_DIR
+INIT_DIR = pwd; INIT_DIR(1) = upper(INIT_DIR(1));
+PROJECT_DIR = INIT_DIR;
+CurDir = INIT_DIR;
 
 while ~isempty(CurDir)
   if exist([CurDir '\MATLAB'],'dir')
@@ -29,19 +29,18 @@ end
 %% let's open  files from the last visit. 
 %% Try current directory
 % I do not want to close and open the same file
-MFILES_DIR = [];
-if  exist([OrigDir '\matlab.files'],'file')
-  MFILES_DIR = OrigDir;
-elseif ~strcmpi(MATLAB_DIR, OrigDir) && exist([MATLAB_DIR '\matlab.files'],'file')
-  MFILES_DIR = MATLAB_DIR;
+if  exist([INIT_DIR '\matlab.files'],'file')
+  MfileDir = INIT_DIR;
+elseif ~strcmpi(MATLAB_DIR, INIT_DIR) && exist([MATLAB_DIR '\matlab.files'],'file')
+  MfileDir = MATLAB_DIR;
 end
 
-if ~isempty(MFILES_DIR)
+if exist('MfileDir','var')
   h = matlab.desktop.editor.getAll;
   Filenames = {h.Filename};
   KeepI = zeros(1,numel(h));
   
-  f = fopen([MFILES_DIR '\matlab.files']);
+  f = fopen([MfileDir '\matlab.files']);
   while 1
     l = fgetl(f);
     if ~ischar(l), break; end
