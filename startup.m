@@ -76,7 +76,9 @@ set(0,'defaultAxesColorOrder',co)
 AVP.clearvars()
 format compact
 format shortg
-% set(0,'defaulttextinterpreter','none')
+set(0, 'DefaultTextInterpreter', 'none')
+set(0, 'DefaultLegendInterpreter', 'none')
+set(0, 'DefaultAxesTickLabelInterpreter', 'none')
 set(0,'DefaultFigureWindowStyle','docked')
 
 

@@ -1,4 +1,4 @@
-function print_png(varargin,output_file)
+function IMG.write_png(varargin,output_file)
 %+ same as print only removes empty spaces. Works only for printing into
 %image files!
 %-

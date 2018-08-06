@@ -21,6 +21,7 @@ classdef pls_mdl < handle
       %> @param train_data: AVP.LINREG.input_data class
       %> @param SelectParIs - vector  of indexes of independent parameters we
       %>      use, the rest is ignored
+      %> @param varargin - passed to plsregress
       %> @retval C - coeff array [num_complexities,all_xvar]
       
       if ~isa(train_data,'AVP.LINREG.input_data')
@@ -28,7 +29,7 @@ classdef pls_mdl < handle
       end
       
       [~,SUY,~,~,~,a.pctVar,~,stats] = ...
-        plsregress(train_data.X.D(:,SelectParIs),train_data.y.D);
+        plsregress(train_data.X.D(:,SelectParIs),train_data.y.D); % NO VARARGIN here
       V = stats.W;
       
       C = zeros(size(train_data.X.D,2),numel(SUY));
@@ -53,7 +54,6 @@ classdef pls_mdl < handle
       %>        - err_func - function err_func(data,fit) to estimate an
       %>             error. Returns a single normalized error value.
       %>        - ComplRange - range of complixity changes, tuned.
-      %> @retval err = err_func(y,Ypredict)
       
       if ~isa(Kfold_data,'AVP.LINREG.kfold_class')
         error('Kfold_data should be AVP.LINREG.kfold_class!');
@@ -73,7 +73,7 @@ classdef pls_mdl < handle
       for IterI=1:MaxIters % because we throw away some parameters at each
         % iteration, we can not have more iterations than parameters
         
-        % for each Kfold we have to run AVP.mysvd_mdl.do_regression once and
+        % for each Kfold we have to run AVP.pls_mdl.do_regression once and
         % then calculate C for all the complexities and corresponding error for all the complexities
         % then we should add those errors for all the Kfold to get a total
         % error for complexity.

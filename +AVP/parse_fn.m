@@ -23,8 +23,8 @@ function [files,values] = parse_fn(scanf_format,varargin)
   out = cellfun(@(str) scanf(str),files); %,'UniformOutput',false);
   good_ids = find(strcmp({out.errmsg},''));
   out = out(good_ids);
-  files = files(good_ids);
-  values = [out.values]; 
+  files = files(good_ids).';
+  values = [out.values].'; 
   
   cd(old_dir);
 end
