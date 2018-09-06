@@ -1,4 +1,4 @@
-function [a,b,err_a,err_b,yfit,residuals] = linear_fit(y,x,w,varargin)
+function [a,b,err_a,err_b,yfit,residuals] = linear_fit(y,x,varargin)
 %+
 % linear fit. See GoogleDoc "linear fit with weights". Errors are divided
 % by sum(w) because it makes them right :-)
@@ -14,7 +14,8 @@ AVP.opt_param('b_is_0',false);
 
 n = numel(y);
 if ~exist('x','var') || isempty(x), x=[1:n].'; end
-if ~exist('w','var') || isempty(w), w=ones(size(x)); end
+AVP.opt_param('w',ones(size(x)));
+
 good = find(isfinite(y(:)) & isfinite(x));
 y = y(good); x = x(good); w=w(good);
 
