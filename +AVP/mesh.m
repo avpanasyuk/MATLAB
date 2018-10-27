@@ -1,8 +1,9 @@
 function varargout = mesh(varargin)
-  sz = cellfun(@numel,varargin,'UniformOutput',false);
-  sz = [sz{:}]; %keyboard
-  for dim=1:min([nargin,nargout])
-    varargout{dim} = repmat(shiftdim(varargin{dim}(:),1-dim),...
-      [sz(1:dim-1) 1 sz(dim+1:end)]);    
+  sz = cellfun(@size,varargin,'UniformOutput',false);
+  if nargout > nargin, error('Too many output arguments!'); end
+  for nin=1:min([nargin,nargout])
+    predims = [sz{1:nin-1}];
+    varargout{nin} = repmat(shiftdim(varargin{nin},-numel(predims)),...
+      [predims,ones(1,numel(sz{nin})),sz{nin+1:end}]);
   end
 end
