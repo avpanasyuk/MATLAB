@@ -45,24 +45,19 @@ classdef pls_mdl < handle
       %> use "do_regression" for this
       %> @param Kfold_data: AVP.linreg.kfold_class
       %> @param varargin
-      %>        - ntol - interrupt iterrations when C changes less then this
-      %>        - fminbnd_options
-      %>        - WeightPwr - what power is supppression factor from coeff
-      %>            smallness. The smaller it is, the smaller the error but
-      %>             more coefficients.
-      %>        - TuneWeightPwr - whether to tune WeightPwr in run time.
+      %>        - small_par_thres - parameters with smaller weight get
+      %>            thrown out
       %>        - err_func - function err_func(data,fit) to estimate an
       %>             error. Returns a single normalized error value.
-      %>        - ComplRange - range of complixity changes, tuned.
+      %>        - MaxIters - maximum numer of iterations
       
       if ~isa(Kfold_data,'AVP.LINREG.kfold_class')
         error('Kfold_data should be AVP.LINREG.kfold_class!');
       end
       
-      AVP.opt_param('tol',1e-2);
+      AVP.opt_param('small_par_thres',1e-2);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)./AVP.rms(data));
-      AVP.opt_param('DoPar',false,0);
-      AVP.opt_param('MaxIters',min([20,size(Kfold_data.Xin,2)]));
+      AVP.opt_param('MaxIters',min([30,size(Kfold_data.Xin,2)]));
       
       CoeffsToThrowOutPerIter = fix(size(Kfold_data.Xin,2)/MaxIters);
             
@@ -79,7 +74,7 @@ classdef pls_mdl < handle
         % error for complexity.
 
         Ypredict = Kfold_data.predict(@(train_data)...
-          AVP.LINREG.pls_mdl.do_regression(train_data, SelectParIs, varargin{:}),DoPar);
+          AVP.LINREG.pls_mdl.do_regression(train_data, SelectParIs, varargin{:}));
         % Ypredict is array [num_samples,num_solutions]
         
         % calculate errors
@@ -106,7 +101,7 @@ classdef pls_mdl < handle
         
         
         % find low sensitivity parameters
-        SmallParIs = find(abs(BestC(SelectParIs,IterI)) < tol);
+        SmallParIs = find(abs(BestC(SelectParIs,IterI)) < small_par_thres);
         a.SelectParIs{IterI} = SelectParIs;
         
         if numel(SmallParIs) < CoeffsToThrowOutPerIter % lets throw out least sensitive
