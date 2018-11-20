@@ -6,5 +6,5 @@ function [out cummean] = cumstd(A,dim)
   S = cumsum(A,dim);
   cummean = S./N;
   Q = cumsum(A.^2,dim);
-  out = (Q - S.*cummean)./N;
+  out = sqrt((Q - S.*cummean)./N);
 end
