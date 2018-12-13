@@ -1,4 +1,4 @@
-if AVP.is_defined('INIT_DIR')
+if exist('AVP.is_defined') && AVP.is_defined('INIT_DIR')
   h = matlab.desktop.editor.getAll;
   Filenames = {h.Filename};
 %   % strip REP_ROOT

@@ -1,4 +1,4 @@
-classdef dmm < handle
+classdef DT9602R < handle
   properties
     aser % serial port object
     pull_timer % timer object pulling data
@@ -10,7 +10,7 @@ classdef dmm < handle
     % still could be old frame from log. UPDATED counts frames
   end
   methods
-    function a = dmm(comPort,options)
+    function a = DT9602R(comPort,options)
       Period = 0.5; % DT9602R gives datat once in 0.6 seconds
       if exist('options','var'),
         if isfield(options,'Period'), Period = options.Period; end
@@ -19,12 +19,12 @@ classdef dmm < handle
       
       % check nargin
       if nargin<1,
-        error('DMM:constructor','Use a the com port, e.g. ''COM5'' as input argument to connect to the real board');
+        error('DT9602R:constructor','Use a the com port, e.g. ''COM5'' as input argument to connect to the real board');
       end
 
       % check port
       if ~ischar(comPort),
-        error('DMM:constructor','The input argument must be a string, e.g. ''COM8'' ');
+        error('DT9602R:constructor','The input argument must be a string, e.g. ''COM8'' ');
       end
 
       % define serial object
@@ -48,7 +48,7 @@ classdef dmm < handle
       
       try
         fopen(a.aser);
-        disp('DMM successfully connected !');
+        disp('DT9602R successfully connected !');
       catch ME,
         fclose(a.aser);
         delete(a.aser);
@@ -98,7 +98,7 @@ classdef dmm < handle
           drawnow;
         end
         if num_sample >= max_samples,
-          error('dmm.read:BadPrec',['Value has not converged to specified ',...
+          error('DT9602R.read:BadPrec',['Value has not converged to specified ',...
             'precision in maximum number of iterrations!']);
         end
       else                
