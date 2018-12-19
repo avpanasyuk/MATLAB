@@ -66,14 +66,26 @@ co = [1.00 0.00 0.00;
   0.00 0.00 1.00;
   0.00 0.75 0.75;
   0.75 0.00 0.75;
-  0.50 0.50 0.00;
+  0.50 0.50 0.25;
   0.00 0.00 0.00;
-  0.75 0.75 0.75];
+  0.50 0.50 0.50;
+  0.75 0.25 0.25;
+  0.25 0.75 0.25;
+  0.40 0.40 0.75;
+  0.25 0.50 0.50;
+  0.50 0.25 0.50;
+  0.75 0.50 0.00;
+  0.00 0.75 0.50;
+  0.50 0.00 0.75;
+  0.75 0.00 0.50;
+  0.50 1.00 0.00;
+  0.00 0.50 1.00];
+
 % SET IMPROVED COLORS
 % co = CONTRIB.brewermap(8,'Accent');
 set(0,'defaultAxesColorOrder',co)
 
-AVP.clearvars()
+try, AVP.clearvars(); catch; end
 format compact
 format shortg
 set(0, 'DefaultTextInterpreter', 'none')
