@@ -6,14 +6,14 @@ function [files,varargout] = parse_fn1(scanf_format,varargin)
   %> @retval files - file names matching scan_format
   %> @retval varargout - output parameters  corrrespond to scanf_format values
   
-  [files,values] = AVP.parse_fn(scanf_format,varargin{:});
+  [files,varargout] = AVP.parse_fn(scanf_format,varargin{:});
   
-  if isempty(files)
-    error('Can not find a single file corresponding to the format!')
-  end
-  for outi=1:nargout-1
-    varargout{outi} = values(:,outi);
-  end
+%   if isempty(files)
+%     error('Can not find a single file corresponding to the format!')
+%   end
+%   for outi=1:nargout-1
+%     varargout{outi} = values{outi};
+%   end
 end
 
   

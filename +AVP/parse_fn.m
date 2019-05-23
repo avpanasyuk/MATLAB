@@ -1,13 +1,15 @@
 function [files,values] = parse_fn(scanf_format,varargin)
-  %> @param scan_format - scanf format string to parse file names with,
-  %>                      SHOULD MATCH THE WHOLE FILE NAME
+  %> @param scan_format - TEXTSCAN format string to parse file names with,
+  %>                      SHOULD MATCH THE WHOLE FILE NAME. Items should be
+  %>                      separated by underlines (by default)
   %> @param varargin - 'dir' - directory, '.' as default
   %>                   'pattern' - file pattern to match, '*' as default
   %> @retval files - file names matching scan_format
   %> @retval values - array of parced with scanf_format values
   
-  d = AVP.opt_param('dir','.');
-  pattern = AVP.opt_param('pattern','*');
+  d = AVP.opt_param('dir','.',1);
+  pattern = AVP.opt_param('pattern','*',1);
+  delimiter = AVP.opt_param('Delimiter','_',1);
   
   t = what();
   old_dir = t.path;
@@ -16,16 +18,13 @@ function [files,values] = parse_fn(scanf_format,varargin)
   files = files(3:end); % skip '.' and '..'
   files = {files.name};
   
-  function out  = scanf(str)
-    [out.values, out.count, out.errmsg] = sscanf(str,scanf_format);
+  out = cellfun(@(str) textscan(str,scanf_format,...
+      'Delimiter',delimiter,varargin{:}),files,'UniformOutput',false);
+    
+  out1 = reshape([out{:}],[],size(out,2));
+  for valI=size(out1,2):-1:1
+    values{valI} = [out1{valI,:}];
   end
-  
-  out = cellfun(@(str) scanf(str),files); %,'UniformOutput',false);
-  good_ids = find(strcmp({out.errmsg},''));
-  out = out(good_ids);
-  files = files(good_ids).';
-  values = [out.values].'; 
-  
   cd(old_dir);
 end
 
