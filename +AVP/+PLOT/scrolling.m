@@ -1,6 +1,6 @@
 %> @brief this is a passive class, it is not trying to get data by itself, you can
 %> add point by calling "AddPoints"
-classdef scrolling_plot < handle
+classdef scrolling < handle
   properties (SetAccess=protected,GetAccess=public)
     % user parameters
     plot_names
@@ -21,7 +21,7 @@ classdef scrolling_plot < handle
     next_plot % cputime of the last plot to avod calling too often
   end
   methods
-    function a=scrolling_plot(varargin)
+    function a=scrolling(varargin)
       a.fig = figure('DeleteFcn',@(varargin) a.delete,'BusyAction','cancel',...
         'Interruptible','off');
       a.plot_names = AVP.opt_param('plot_names',{});
@@ -145,6 +145,6 @@ classdef scrolling_plot < handle
       x = mediam(a.data_x);
     end
   end %methods
-end % classdef scrolling_plot
+end % classdef scrolling
 
 
