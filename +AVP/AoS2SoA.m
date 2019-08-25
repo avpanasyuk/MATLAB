@@ -1,8 +1,8 @@
-function out = AoS2SoA(x)
+function out = AoS2SoA(x, names)
   %> converts array of structure into structure of [cell] arrays. If field
   %> size is the same for all structures in array it gets stacked into array
   %> along first unitary dimension, otherwise cell array
-  names = fieldnames(x);
+  if ~AVP.is_defined('names'), names = fieldnames(x); end
   str_sz = size(x);
   for fi=1:numel(names)
     % let's see whether dimensions of this field for every structure is the
