@@ -23,7 +23,7 @@ function str = nested_var2str(x, max_chars)
         fields = fieldnames(x);
         for i=1:numel(fields)
           if max_chars
-            name = fields{i}(1:min([numel(fields{i}):max_chars]));
+            name = fields{i}(1:min([numel(fields{i}),max_chars]));
           else
             name = fields{i};
           end
