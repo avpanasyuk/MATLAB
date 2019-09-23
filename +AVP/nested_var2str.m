@@ -32,6 +32,8 @@ function str = nested_var2str(x, max_chars)
         str=str(2:end);
       case 'cell'
         str = AVP.nested_var2str(x{1});
+      case 'function_handle'
+        str = func2str(x);
       otherwise
         str = sprintf('%g',x);
     end
