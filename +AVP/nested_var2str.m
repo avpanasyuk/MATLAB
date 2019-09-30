@@ -1,11 +1,13 @@
-function str = nested_var2str(x, max_chars)
+function str = nested_var2str(x, varargin)
   %> ~@param max_chars - cut string variables and structure field names to
   %> this number of chars. 0 mean no cutting
-  if ~AVP.is_defined('max_chars'), max_chars = 0; end
+  AVP.opt_param('max_chars',0);
+  AVP.opt_param('do_hash',0);
 
   if isa(x,'char')
+    if(do_hash), x = rptgen.hash(x); end
     if max_chars
-      str = x(1:min([numel(x):max_chars]));
+      str = x(1:min([numel(x),max_chars]));
     else
       str = x; 
     end
@@ -14,7 +16,7 @@ function str = nested_var2str(x, max_chars)
   str = '';
   if numel(x) > 1
     for i=1:numel(x)
-      str = [str, '_', AVP.nested_var2str([x(i)])];
+      str = [str, '_', AVP.nested_var2str([x(i)],varargin{:})];
     end
     str = str(2:end);
   else % single variable
@@ -27,13 +29,14 @@ function str = nested_var2str(x, max_chars)
           else
             name = fields{i};
           end
-          str = [str, '_', name, '=', AVP.nested_var2str(getfield(x,fields{i}))];
+          str = [str, '_', name, '=', ...
+            AVP.nested_var2str(getfield(x,fields{i}),varargin{:})];
         end
         str=str(2:end);
       case 'cell'
-        str = AVP.nested_var2str(x{1});
+        str = AVP.nested_var2str(x{1},varargin{:});
       case 'function_handle'
-        str = func2str(x);
+        str =  AVP.nested_var2str(func2str(x),varargin{:});
       otherwise
         str = sprintf('%g',x);
     end
