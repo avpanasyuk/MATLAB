@@ -33,7 +33,8 @@ classdef serial_protocol < handle
     function out = wait_and_read_bytes(a,size)
       if nargin < 2, size = 1; end
       a.wait_for_serial(size);
-      out = uint8(fread(a.s,size));
+      out = uint8(fread(a.s,size,'uint8')); % idiosy! serial::fread always
+      % returns double
     end
     
     % precision may be either type of element in byte (in which case bytes
@@ -170,7 +171,7 @@ classdef serial_protocol < handle
       %> This is the lowest level SEND_COMMAND. Reads and displays info
       %> messages. Read end return error messages. Does not read returned
       %> data, not even size word
-      %> BECAUSE IT DOES NOT READ ALL OUTPUT IT DOES NOT CHECK CS OR UNLOCK_COMMANDS
+      %> BECAUSE IT DOES NOT READ ALL OUTPUT IT DOES NOT DO UNLOCK_COMMANDS
       %> WHEN COMMAND SUCCEDES
       %> @param cmd_bytes is array containing both command byte and parameters bytes
       %> @retval error_message - if empty command succedded. If not - error message

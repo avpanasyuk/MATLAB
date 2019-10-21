@@ -1,6 +1,9 @@
 % automatically labels lines of current plot with numbers
-function [ax,objs,ploth,texth] = legend(varargin)
+function [ax,objs,ploth,texth] = legend(Labels,varargin)
   n = numel(get(gca,'Children'));
-  [ax,objs,ploth,texth] = legend(cellstr(num2str([1:n].')),varargin{:});
+  if ~AVP.is_defined('Labels')
+    Labels = cellstr(num2str([1:n].'));
+  end
+  [ax,objs,ploth,texth] = legend(Labels,varargin{:});
   [objs(n+1:2:end).LineWidth] = deal(4);
 end

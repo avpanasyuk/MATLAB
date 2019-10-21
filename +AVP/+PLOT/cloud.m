@@ -4,9 +4,9 @@
 % or calculates median and means of positive and negative errors and plots
 % median+pos_mean*sqrt(2*pi) and median+neg_mean*sqrt(2*pi)
 % or does both
-function [mx,my,errs,neg_errs] = cloud_plot(x,y,varargin)
+function [mx,my,errs,neg_errs] = cloud(x,y,varargin)
   % check for options
-  if nargin > 2 && isstruct(varargin{1}), 
+  if nargin > 2 && isstruct(varargin{1})
     options = varargin{1}; varargin = varargin(2:end); 
   end
   
