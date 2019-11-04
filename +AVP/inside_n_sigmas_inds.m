@@ -1,4 +1,4 @@
-function [Inds, minV, maxV]  = probable_valuesI(x, Nsigmas)
+function [Inds, minV, maxV]  = inside_n_sigmas_inds(x, Nsigmas)
   if ~exist('Nsigmas','var'), Nsigmas = 3; end
   % using confidence intervals for mean and sigma instead of mean values
   % for robustness
