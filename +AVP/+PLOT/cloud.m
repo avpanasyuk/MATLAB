@@ -9,6 +9,8 @@ function [mx,my,errs,neg_errs] = cloud(x,y,varargin)
   if nargin > 2 && isstruct(varargin{1})
     options = varargin{1}; varargin = varargin(2:end); 
   end
+  options = struct(varargin{:});
+  
   
   % possibly convert varargin into options structure
   N = numel(x);
