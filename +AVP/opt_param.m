@@ -10,7 +10,7 @@ function Value=opt_param(name,default,action)
   %> @retval out_varargin if base varargin with added default value
   
   Varargin = evalin('caller','varargin');
-  Place = find([strcmp(Varargin(1:2:end),name)],1,'last');
+  Place = AVP.opt_param_present(name,Varargin);
   if ~AVP.is_defined('action'), action = 2; end
     
   if isempty(Place)

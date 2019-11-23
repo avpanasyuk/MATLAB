@@ -15,6 +15,8 @@ function [density values ydivs] = hist(y,varargin)
   n = numel(y);
   AVP.opt_param('nbins',ceil(sqrt(n)));
   AVP.opt_param('show',true);
+  AVP.opt_param('plot_logx',false);
+
   idivs = round(linspace(1,n,nbins)).';
   y = sort(y);
   [ydivs Inds] = unique(y(idivs));
@@ -23,5 +25,10 @@ function [density values ydivs] = hist(y,varargin)
   density = (idivs(2:end)-idivs(1:end-1))./(ydivs(2:end)-ydivs(1:end-1));
   values = (ydivs(2:end)+ydivs(1:end-1))/2;
   
-  if show, semilogx(values,density,'*-'); end
+  if show
+    if plot_logx
+      semilogx(abs(values),density,'*-'); 
+    else
+      plot(values,density,'.-'); 
+    end
 end
