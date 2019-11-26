@@ -13,7 +13,7 @@ function out_str = nested_var2code(var_name)
         if iscell(x), index = ['{', num2str(i), '}'];
         else index = ['(', num2str(i), ')'];
         end
-        out_str = [out_str, evalin('caller',['AVP.nested_var2code(''', var_name, index,''')'])];
+        out_str = [out_str, evalin('caller',['AVP.CONVERT.nested_var2code(''', var_name, index,''')'])];
       end
       out_str = [out_str, var_name, ' = reshape(', var_name, ',', mat2str(size(x)), ');', endl]; % restore proper dimensions
     else % single variable
@@ -24,10 +24,10 @@ function out_str = nested_var2code(var_name)
           fields = fieldnames(x);
           out_str = '';
           for i=1:numel(fields),
-            out_str = [out_str, evalin('caller',['AVP.nested_var2code(''', var_name, '.', fields{i}, ''')'])];
+            out_str = [out_str, evalin('caller',['AVP.CONVERT.nested_var2code(''', var_name, '.', fields{i}, ''')'])];
           end
         case 'cell'
-          out_str = evalin('caller',['AVP.nested_var2code(''',var_name, '{1}',''')']);
+          out_str = evalin('caller',['AVP.CONVERT.nested_var2code(''',var_name, '{1}',''')']);
         otherwise
           out_str =  [var_name, ' = ', class(x), '(', num2str(x), ');', endl];
       end

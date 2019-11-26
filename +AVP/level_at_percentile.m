@@ -8,7 +8,7 @@ function levels = level_at_percentile(x,perc)
   if any(perc > 1 | perc < 0), error('level_at_percentile: wrong perc value'); end
   % I am trying to find precise number here, so I will linearlyy
   % interpolate
-  thres = AVP.to_column(perc*(sz(1)-1)+1);
+  thres = AVP.CONVERT.to_column(perc*(sz(1)-1)+1);
   I1 = fix(thres);
   
   x_mat = reshape(sort(x,1),sz(1),[]);

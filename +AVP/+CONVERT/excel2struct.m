@@ -13,7 +13,7 @@ if exist('options','var'),
 else options = []; end
 
 [~,~,C] = xlsread(file,sheet,'','basic');
-S = AVP.cell2struct(C);
+S = AVP.CONVERT.cell2struct(C);
 end
 
 

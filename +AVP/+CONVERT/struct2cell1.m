@@ -9,7 +9,7 @@ function [c header] = struct2cell1(s)
 c = {}; header = {}; 
 if numel(s) ~= 1,
   for ri=1:numel(s),
-    [c_row header] = AVP.struct2cell1(s(ri));
+    [c_row header] = AVP.CONVERT.struct2cell1(s(ri));
     c = [c; c_row];
   end
 else
@@ -18,7 +18,7 @@ else
   for fi=1:numel(fn)
     f = [getfield(s,fn{fi})];
     if isstruct(f), 
-      [cn hn] =  AVP.struct2cell1(f,N);
+      [cn hn] =  AVP.CONVERT.struct2cell1(f,N);
       header = [header, strcat([fn{fi} '.'],hn)];
       c = [c, cn];
     else

@@ -20,7 +20,7 @@ else NumMins = 0; end
 
 %% at first we sample at the grid points
 %%% lets buidl a matrix of initial guesses.
-grid = AVP.cell2grid(x0_samples);
+grid = AVP.CONVERT.cell2grid(x0_samples);
 %%% run all guesses and collect unique minimums
 for GuessI=1:size(grid,1),
   [x,fval,exitflag] = fminsearch(fun,grid(GuessI,:),options);

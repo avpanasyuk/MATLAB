@@ -9,7 +9,7 @@ function c = struct2cell(s)
   for fi=1:numel(fn)
     f = getfield(s,fn{fi});
     if isstruct(f), 
-      cn =  AVP.struct2cell(f);
+      cn =  AVP.CONVERT.struct2cell(f);
       cn(1,:) = strcat([fn{fi} '.'],cn(1,:)); % corrected nested names
       c = [c, cn];
     else

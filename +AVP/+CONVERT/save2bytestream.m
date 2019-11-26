@@ -6,7 +6,7 @@ function bytes = save2bytestream(x)
     bytes = [uint8(['c',ndims(x)]),...
       typecast(uint16(size(x)),'uint8')];
     for n=1:numel(x),
-      bytes = [bytes,AVP.save2bytestream(x{n})];
+      bytes = [bytes,AVP.CONVERT.save2bytestream(x{n})];
     end
   else
     if isstruct(x)
@@ -14,16 +14,16 @@ function bytes = save2bytestream(x)
       bytes = [uint8(['s',numel(fn)])];
       for fi=1:numel(fn)
         bytes = [bytes,uint8([numel(fn{fi}),fn{fi}])];
-        bytes = [bytes,AVP.save2bytestream(getfield(x,fn{fi}))];
+        bytes = [bytes,AVP.CONVERT.save2bytestream(getfield(x,fn{fi}))];
       end
     else
       if isstr(x)
         bytes = [uint8('t'),typecast(uint16(numel(x)),'uint8')];
-        bytes = [bytes,AVP.to_bytes(uint8(x))];
+        bytes = [bytes,AVP.CONVERT.to_bytes(uint8(x))];
       else
         if istable(x)
-          b = AVP.save2bytestream(table2struct(x,'ToScalar',true));
-          bytes = [uint8('l'),AVP.to_bytes(uint32(numel(b))),b];
+          b = AVP.CONVERT.save2bytestream(table2struct(x,'ToScalar',true));
+          bytes = [uint8('l'),AVP.CONVERT.to_bytes(uint32(numel(b))),b];
         else
           if numel(x) == 0, bytes = uint8('e'); else
             type = class(x(1));
@@ -43,7 +43,7 @@ function bytes = save2bytestream(x)
               end
               bytes = uint8(code);
             end
-            bytes = [bytes,uint8([numel(type),type]), AVP.to_bytes(x)];
+            bytes = [bytes,uint8([numel(type),type]), AVP.CONVERT.to_bytes(x)];
           end
         end
       end

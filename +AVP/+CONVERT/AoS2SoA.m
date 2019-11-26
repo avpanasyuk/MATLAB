@@ -10,7 +10,8 @@ function out = AoS2SoA(x, names)
     sz = cellfun(@(x) size(x),{x.(names{fi})},'UniformOutput',false);
     sz_arr = cat(1,sz{:});
     sz = size(sz_arr);
-    if all(all(sz_arr == repmat(sz_arr(1,:),sz(1),1)))
+    if all(all(sz_arr == repmat(sz_arr(1,:),sz(1),1))) && ...
+        ~isa(x(1).(names{fi}),'function_handle')
       c_arr = {x.(names{fi})};
       dims = size(c_arr{1});
       stack_dim = find(dims ~= 1,1,'last') + 1;

@@ -34,7 +34,7 @@ classdef pls_mdl < handle
       
       C = zeros(size(train_data.X.D,2),numel(SUY));
       for ComplI = numel(SUY):-1:1
-        C(SelectParIs,ComplI) = V(:,1:ComplI)*AVP.to_column(SUY(1:ComplI));
+        C(SelectParIs,ComplI) = V(:,1:ComplI)*AVP.CONVERT.to_column(SUY(1:ComplI));
       end
     end  % do_regression
   end % methods(Static)
