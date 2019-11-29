@@ -16,7 +16,7 @@ function [density values ydivs p] = hist(y,varargin)
   AVP.opt_param('nbins',ceil(sqrt(n)));
   AVP.opt_param('show',true);
   AVP.opt_param('plot_logx',false);
-  AVP.opt_param('fit_gauss',true);
+  AVP.opt_param('fit_gauss',false);
   
   idivs = round(linspace(1,n,nbins)).';
   y = sort(y);
@@ -27,7 +27,7 @@ function [density values ydivs p] = hist(y,varargin)
   values = (ydivs(2:end)+ydivs(1:end-1))/2;
   
   if fit_gauss
-    core_densI = find(density > max(density)/20);
+    core_densI = find(density > max(density)/40);
     core_val = values(core_densI);
     p = polyfit(core_val,log(density(core_densI)),2);
   else p = [];
