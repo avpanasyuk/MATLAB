@@ -4,6 +4,7 @@
 % size of y should be even
 
 function out = realfft(y)
+if mod(numel(y),2), y = [y(:);(y(1)+y(end))/2]; else y = y(:); end
 coeffs = fft(y)/size(y,1);
 rc = real(coeffs); ic = imag(coeffs);
 out = complex(cat(1,rc(1,:,:,:),rc(2:end/2,:,:,:)+rc(end:-1:end/2+2,:,:,:)),...
