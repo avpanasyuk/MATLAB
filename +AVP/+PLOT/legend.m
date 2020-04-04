@@ -12,4 +12,9 @@ function [ax,objs,ploth,texth] = legend(Labels,varargin)
     objs(Id).LineWidth = LineWidth;
     objs(Id+1).MarkerSize = MarkerSize;
   end
+%   AVP.opt_param('title_string','',1); 
+%   if ~isempty(title_string)
+%      ax.Title.String = title_string;
+%      ax.Title.Visible = 1;
+%   end
 end

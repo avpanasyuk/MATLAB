@@ -13,6 +13,7 @@ function write_png(output_file,varargin)
   BG = ~any(Im,3);
   Im(all(BG,2),:,:) = [];
   Im(:,find(all(BG,1)),:) = [];
+  idle = mkdir(fileparts(output_file));
   imwrite(255-Im,output_file,'png');
   delete(temp_file);
 end

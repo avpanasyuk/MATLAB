@@ -18,13 +18,13 @@ function s = cell2struct(c)
         Converted = str2double(c(CharIs+1,fi));
         if any(isnan(Converted)), % there are string we can not convert, 
           % so we write everything as it was (cell array column)
-          eval(['s.', field_name, ' = c(2:end,fi);']);
+          s.(field_name) = c(2:end,fi);
           continue;
         else
           c(CharIs+1,fi) = num2cell(str2double(c(CharIs+1,fi)));
         end
       end
-      eval(['s.', field_name, ' = [c{2:end,fi}].'';']);
+      s.(field_name) = [c{2:end,fi}].';
     end
   end
 end  
