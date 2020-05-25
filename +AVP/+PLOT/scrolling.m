@@ -53,7 +53,7 @@ classdef scrolling < handle
       
       % merge data with old track
       % X
-      if ~exist('x','var')
+      if ~AVP.is_defined('x')
         x = [1:size(y,1)].';
         if ~isempty(a.data_x), x = x + a.data_x(end,1); end
       else
