@@ -99,7 +99,7 @@ classdef serial_protocol < handle
         error('check_cs_and_unlock:checksum','Received CS %hu ~= calculated CS %hu!',rcvd_csum,output_cs);
       end
     end % check_cs_and_unlock
-
+    
     function data = send_new_command(a,cmd_bytes,no_block)
       err_msg = a.send_cmd_return_status(cmd_bytes);
       if isempty(err_msg) % command succeeded
@@ -122,11 +122,11 @@ classdef serial_protocol < handle
     
     function [old_output, new_output] = read_old_ouput_and_send_new_command(a,cmd_bytes,no_block)
       old_output = a.wait_and_read_bytes(a.prev_command.output_size);
-      a.prev_command.output_size = 0; 
+      a.prev_command.output_size = 0;
       a.check_cs_and_unlock(old_output); % check CS anyway
       new_output = a.send_new_command(cmd_bytes,no_block);
     end % read_old_ouput_and_send_new_command
-
+    
   end % protected methods
   methods
     %% STRUCTORS
@@ -223,19 +223,19 @@ classdef serial_protocol < handle
     
     
     function output = send_command(a,ID,cmd_bytes,no_block)
-      %> @detail handles error condition by issuing error. Handles blocking and 
+      %> @detail handles error condition by issuing error. Handles blocking and
       %> non-blocking commands
       %> @param ID -  coomand ID,  may be uint8 or string.
       %> @param cmd_bytes - vector of command parameters which will be
       %>    "cast" to uint8
-      %> @param no_block logical 
+      %> @param no_block logical
       %>    - if true command processing never waits for a serial port
       %>    it returns immideatly with output of the previous command, if
       %>    it is the same command and all bytes are already available in port
       %>    buffer
       %>    - if false we send command and wait in drawnow loop until all
       %>    expected return data arrive
-       %> @retval output - returned bytes
+      %> @retval output - returned bytes
       no_block = exist('no_block','var') && ~isempty(no_block) && no_block;
       
       if ~exist('cmd_bytes','var'), cmd_bytes = []; end
@@ -262,7 +262,7 @@ classdef serial_protocol < handle
           [old_output, output] = a.read_old_ouput_and_send_new_command(cmd_bytes,no_block);
           if no_block
             if strcmp(ID,a.prev_command.ID) % different command
-              output = old_output; % if it is the same command we return output from 
+              output = old_output; % if it is the same command we return output from
               % the old command instead, new output should be empty anyway
             end
             a.prev_command.ID = ID;
@@ -281,15 +281,20 @@ classdef serial_protocol < handle
   methods(Static,Access=protected)
     function flush_port(s)
       start = tic();
-      for k=1:7
+      for k=0:7
         fwrite(s,zeros(2^k,1));
         pause(s.Timeout/20)
         drawnow
-        if s.BytesAvailable > 4 % 4 zeros is the NOOP response
-          out = fread(s,s.BytesAvailable);
-          if ~any(out(end-3:end)), return; end
+        if s.BytesAvailable >= 4 % 4 zeros is the NOOP response
+          str = fread(s,3);
+          for c=1:s.BytesAvailable
+            str = [str(:);fread(s,1)];
+            if all(str(end-3:end) == 0) % found NOOP
+              return;
+            end
+          end
         end
-        if toc(start) > s.Timeout, break; end 
+        if toc(start) > s.Timeout, break; end
       end
       error('flush_port:timeout','Flushing timed out!')
     end % flush_port
