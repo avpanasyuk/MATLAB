@@ -54,7 +54,7 @@ function [X,Y] = findzero(fun, range, varargin)
       ItersLeft = ItersLeft - 1;
     end
   else
-    if exist('no_error','var') && ~isempty(no_error) && no_error
+    if AVP.is_true('no_error')
       if under && y(1) > 0,
         error('findzero:positive','both ends are positive')
       end
