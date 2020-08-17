@@ -2,13 +2,19 @@ classdef AnalogDiscovery < handle
   %> Digilent USB oscilliscope
   properties
     s % daq.di.Session
+    fig % figure handle
   end
   methods
     function a = AnalogDiscovery()
       a.s = daq.createSession('digilent')
       a.s.addAnalogInputChannel('AD1', 1, 'Voltage')
       a.s.addAnalogInputChannel('AD1', 2, 'Voltage')
-      a.s.addAnalogOutputChannel('AD1', 1, 'Voltage')
+      a.SetRange([-25 25],1);
+      a.SetRange([-25 25],2);
+      a.s.Rate = 1e6;
+      a.s.DurationInSeconds = 1/30/7;
+      
+      a.fig = figure;
     end
     
     function delete(a)
