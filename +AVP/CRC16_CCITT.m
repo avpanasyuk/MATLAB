@@ -1,7 +1,10 @@
-function varargout=CRC16_CCITT(bytes, do_not_reset, start_value)
+function varargout=CRC16_CCITT(bytes, start_value)
   %> when called without a parameter the function resets internal CRC
   %> counter if varargout > 0 or resets it in opposite case
-  %> @param do_not_reset if true function uses stored CRC as initial value
+  %> @param bytes - bytes to add to CRC calculation. If not defined then
+  %>    the function either resets or returns counter depending whether there is
+  %>    output parameter
+  %> @param start_value - start value for CRC calculations
   %CRC-16-CCITT
   %The CRC calculation is based on following generator polynomial:
   %G(x) = x16 + x12 + x5 + 1
@@ -13,17 +16,19 @@ function varargout=CRC16_CCITT(bytes, do_not_reset, start_value)
   %
   %
   persistent CRC_ui16LookupTable CRC16_CCITT_CRC
-  
-  if ~AVP.is_defined('start_value'), start_value = hex2dec('FFFF'); end
-  if nargin == 0
+  if nargin == 0 || isempty(bytes)
     if nargout == 0
-      CRC16_CCITT_CRC = start_value;
+      if AVP.is_defined('start_value') 
+        CRC16_CCITT_CRC = start_value;
+      else
+        CRC16_CCITT_CRC = hex2dec('FFFF');
+      end
     else
       varargout{1} = uint16(CRC16_CCITT_CRC);
     end
   else % we have some bytes to process
-    if isempty(CRC16_CCITT_CRC) || ~AVP.is_true('do_not_reset')
-      CRC16_CCITT_CRC = start_value;
+    if isempty(CRC16_CCITT_CRC)
+      error('CRC16_CCITT counter should be reset by calling CRC16_CCITT() or CRC16_CCITT([],start_value)'); 
     end
     
     if isempty(CRC_ui16LookupTable)
