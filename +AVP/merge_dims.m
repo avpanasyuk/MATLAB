@@ -1,4 +1,5 @@
 function out = merge_dims(x,dims)
+  %> merge3dimentions "dims". Merged dimensions returned as first dimension
   sz = size(x);
   d = 1:ndims(x);
   d(dims) = 0;
