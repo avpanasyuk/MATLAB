@@ -5,3 +5,4 @@ matlab.files
 /+CONTRIB/+lasso
 /ARESLab.1.12.1
 *.bak
+/+CONTRIB/FastPeakFind
