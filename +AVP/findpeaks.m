@@ -17,8 +17,9 @@ function [xs,ws,ys] = findpeaks(d,varargin)
 
   AVP.opt_param('wmin',2/sqrt(-4/3*log(1/8))); % default is when minimums sit on +- 2 pixel.
   AVP.opt_param('wmax', (Np/4)*wmin);
-  AVP.opt_param('Gamma',3); % gamma value for the width curve
-  W_vect = linspace(wmin^(1/Gamma),wmax^(1/Gamma),Np/2).^Gamma;
+  % AVP.opt_param('Gamma',3); % gamma value for the width curve
+  % W_vect = linspace(wmin^(1/Gamma),wmax^(1/Gamma),Np/2).^Gamma;
+  W_vect = 10.^linspace(log10(wmin),log10(wmax),Np/2);
   
   KernMat = [];
   for wI = 1:numel(W_vect)
