@@ -23,19 +23,5 @@ function [a,b] = find_edge_slope(y,x,edge)
   x_arr = repmat(x,1,n);
   y_arr = repmat(y,1,n);
   
-  err = cumsum((y_arr - a_arr.*x_arr - b_arr).^2)./repmat(ns,1,n);
- 
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+  err = cumsum((y_arr - a_arr.*x_arr - b_arr).^2)./repmat(ns,1,n);  
 end

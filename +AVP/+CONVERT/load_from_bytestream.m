@@ -12,7 +12,7 @@ function var = load_from_bytestream(bytes)
     case 's'
       for fi=1:AVP.pop(1)
         fn = AVP.pop('char',AVP.pop(1));
-        var.(fn) = AVP.load_from_bytestream();
+        var.(fn) = AVP.CONVERT.load_from_bytestream();
       end
     case {'a','x','c'}
       ndims = AVP.pop(1);
@@ -20,7 +20,7 @@ function var = load_from_bytestream(bytes)
       if code == 'c'
         var = cell(double(sz));
         for n=1:prod(sz)
-          var{n} = AVP.load_from_bytestream();
+          var{n} = AVP.CONVERT.load_from_bytestream();
         end
       else
         type = AVP.pop('char',AVP.pop(1));
@@ -34,7 +34,7 @@ function var = load_from_bytestream(bytes)
     case 'e'
       var = [];
     case 'l'
-      var = struct2table(AVP.load_from_bytestream(AVP.pop(AVP.pop('uint32'))));
+      var = struct2table(AVP.CONVERT.load_from_bytestream(AVP.pop(AVP.pop('uint32'))));
     otherwise
       error(['Wrong code "' code '"!'])
   end

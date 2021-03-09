@@ -19,14 +19,19 @@ if nargin == 0, out = numel(to_pop_from);
 else
   if isstr(x) % getting typecast value, x is type
     if ~exist('n','var'), n = 1; else n = double(n); end
+    x = x(:).'; % make sure it is string 
     if numel(find(size(n) ~= 1)) == 0
       if strcmp(x,'char')
-        out = char(AVP.pop(n*AVP.get_size_of_type(x)));
+        out = char(AVP.pop(n*AVP.size_of_type('int8')));
       else
-        out = typecast(AVP.pop(n*AVP.get_size_of_type(x)),x);
+        out = typecast(AVP.pop(n*AVP.size_of_type(x)),x);
       end
     else
-      out = reshape(typecast(AVP.pop(prod(n)*AVP.get_size_of_type(x)),x),n(:).');
+      if strcmp(x,'logical')
+        out = reshape(typecast(AVP.pop(prod(n)*AVP.size_of_type(x)),'uint8'),n(:).');
+      else
+        out = reshape(typecast(AVP.pop(prod(n)*AVP.size_of_type(x)),x),n(:).');
+      end
     end
   else
     x = double(x);
