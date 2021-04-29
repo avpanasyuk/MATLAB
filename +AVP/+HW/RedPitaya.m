@@ -1,6 +1,6 @@
 classdef RedPitaya < handle
   %! before using the class you have to login into Pitaya and start 'SCPI
-  %! server''
+  %! server'' http://rp-f04769/scpi_manager/
   %! reference is https://redpitaya.readthedocs.io/en/latest/appsFeatures/remoteControl/remoteControl.html#list-of-supported-scpi-commands
   properties
     port = 5000;
@@ -9,7 +9,7 @@ classdef RedPitaya < handle
   
   methods
     function a = RedPitaya(ip_name)
-      if ~exist(ip_name), ip_name = 'rp-f04769'; end
+      if ~exist('ip_name','var'), ip_name = 'rp-f04769'; end
       
       a.tcpip=tcpip(ip_name, a.port);
       fopen(a.tcpip);
