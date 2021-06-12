@@ -1,5 +1,5 @@
-% REal FFT function. returns real vector with indexes 1:n/2+1 correspond to cosines and
-% n/2+2:end to sines
+% REal FFT function. returns complex  vector with real part corresponding to cosines and
+% imaginary to sines
 % size of y should be even
 
 function out = realfft(y)
