@@ -1,9 +1,9 @@
 function write_png(output_file,varargin)
-  %!same as print only removes empty spaces. Works only for printing into
-  %!image files!
-  %! @param output_file - file to write. If omitted just copies figure to
-  %! clipboard
-  %! @param varargin - arguments for 'print' function, like '-r200'
+  %>same as print only removes empty spaces. Works only for printing into
+  %>image files!
+  %> @param output_file - file to write. If omitted just copies figure to
+  %> clipboard
+  %> @param varargin - arguments for 'print' function, like '-r200'
   % we are going to make a draft print first, remove empty rows and columns
   % and then make real print.
   

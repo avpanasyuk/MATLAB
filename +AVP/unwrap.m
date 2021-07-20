@@ -1,5 +1,5 @@
 function y = unwrap(y,x,varargin)
-  %! for smooth data vector with few jumps removes jumps. 
+  %> for smooth data vector with few jumps removes jumps. 
   AVP.opt_param('OverCoeff',10); % how big jump is in comparizon with median step
   if ~AVP.is_defined('x'), x = [1:numel(y)].'; end
   y = double(y(:));

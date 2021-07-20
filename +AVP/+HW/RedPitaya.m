@@ -1,7 +1,7 @@
 classdef RedPitaya < handle
-  %! before using the class you have to login into Pitaya and start 'SCPI
-  %! server'' http://rp-f04769/scpi_manager/
-  %! reference is https://redpitaya.readthedocs.io/en/latest/appsFeatures/remoteControl/remoteControl.html#list-of-supported-scpi-commands
+  %> before using the class you have to login into Pitaya and start 'SCPI
+  %> server'' http://rp-f04769/scpi_manager/
+  %> reference is https://redpitaya.readthedocs.io/en/latest/appsFeatures/remoteControl/remoteControl.html#list-of-supported-scpi-commands
   properties
     port = 5000;
     tcpip
@@ -21,7 +21,7 @@ classdef RedPitaya < handle
     end
     
     function GenerateWave(a, freq, ampl, shape)
-      %! @param shape - one of {sine, square, triangle, sawu,sawd, pwm}
+      %> @param shape - one of {sine, square, triangle, sawu,sawd, pwm}
       
       if ~exist('shape','var'), shape = 'sine'; end;
       

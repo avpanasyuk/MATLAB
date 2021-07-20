@@ -12,13 +12,14 @@ classdef scrolling < handle
     % service
     fig = []
     plots = {}
-    data_y = [] % used only when not same_plot, because we slit data between subplots in this case
+    data_y = [] % used only when not same_plot, because we split data between subplots in this case
     data_x = []
     start_x = 0
     legend
     ylabels
     x_start_lbl
     next_plot % cputime of the last plot to avod calling too often
+    current_plotI
   end
   methods
     function a=scrolling(varargin)
@@ -31,6 +32,7 @@ classdef scrolling < handle
       a.do_abs = AVP.opt_param('do_abs',false);
       a.show_std = AVP.opt_param('show_std',false);
       a.next_plot = cputime;
+      a.plots = [];
       
       if ~isempty(a.plot_names) && a.show_std
         warning('"show_std" suppresses "plot_names"')
@@ -44,13 +46,49 @@ classdef scrolling < handle
     end
     
     function AddPoints(a,y,x)
-      %> @param y - array[SampleI, ParamI]
-      %> @param x - vector[SampleI]
+      %> @param y - either array[SampleI, ParamI] or cell
+      %> array of y vectors
+      %> @param x - either vector[SampleI] or cell
+      %> array of x vectors
       if isempty(y), return; end
-      if ~isreal(y) && ~a.do_abs, y = [real(y),imag(y)]; end
-      
-      n_vars = size(y,2);
-      
+      if iscell(y)
+        for a.current_plotI = 1:numel(y)
+          if ~AVP.is_defined('x')
+            if numel(y{a.current_plotI}) ~= numel(x{a.current_plotI})
+              error('AddPoints - gotta be the same size!');
+            else
+              x_ = x{a.current_plotI}(:);
+            end
+          else
+            x_ = [1:numel(y{a.current_plotI})].';
+          end
+          a.AddPoints(y{a.current_plotI},x_);
+        end
+      else % 'y' is not a cell array
+        if ~isreal(y) && ~a.do_abs, y = [real(y),imag(y)]; end
+        
+        n_vars = size(y,2);
+        if ~AVP.is_defined('x')
+          x = [1:size(y,1)].';
+        end
+        if n_vars == 1 || a.same_plot
+          a.DoPlot(y,x);
+        else
+          for a.current_plotI = 1:n_vars
+            switch size(x,2) 
+              case size(y,2)
+                a.AddPoints(y(:,a.current_plotI),x(:,a.current_plotI));
+              case 1  
+                a.AddPoints(y(:,a.current_plotI),x);
+              otherwise
+                error('"X" dimensions are wrong!')
+            end
+          end
+        end
+      end
+     end % AddPoints
+     
+     function DoPlot(a,y,x)   
       % merge data with old track
       % X
       if ~AVP.is_defined('x')
@@ -133,7 +171,7 @@ classdef scrolling < handle
         a.x_start_lbl.String = x_lbl_str;
       end
       drawnow
-    end % AddPoints
+    end % DoPlot
     
     function reset(a)
       a.data_y = [];

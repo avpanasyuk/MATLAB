@@ -1,6 +1,6 @@
 classdef AnalogDiscovery < handle
-  %! The object of this class corresponds to a single channel on one of the Digilent
-  %! Analog Discoveries attached
+  %> The object of this class corresponds to a single channel on one of the Digilent
+  %> Analog Discoveries attached
   properties
     s % daq.di.Session
     fig % figure handle
@@ -15,7 +15,7 @@ classdef AnalogDiscovery < handle
     end
     
     function AddInputChannels(a,ID)
-      %! @param ID - defines device, 'AD?' for the first one. etc
+      %> @param ID - defines device, 'AD?' for the first one. etc
       if ~exist('ID','var'), ID = 'AD1'; end
       
       a.s.addAnalogInputChannel(ID, [1,2], 'Voltage')

@@ -1,9 +1,9 @@
-%! If we have a matrix [num samples, num vars]  of independent variables
-%! and we want to create matrix with cross-products of variables up to n
-%! degree. This function helps providing a matrix of variable indexes to
-%! combine for each summation term
-%! @param v = vector 1:Nvar
-%! @retval Xcross [Num combinations, Num vars in products] array of indexes
+%> If we have a matrix [num samples, num vars]  of independent variables
+%> and we want to create matrix with cross-products of variables up to n
+%> degree. This function helps providing a matrix of variable indexes to
+%> combine for each summation term
+%> @param v = vector 1:Nvar
+%> @retval Xcross [Num combinations, Num vars in products] array of indexes
 function y = n_cross_product_indexes(v, n)
    if n == 1
       y = v(:);

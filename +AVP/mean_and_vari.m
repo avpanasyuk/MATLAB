@@ -1,4 +1,4 @@
-%! calculates mean and varience simultaniously. Latter is STD squared
+%> calculates mean and varience simultaniously. Latter is STD squared
 function [x_mean x_vari] = mean_and_vari(x,dim)
   if ~exist('dim','var'), dim = 1; end
   x_mean = mean(x,dim);

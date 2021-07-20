@@ -1,13 +1,13 @@
 function [Ypredict, C, Offset] = KfoldCrossVerif(regress_func,X,Y,k,varargin)
-  %! this function estimate prediction capabilities of the regression
-  %! by randomly dividing samples onto K subsets and for each subset
-  %! calculating errors predicted regressing the rest of the data
-  %! @param X = [Num samples, N variables] matirx of independent variables
-  %! @param Y = [Num samples, M variables] vector of dependent variables
-  %! @param regress_func is [Coeffs Offsets] = func(X,Y,...)
-  %! @retval Ypredict - predicted Y, all k parts of each are collected from
-  %! independent data
-  %! @retval C
+  %> this function estimate prediction capabilities of the regression
+  %> by randomly dividing samples onto K subsets and for each subset
+  %> calculating errors predicted regressing the rest of the data
+  %> @param X = [Num samples, N variables] matirx of independent variables
+  %> @param Y = [Num samples, M variables] vector of dependent variables
+  %> @param regress_func is [Coeffs Offsets] = func(X,Y,...)
+  %> @retval Ypredict - predicted Y, all k parts of each are collected from
+  %> independent data
+  %> @retval C
   func_params = AVP.opt_param('func_params',{});
   RandomPick = AVP.opt_param('RandomPick',false);
   

@@ -79,7 +79,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
         serialInfo = instrhwinfo('serial');
         AvailPorts = serialInfo.AvailableSerialPorts;
         
-        global OldPorts %!< keeps information for different codes
+        global OldPorts %>< keeps information for different codes
         if ~isempty(OldPorts) && isfield(OldPorts,['Code_' code])
           OldPort = getfield(OldPorts,['Code_' code]);
           if any(strcmp(AvailPorts,OldPort))

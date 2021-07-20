@@ -1,6 +1,6 @@
 function c = centroid(x, centerI, width, vector)
-%! calculates centroid of VECTOR around index CENTERI +- WIDTH using weights X
-%! if VECTOR is not defined returns centroid INDEX
+%> calculates centroid of VECTOR around index CENTERI +- WIDTH using weights X
+%> if VECTOR is not defined returns centroid INDEX
 
 if width >= centerI, width = centerI - 1; end
 if width >= numel(x) - centerI - 1, width = numel(x) - centerI; end
