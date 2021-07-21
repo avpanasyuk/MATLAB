@@ -6,25 +6,11 @@ classdef scrolling1 < handle
   
   properties (SetAccess=protected,GetAccess=public)
     AxesArray = {} % cell array of AVP.PLOT.scrolling_axes
-    
-    
-    %     show_std
-    %     % service
-    %     fig = []
-    %     plots = {}
-    %     data_y = [] % used only when not same_plot, because we split data between subplots in this case
-    %     data_x = []
-    %     start_x = 0
-    %     legend
-    %     ylabels
-    %     x_start_lbl
-    %     next_plot % cputime of the last plot to avod calling too often
   end
   
   properties (SetAccess=protected,GetAccess=protected)
     fig
     options
-    Npoints
     current_subplotI = 1
   end
   
@@ -46,19 +32,9 @@ classdef scrolling1 < handle
       a.fig = figure('DeleteFcn',@(varargin) a.delete,'BusyAction','cancel',...
         'Interruptible','off');
       a.options = struct(varargin{:});
-      a.Npoints = AVP.opt_param('Npoints',300);
-      %       a.plot_names = AVP.opt_param('plot_names',{});
-      %       a.x_npoints = AVP.opt_param('x_npoints',1000);
-      %       a.same_plot = AVP.opt_param('same_plot',false);
-      %       a.plot_props = AVP.opt_param('plot_props',{});
-      %       a.do_abs = AVP.opt_param('do_abs',false);
-      %       a.show_std = AVP.opt_param('show_std',false);
-      %       a.next_plot = cputime;
-      %       a.plots = [];
-      %
-      %       if ~isempty(a.plot_names) && a.show_std
-      %         warning('"show_std" suppresses "plot_names"')
-      %       end
+      if ~isfield(a.options,'Npoints') || isempty(a.options.Npoints)
+        a.options.Npoints = 300;
+      end
     end
     
     function delete(a)
@@ -73,18 +49,17 @@ classdef scrolling1 < handle
       %> @param P - struct('X', X, 'Y', Y)
       %>   or cell array of such structs
       %>   - X may be either is either
-      %>     [numpoints, numvars] matrix or [numpoints] vector or empty vector.
+      %>     [numpoints, numvars] matrix or [numpoints] vector or empty.
       %>   - Y is either
       %>     [numpoints, numvars] matrix or [numpoints] vector
       if iscell(P)
-        % a.AxesArray = numel(y);
         a.options.same_plot = 1; % each cell array element occupies only one subplot/SCROLLING_AXES
         for sI = 1:numel(P)
           a.current_subplotI = sI;
           subplot(numel(P),1,a.current_subplotI)
           a.AddPoints(P)
         end
-      else % 'P.Y'
+      else % P is not cell array
         if ~isreal(P.Y)
           if isfield(a.options,'do_abs') && a.options.do_abs
             P.Y = abs(P.Y);
@@ -94,10 +69,10 @@ classdef scrolling1 < handle
         end
         
         if (isfield(a.options,'same_plot') && a.options.same_plot) || size(P.Y,2) == 1
-          % if isempty(a.current_subplotI), a.current_subplotI = 1; end
+          %% Recursion ends HERE
           if numel(a.AxesArray) < a.current_subplotI
             a.AxesArray{a.current_subplotI} = ...
-              AVP.PLOT.scrolling_axes('Npoints',a.Npoints,'show_std',a.options.show_std);
+              AVP.PLOT.scrolling_axes('Npoints',a.options.Npoints,'show_std',a.options.show_std);
           else
             a.AxesArray{a.current_subplotI}.DoPlot(P);
           end
