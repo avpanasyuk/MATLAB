@@ -1,44 +1,81 @@
 %> reverses "save2bytestream".
-function var = load_from_bytestream(bytes)
-  if exist('bytes','var'), AVP.pop(bytes); end
+function vars = load_from_bytestream(x,varargin)
+  AVP.opt_param('ConcatenateIfPossible',true);
   
+  if exist('x','var') % initiate bytes source, either byte array or file
+    if ischar(x), AVP.pop(x,0); else, AVP.pop(x); end
+  end
+  
+  % read vars one by one, possibly concatenating them if
+  % possible
+  VarI = 1;
+  while AVP.pop() ~= 0
+    NewVar = pop_a_var_from_bytestream();
+    if ~exist('vars','var')
+      vars{VarI} = NewVar;
+    else
+      if ConcatenateIfPossible
+        try
+          vars{VarI} = [vars{VarI}; NewVar]; % see whether we can concatenate
+        catch ME
+          VarI = VarI + 1;
+          vars{VarI} = NewVar;
+        end
+      else
+        VarI = VarI + 1;
+        vars{VarI} = NewVar;
+      end
+    end
+  end
+  if VarI == 1
+    vars = vars{1};
+  end
+end
+
+%> reverses "save2bytestream".
+function NewVar = pop_a_var_from_bytestream()
   code = AVP.pop('char');
   switch code
     case 'v'
-      var = AVP.pop(AVP.pop('char',AVP.pop(1)));
+      NewVar = AVP.pop(AVP.pop('char',AVP.pop(1)));
     case 'z'
       type = AVP.pop('char',AVP.pop(1));
-      var = complex(AVP.pop(type),AVP.pop(type));
+      NewVar = complex(AVP.pop(type),AVP.pop(type));
     case 's'
       for fi=1:AVP.pop(1)
         fn = AVP.pop('char',AVP.pop(1));
-        var.(fn) = AVP.CONVERT.load_from_bytestream();
+        NewVar.(fn) = pop_a_var_from_bytestream();
       end
     case {'a','x','c'}
       ndims = AVP.pop(1);
       sz = typecast(AVP.pop(2*ndims),'uint16');
       if code == 'c'
-        var = cell(double(sz));
+        NewVar = cell(double(sz(:).'));
         for n=1:prod(sz)
-          var{n} = AVP.CONVERT.load_from_bytestream();
+          NewVar{n} = pop_a_var_from_bytestream();
         end
       else
         type = AVP.pop('char',AVP.pop(1));
-        var = AVP.pop(type,sz);
+        NewVar = AVP.pop(type,sz);
         if code == 'x'
-          var = complex(var,AVP.pop(type,sz));
+          NewVar = complex(NewVar,AVP.pop(type,sz));
         end
       end
     case 't'
-      var = AVP.pop('char',AVP.pop('uint16'));
+      NewVar = AVP.pop('char',AVP.pop('uint16'));
     case 'e'
-      var = [];
+      NewVar = [];
     case 'l'
-      var = struct2table(AVP.CONVERT.load_from_bytestream(AVP.pop(AVP.pop('uint32'))));
+      NewVar = struct2table(pop_a_var_from_bytestream());
     otherwise
       error(['Wrong code "' code '"!'])
   end
 end
+
+
+
+
+
 
 
 

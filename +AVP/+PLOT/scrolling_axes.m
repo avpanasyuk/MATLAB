@@ -44,6 +44,7 @@ classdef scrolling_axes < handle
         else
           plot(P.Y,varargin{:})
         end
+        axis tight
         if numel(P.Y,2) ~= 1
           a.legend = legend;
           a.YLabel = cell(numel(P.Y,2),1);
@@ -73,7 +74,7 @@ classdef scrolling_axes < handle
             NewX = NewX(end - a.Npoints + 1:end);
           end
           
-          std_str{LineI} = AVP.CONVERT.num2str(AVP.rel_std(NewY),'%6.2e');
+          std_str{LineI} = num2str(AVP.rel_std(NewY),'%6.2e');
           set(a.Axes.Children(LineI),'XData',NewX,'YData',NewY);
         end
         %% I want to keep X label to a short number so they fit on the axis,
@@ -84,14 +85,13 @@ classdef scrolling_axes < handle
         end
         if a.show_std
           if numel(P.Y,2) == 1
-            ylabel([a.YLabel, 'std(Y) = ', std_str{1}])
+            ylabel([{a.YLabel}, {['std(Y) = ', std_str{1}]}])
           else
             a.legend.String = strcat(a.YLabel,std_str);
           end
         end
       end
       xlabel([a.XLabel, ', StartX = ', num2str(a.StartX)])
-      drawnow
     end% DoPlot
     
     

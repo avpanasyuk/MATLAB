@@ -7,6 +7,7 @@ classdef scrolling_active1 < AVP.PLOT.scrolling1
   properties (SetAccess=protected,GetAccess=protected)
     func
     timer
+    options1
   end
   
   
@@ -17,11 +18,15 @@ classdef scrolling_active1 < AVP.PLOT.scrolling1
       %> X may be either size(Y,1) vector or empty vector. Y is either
       %> [numpoints, numvars] matrix ot [numpoints] vector
       %> @param period in seconds
+      %> @param varargin
+      %>    - LogFileName - name of file to store data 
       
       % ok, we can set things up only after we know what func returns, and
       % it may start returning something only later. So, we postpone
       % setting things up until the last moment
       a@AVP.PLOT.scrolling1(varargin{:});
+      a.options1.LogFileName = AVP.opt_param('LogFile','');
+      
       a.timer = timer('ExecutionMode','fixedSpacing','timerFcn',@(varargin) a.timer_func,...
         'Period',period,'BusyMode','drop');
 
@@ -36,11 +41,16 @@ classdef scrolling_active1 < AVP.PLOT.scrolling1
     end
     
     function timer_func(a)
-      %try
-        a.AddPoints(a.func())
-       %catch ME1
-        %if ~strcmp(ME1.identifier,'lock_commands:Locked'), rethrow(ME1); end
-      %end
+      try
+        D = a.func();
+        if isfield(a.options1,'LogFileName') && ~isempty(a.options1.LogFileName)
+          AVP.FILE.AddTo(a.options1.LogFileName,D);
+        end
+        a.AddPoints(D)
+        drawnow
+      catch ME1
+        if ~strcmp(ME1.identifier,'lock_commands:Locked'), rethrow(ME1); end
+      end
     end % first_time_func
     
     function start(a), start(a.timer); end

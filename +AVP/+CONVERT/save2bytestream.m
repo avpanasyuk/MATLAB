@@ -5,7 +5,7 @@ function bytes = save2bytestream(x)
   if iscell(x)
     bytes = [uint8(['c',ndims(x)]),...
       typecast(uint16(size(x)),'uint8')];
-    for n=1:numel(x),
+    for n=1:numel(x)
       bytes = [bytes,AVP.CONVERT.save2bytestream(x{n})];
     end
   else
@@ -22,8 +22,7 @@ function bytes = save2bytestream(x)
         bytes = [bytes,AVP.CONVERT.to_bytes(uint8(x))];
       else
         if istable(x)
-          b = AVP.CONVERT.save2bytestream(table2struct(x,'ToScalar',true));
-          bytes = [uint8('l'),AVP.CONVERT.to_bytes(uint32(numel(b))),b];
+          bytes = [uint8('l'),AVP.CONVERT.save2bytestream(table2struct(x,'ToScalar',true))];
         else
           if numel(x) == 0, bytes = uint8('e'); else
             type = class(x(1));

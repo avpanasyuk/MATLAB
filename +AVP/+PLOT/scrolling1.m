@@ -10,7 +10,7 @@ classdef scrolling1 < handle
   
   properties (SetAccess=protected,GetAccess=protected)
     fig
-    options
+    options = struct()
     current_subplotI = 1
   end
   
@@ -28,13 +28,14 @@ classdef scrolling1 < handle
       %>    - Npoints defines number of points for all
       %>      subplots, they can be changed individually per
       %>      subplot later by changing a.AxesArray(?).Npoints
+      %>    - same_x: x axis is the same for all plots
       
       a.fig = figure('DeleteFcn',@(varargin) a.delete,'BusyAction','cancel',...
         'Interruptible','off');
-      a.options = struct(varargin{:});
-      if ~isfield(a.options,'Npoints') || isempty(a.options.Npoints)
-        a.options.Npoints = 300;
-      end
+      a.options.Npoints = AVP.opt_param('Npoints',300);
+      a.options.show_std = AVP.opt_param('show_std',false);
+      a.options.do_abs = AVP.opt_param('do_abs',false);
+      a.options.same_plot = AVP.opt_param('same_plot',false);
     end
     
     function delete(a)
@@ -52,12 +53,13 @@ classdef scrolling1 < handle
       %>     [numpoints, numvars] matrix or [numpoints] vector or empty.
       %>   - Y is either
       %>     [numpoints, numvars] matrix or [numpoints] vector
+      if isempty(P), return; end
       if iscell(P)
-        a.options.same_plot = 1; % each cell array element occupies only one subplot/SCROLLING_AXES
+        a.options.same_plot = true; % each cell array element occupies only one subplot/SCROLLING_AXES
         for sI = 1:numel(P)
           a.current_subplotI = sI;
           subplot(numel(P),1,a.current_subplotI)
-          a.AddPoints(P)
+          a.AddPoints(P{sI})
         end
       else % P is not cell array
         if ~isreal(P.Y)
@@ -68,7 +70,7 @@ classdef scrolling1 < handle
           end
         end
         
-        if (isfield(a.options,'same_plot') && a.options.same_plot) || size(P.Y,2) == 1
+        if a.options.same_plot || size(P.Y,2) == 1
           %% Recursion ends HERE
           if numel(a.AxesArray) < a.current_subplotI
             a.AxesArray{a.current_subplotI} = ...
@@ -95,8 +97,17 @@ classdef scrolling1 < handle
             end
           end
         end
-      end % if iscell(P)
+      end % if iscell(P)      
     end % AddPoints
+    
+%     function do_same_x(a)
+%       if isempty(a.AxesArray), return; end
+%       minX = a.AxesArray{1}.Axes.XLim(1);
+%       maxX = a.AxesArray{1}.Axes.XLim(2);
+%       for sI = 2:numel(a.AxesArray)
+%         if
+%       end
+%     end
   end % methods
 end % classdef scrolling
 

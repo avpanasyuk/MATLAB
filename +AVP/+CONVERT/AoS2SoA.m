@@ -5,9 +5,9 @@ function out = AoS2SoA(x, names)
   if ~AVP.is_defined('names'), names = fieldnames(x); end
   str_sz = size(x);
   for fi=1:numel(names)
-    % let's see whether dimensions of this field for every structure is the
+    % let's see whether number of rows of this field for every structure is the
     % same, so we can do conversion
-    sz = cellfun(@(x) size(x),{x.(names{fi})},'UniformOutput',false);
+    sz = cellfun(@(x) size(x,2),{x.(names{fi})},'UniformOutput',false);
     sz_arr = cat(1,sz{:});
     sz = size(sz_arr);
     if all(all(sz_arr == repmat(sz_arr(1,:),sz(1),1))) && ...
