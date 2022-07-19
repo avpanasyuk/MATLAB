@@ -4,7 +4,7 @@ if (~isdeployed)
   global PROJECT_DIR MATLAB_DIR
   INIT_DIR = pwd; INIT_DIR(1) = upper(INIT_DIR(1));
   PROJECT_DIR = INIT_DIR;
-  keyboard
+ %  keyboard
   CurDir = INIT_DIR;
   TailDir = filesep;
   
