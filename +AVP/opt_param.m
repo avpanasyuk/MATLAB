@@ -12,6 +12,7 @@ function Value=opt_param(name,default,action)
   Varargin = evalin('caller','varargin');
   Place = AVP.opt_param_present(name,Varargin);
   if ~AVP.is_defined('action'), action = 2; end
+  if ~AVP.is_defined('default'), default = []; end
     
   if isempty(Place)
     Value = default;
