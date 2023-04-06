@@ -3,13 +3,14 @@ classdef RedPitaya < handle
   %> server'' http://rp-f04769/scpi_manager/
   %> reference is https://redpitaya.readthedocs.io/en/latest/appsFeatures/remoteControl/remoteControl.html#list-of-supported-scpi-commands
   properties
-    port = 5000
+    port = 5000;
     tcpc
-    SampleRateDividerLog2 = 0
+    SampleRateDividerLog2 = -1; %!< valid range 0 to 16
+    Channel = [];
   end
 
   properties(Constant)
-    BufferSize = 16384
+    Clock_Hz = 125e6
   end
 
   methods
@@ -50,16 +51,19 @@ classdef RedPitaya < handle
       writeline(a.tcpc,'OUTPUT1:STATE OFF');      % Set output to ON
     end % StopWave
 
+    %! @param varargin
+    %!        - Channel - list of channels to sample
+    %!
     function StartAcq(a,varargin)
-      AVP.opt_param('SampleRateDividerLog2_',0);
-      if SampleRateDividerLog2_ > 16
+      AVP.opt_param('SampleRateDividerLog2',0);
+      if SampleRateDividerLog2 > 16
         error('Divider is too high!');
       end
-      AVP.opt_param('Channel',1);
+      a.Channel = AVP.opt_param('Channel',[1,2]);
 
-      if SampleRateDividerLog2_ ~= a.SampleRateDividerLog2
-        a.SampleRateDividerLog2 = SampleRateDividerLog2_;
-        writeline(a.tcpc,['ACQ:DEC ' num2str(a.SampleRateDividerLog2)]);
+      if SampleRateDividerLog2 ~= a.SampleRateDividerLog2
+        a.SampleRateDividerLog2 = SampleRateDividerLog2;
+        writeline(a.tcpc,['ACQ:DEC ' num2str(2^a.SampleRateDividerLog2)]);
       end
       writeline(a.tcpc,'ACQ:DATA:UNITS VOLTS');
       writeline(a.tcpc,'ACQ:DATA:FORMAT BIN');
@@ -75,7 +79,7 @@ classdef RedPitaya < handle
 
     function out = writereadbin(a, text, varargin)
       writeline(a.tcpc,text);
-      while a.tcpc.NumBytesAvailable == 65543, end;
+      while a.tcpc.NumBytesAvailable < 65543, end;
       out = read(a.tcpc,65543,varargin{:});
     end
 
@@ -94,12 +98,17 @@ classdef RedPitaya < handle
 
       read(a.tcpc);
       % Read data from buffer
-      x = writereadbin(a,'ACQ:SOUR1:DATA?');
-      signal_str = typecast(swapbytes(typecast(x(8:end),'uint32')),'single');
-      x = writereadbin(a,'ACQ:SOUR2:DATA?');
-      signal_str_2 = typecast(swapbytes(typecast(x(8:end),'uint32')),'single');
-
-      x = [signal_str; signal_str_2].';
+      x = [];
+      for ChI=1:2
+        if any(a.Channel == ChI)
+          b = writereadbin(a,['ACQ:SOUR' num2str(ChI) ':DATA?']);
+          x = [x;typecast(swapbytes(typecast(b(8:end),'uint32')),'single')];
+        end
+      end
     end % GetAcqBuffer
+
+    function dt = GetDeltaT(a)
+      dt = 2^a.SampleRateDividerLog2/a.Clock_Hz;
+    end
   end % methods
 end % classdef
