@@ -45,8 +45,8 @@ classdef AnalogDiscovery < handle
     end
     
     function [data, timestamps, triggerTime] = get_data(a,channel,varargin)
-      AVP.opt_param('tune',0)
-      AVP.opt_param('display',0)
+      AVP.opt_param('tune',0);
+      AVP.opt_param('show',0);
       if tune
         a.SetRange([-25 25],channel);
       end
@@ -61,7 +61,7 @@ classdef AnalogDiscovery < handle
         [data, timestamps, triggerTime] = a.s.startForeground;
       end
       
-      if display
+      if show
         old = gcf;
         set(0,'CurrentFigure',a.fig);
         plot(timestamps,data)
