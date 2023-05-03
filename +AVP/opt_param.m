@@ -10,11 +10,11 @@ function Value=opt_param(name,default,action)
   %> @retval out_varargin if base varargin with added default value
   
   Varargin = evalin('caller','varargin');
-  Place = AVP.opt_param_present(name,Varargin);
+  [Present, Place] = AVP.opt_param_present(name,Varargin);
   if ~AVP.is_defined('action'), action = 2; end
   if ~AVP.is_defined('default'), default = []; end
     
-  if isempty(Place)
+  if ~Present
     Value = default;
     if AVP.getbit(action,2), assignin('caller','varargin',{Varargin{:},name,Value}); end
   else
