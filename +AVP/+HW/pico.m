@@ -322,7 +322,7 @@ classdef pico < handle
 
     function t = get_sampling_interval_ns(obj)
       %> should be the same get_timebase returns
-      t = p.MinSamplingInterval_ns*2^(p.timebase-1)*p.oversample;
+      t = obj.MinSamplingInterval_ns*2^(obj.timebase-1)*obj.oversample;
     end
   end % methods
 
