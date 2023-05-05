@@ -13,7 +13,11 @@ classdef pico < handle
     DriverData
     MinSamplingInterval_ns
     Channel = repmat(struct('Range',0,'Coupling',true),2,1) % if Range == 0 the chanenel is disabled
+    timeUnits %!> index in DriverData.enums.enPS2000TimeUnits, show units in bufferTimes
+    % retuned by get_samples
     % Coupling == true corresponds to DC
+    timebase
+    oversample
   end
 
   properties(Constant)
@@ -178,8 +182,8 @@ classdef pico < handle
       end
     end % set_sig_gen_built_in
 
-    function [bufferTimes, bufferCh, numDataValues, overflow, timeIndisposed_ms, samplingInterval_ns] = ...
-        get_samples(obj, samplingInterval_ns, num_samples, varargin)
+    function [bufferTimes, bufferCh, numDataValues, overflow, actual_samplingInterval_ns] = ...
+        get_samples(obj, samplingRate_Hz, num_samples, varargin)
       %> @param numDataValues - the number of data values obtained.
       %> @param overflow - a bit pattern indicating whether an overflow has occurred and, if so, on which channel.
 
@@ -191,9 +195,9 @@ classdef pico < handle
         had_overflow = [false,false];
         channel_done = [false,false];
         while ~channel_done(1) || ~channel_done(2)
-          [bufferTimes, bufferCh, numDataValues, overflow, timeIndisposed_ms, samplingInterval_ns] = ...
-            obj.get_samples(samplingInterval_ns, num_samples);
-          for ChI = 1:2              
+          [bufferTimes, bufferCh, numDataValues, overflow, actual_samplingInterval_ns] = ...
+            obj.get_samples(samplingRate_Hz, num_samples);
+          for ChI = 1:2
             if obj.Channel(ChI).Range % channel is enabled
               range = obj.Channel(ChI).Range; % 2-based index
               if bitand(overflow,bitshift(1,ChI-1)) % overflow
@@ -213,44 +217,43 @@ classdef pico < handle
                 range
                 obj.set_channel(ChI - 1, true, 'range', range);
               else
-                channel_done(ChI) = true; 
+                channel_done(ChI) = true;
               end
             else
               channel_done(ChI) = true;
             end
           end
         end
-      else
+      else % no auto
         % lets figure out timebase and oversampling to use ADC in full
         % oversample influences both samplingInterval_ns and maxSamples, so
         % we have tune is to both
+        % basically, we have need
+        % samplingInterval_ns ~ oversample*obj.MinSamplingInterval_ns*2^timebase
         % we will try to keep timebase as low as possible and increase
-        % oversample to get MinSamplingInterval_ns
-        oversample = PS2000Constants.PS2000_MAX_OVERSAMPLE;
+        % oversample
+        % actual sampling interval_ns = p.MinSamplingInterval_ns*2^(p.timebase-1)*oversample
+        obj.oversample = PS2000Constants.PS2000_MAX_OVERSAMPLE; % start with maximum oversample
 
-        timebase = 0; old_timebase = -1;
-        while old_timebase ~= timebase % tuning oversample to both samplingInterval_ns and num_samples
+        obj.timebase = 0; old_timebase = -1;
+        while old_timebase ~= obj.timebase % tuning oversample to both samplingInterval_ns and num_samples
           % oversample may only get smaller every loop
-          old_timebase = timebase;
-          timebase = floor(log(samplingInterval_ns/oversample/obj.MinSamplingInterval_ns)/log(2));
-          if timebase < 0
-            oversample = floor(samplingInterval_ns/obj.MinSamplingInterval_ns);
-            timebase = 0;
-          elseif timebase > PS2000Constants.PS2200_MAX_TIMEBASE
-            timebase = PS2000Constants.PS2200_MAX_TIMEBASE;
+          old_timebase = obj.timebase;
+          obj.timebase = round(log(1e9/samplingRate_Hz/obj.oversample/obj.MinSamplingInterval_ns)/log(2)) + 1;
+          if obj.timebase < 0
+            obj.oversample = floor(1e9/samplingRate_Hz/obj.MinSamplingInterval_ns);
+            obj.timebase = 0;
+          elseif obj.timebase >= PS2000Constants.PS2200_MAX_TIMEBASE
+            obj.timebase = PS2000Constants.PS2200_MAX_TIMEBASE - 1;
           end
-          [samplingInterval_ns, timeUnits, maxSamples] = obj.get_timebase(timebase, oversample, num_samples); % check maxSamples
-          if maxSamples < num_samples, oversample = floor(oversample*maxSamples/num_samples); old_timebase = -1; end
-          if oversample < 1, oversample = 1; end
+          [actual_samplingInterval_ns, maxSamples] = obj.get_timebase(num_samples); % check maxSamples
+          if maxSamples < num_samples, obj.oversample = floor(obj.oversample*maxSamples/num_samples); old_timebase = -1; end
+          if obj.oversample < 1, obj.oversample = 1; end
           % timebase, oversample
         end
 
         % Run block
-        timeIndisposed_place = 0;
-        [status, timeIndisposed_ms] = calllib('ps2000', 'ps2000_run_block', ...
-          obj.h, num_samples, timebase, oversample, timeIndisposed_place);
-
-        if ~status
+        if ~calllib('ps2000', 'ps2000_run_block', obj.h, num_samples, obj.timebase, obj.oversample, [])
           error('run_block failed!');
         end
 
@@ -279,14 +282,14 @@ classdef pico < handle
           % Get times and samples
           numDataValues = calllib('ps2000', 'ps2000_get_times_and_values', ...
             obj.h, pBufferTimes, pBufferCh{1}, pBufferCh{2}, ...
-            [], [], overflowPtr, timeUnits, num_samples);
+            [], [], overflowPtr, obj.timeUnits, num_samples);
 
           % Indicate if parameters out of range or incorrect time units
           if(numDataValues == 0)
             error('ps2000_get_times_and_values: One or more parameters out of range or timeUnits incorrect');
           else
             % Output to buffers and convert channel data to milliVolts
-            bufferTimes = double(pBufferTimes.Value);
+            bufferTimes = double(pBufferTimes.Value)*10.^(3*(obj.timeUnits - 5));
 
             for ChI = 1:2
               if obj.Channel(ChI).Range
@@ -300,12 +303,31 @@ classdef pico < handle
             overflow = overflowPtr.Value;
           end
         end
+
       end % if auto
     end % get_samples
+
+    function [freqs, values, overflow] = get_fft(obj, samplingRate_Hz, num_samples, varargin)
+      [~, bufferCh, numDataValues, overflow, actual_samplingInterval_ns] = ...
+        obj.get_samples(samplingRate_Hz, num_samples, varargin{:});
+      freqs = ([1:2:numDataValues] - 1)/numDataValues/actual_samplingInterval_ns*1e9;
+      for ChI = 1:2
+        if ~isempty(bufferCh{ChI})
+          values{ChI} = AVP.realfft(bufferCh{ChI});
+          plot(freqs,abs(values{ChI})); hold on
+        end
+      end
+      hold off
+    end % get_abs_fft
+
+    function t = get_sampling_interval_ns(obj)
+      %> should be the same get_timebase returns
+      t = p.MinSamplingInterval_ns*2^(p.timebase-1)*p.oversample;
+    end
   end % methods
 
   methods (Access = protected)
-    function [samplingInterval_ns, timeUnits, maxSamples] = get_timebase(obj, timebase, oversample, num_samples)
+    function [samplingInterval_ns, maxSamples] = get_timebase(obj, num_samples)
       %> This function discovers which timebases are available on the oscilloscope. You should set up
       %> the channels using ps2000_set_channel and, if required, ETS mode using
       %> ps2000_set_ets first. Then call this function with increasing values of timebase, starting
@@ -320,23 +342,24 @@ classdef pico < handle
       maxSamples_space = 0;
       timeUnits_Space = 0;
 
-      [status, samplingInterval_ns, timeUnits, maxSamples] = calllib('ps2000', ...
-        'ps2000_get_timebase', obj.h, timebase + 1, ...
+      [status, ~, ~, maxSamples] = calllib('ps2000', ...
+        'ps2000_get_timebase', obj.h, obj.timebase + 1, ...
         1, samplingInterval_space, timeUnits_Space, ...
-        oversample, maxSamples_space);
+        obj.oversample, maxSamples_space);
 
       if ~status, error('get_timebase failed!'); end
 
       if num_samples > maxSamples, num_samples = maxSamples; end
 
-      [status, samplingInterval_ns, timeUnits, maxSamples] = calllib('ps2000', ...
-        'ps2000_get_timebase', obj.h, timebase + 1, ...
+      [status, samplingInterval_ns, obj.timeUnits, maxSamples] = calllib('ps2000', ...
+        'ps2000_get_timebase', obj.h, obj.timebase + 1, ...
         num_samples, samplingInterval_space, timeUnits_Space, ...
-        oversample, maxSamples_space);
+        obj.oversample, maxSamples_space);
 
       if ~status, error('get_timebase failed!'); end
       samplingInterval_ns = double(samplingInterval_ns);
       maxSamples = double(maxSamples);
+      obj.timeUnits = double(obj.timeUnits);
 
     end % get_timebase
   end % protected methods
