@@ -1,6 +1,4 @@
 classdef AnalogDiscovery < handle
-  %> The object of this class corresponds to a single channel on one of the Digilent
-  %> Analog Discoveries attached
   properties
     s % daq.di.Session
     fig % figure handle
