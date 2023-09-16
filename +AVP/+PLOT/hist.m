@@ -14,7 +14,7 @@ function [density values ydivs p] = hist(y,varargin)
   y = y(isfinite(y(:)));
   n = numel(y);
   AVP.opt_param('nbins',ceil(sqrt(n)));
-  AVP.opt_param('show',true);
+  AVP.opt_param('do_plot',true);
   AVP.opt_param('plot_logx',false);
   AVP.opt_param('fitfunc','none'); % possible options "gauss", "xgauss", 
   % 'x2gauss','xexp','x2exp','x_to_n_exp','x_to_n_gauss'
@@ -81,7 +81,7 @@ function [density values ydivs p] = hist(y,varargin)
       p = [];
       fitd = [];
   end
-  if show
+  if do_plot
     if plot_logx
       semilogx(abs(values),density,'*-');
     else
