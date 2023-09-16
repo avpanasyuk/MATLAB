@@ -9,7 +9,7 @@ function [density values ydivs p] = hist(y,varargin)
   % we picking up unique values first.
   %> @param varargin
   %>      nbins
-  %>      show
+  %>      do_plot
   
   y = y(isfinite(y(:)));
   n = numel(y);
