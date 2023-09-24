@@ -1,4 +1,4 @@
-function [density values ydivs p] = hist(y,varargin)
+function [density, values, ydivs, p] = hist(y,varargin)
   % usually histogam is calculated by taking all values range, dividing it on
   % equal ranges,  and then calculating number of points in each range.
   % Causes big instability as some ranges have a lot of points and some
@@ -18,13 +18,19 @@ function [density values ydivs p] = hist(y,varargin)
   AVP.opt_param('plot_logx',false);
   AVP.opt_param('fitfunc','none'); % possible options "gauss", "xgauss", 
   % 'x2gauss','xexp','x2exp','x_to_n_exp','x_to_n_gauss'
+  AVP.opt_param('weight',ones(n,1));
+  AVP.opt_param('crop',0.01); % percent of area to crop at the margins when plotting
   
+  
+  [y, yI] = sort(y);
   idivs = round(linspace(1,n,nbins)).';
-  y = sort(y);
+  divs_weighted = cumsum(weight(yI));
+
   [ydivs Inds] = unique(y(idivs));
-  idivs = idivs(Inds);
+  idivs = divs_weighted(idivs(Inds));
   
   density = (idivs(2:end)-idivs(1:end-1))./(ydivs(2:end)-ydivs(1:end-1));
+  density = density/(idivs(end) - idivs(1));
   values = (ydivs(2:end)+ydivs(1:end-1))/2;
   
   core_densI = find(density > max(density)/40);
@@ -90,6 +96,9 @@ function [density values ydivs p] = hist(y,varargin)
         hold on
         plot(core_val,fitd); hold off
       end
+    end
+    if crop(1) > 0
+      set(gca,'XLim',ydivs(round(AVP.crop_area(density,'dividers',ydivs,'crop',crop))));
     end
   end
 end
