@@ -6,7 +6,7 @@ function write_png(output_file,varargin)
   %> @param varargin - arguments for 'print' function, like '-r200'
   % we are going to make a draft print first, remove empty rows and columns
   % and then make real print.
-  AVO.opt_param('fig',gcf);
+  AVP.opt_param('fig',gcf);
   
   % find output name
   if exist('output_file','var')
@@ -20,7 +20,7 @@ function write_png(output_file,varargin)
 %     [~,~] = mkdir(fileparts(output_file));
 %     imwrite(255-Im,output_file,'png');
 %     delete(temp_file);
-    imwrite(frame2in(getframe(fig)),output_file,'png');
+    imwrite(frame2im(getframe(fig)),output_file,'png');
   else
     hgexport(fig,'-clipboard')
   end
