@@ -11,5 +11,5 @@ function complex(y,varargin)
     if ~held, hold off; end
     line_titles = {line_titles{:},'abs','angle'};
   end
-  % AVP.PLOT.legend(line_titles);
+  AVP.PLOT.legend(line_titles);
 end
