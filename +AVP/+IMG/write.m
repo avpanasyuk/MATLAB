@@ -2,8 +2,12 @@ function write(output_file,varargin)
   %>same as print only removes empty spaces. Works only for printing into
   %>image files!
   %> @param output_file - file to write. If omitted just copies figure to
-  %> clipboard
-  %> @param varargin - arguments for 'imwrite' function
+  %> clipboard. The file format is determined by extension
+  %> @param varargin 
+  %>    - fig: figure handle
+  %>    - frmt: format as recognized by imwrite, e.f. 'png'. 'jpg'
+  %>    - arguments for 'imwrite' function
+  %>                
   AVP.opt_param('fig',gcf,1);
   
   % find output name
