@@ -89,8 +89,9 @@ function [a,b] = hough_from_vectors(p,varargin)
   % let's take a look whether it is really linear and what is an error
   if do_plot
     plot(p(:,1),p(:,2),'x'); hold on
-    plot(p(:,1),(1 - p(:,1)*a)/b,'+'); hold off
-  end
+    xl = get(gca,'XLim');
+    plot(xl,(1 - xl*a)/b); hold off
+    AVP.PLOT.legend({'data','line found'})
 end
 
  
