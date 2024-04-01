@@ -7,7 +7,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
     WatchDog
     Port = []
   end
-  
+
   methods(Static)
     function status = PingNOOP(s)
       disp('Sending NOOP...');
@@ -29,7 +29,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
       error('Did not get 0 - protocol is broken!');
       status = false;
     end
-    
+
     function status = CheckPort(Port,Code,varargin)
       fprintf('Checking port %s...\n',Port);
       s = serial(Port,varargin{:});
@@ -63,22 +63,43 @@ classdef serial_protocol_AC < AVP.serial_protocol
       status = false;
     end
   end % static methods
-  
+
   methods
-    %> finds port which broadcasts code or tries to connect to old one
-    %> (because FW stops transmitting on first connection).
-    %> FIXME implement transmitting restart on disconnect
-    %> @param code
-    %>   - if string value it is the string broadcasted by FW.
-    %>      This function goes through all avaibale ports to find one
-    %>      transmitting string "code"
-    %>   - if numerical value, it is the port number to connect to
-    %> @param varargin is passed to serial() constructor
     function a = serial_protocol_AC(code,varargin)
-      if isstr(code)
-        serialInfo = instrhwinfo('serial');
-        AvailPorts = serialInfo.AvailableSerialPorts;
+      %> finds port which broadcasts code or tries to connect to old one
+      %> (because FW stops transmitting on first connection).
+      %> FIXME implement transmitting restart on disconnect
+      %> @param code
+      %>   - if string value it is the string broadcasted by FW.
+      %>      This function goes through all avaibale ports to find one
+      %>      transmitting string "code"
+      %>   - if numerical value, it is the port number to connect to
+      %> @param varargin is passed to serial() constructor
+      %>   - Type: what comports return in 'type' field
+      %>   - name: what comports return in 'name' field
+
+      if isstr(code) % port is identified by the broadcasted code
+        ports = AVP.comports();
+        if isempty(ports)
+          error('Can not find any COM port');
+        end
+        AVP.opt_param('Type','',1);
+        if ~isempty(Type)
+          ports = ports(strcmp({ports.type},Type));
+          if isempty(ports)
+            error(['No ports of type ' Type]);
+          end
+        end
+        AVP.opt_param('name','',1);
+        if ~isempty(name)
+          ports = ports(strcmp({ports.name},name));
+          if isempty(ports)
+            error(['No ports with name "' name '"']);
+          end
+        end
         
+        AvailPorts = {ports.port};
+
         global OldPorts %>< keeps information for different codes
         if ~isempty(OldPorts) && isfield(OldPorts,['Code_' code])
           OldPort = getfield(OldPorts,['Code_' code]);
@@ -96,8 +117,8 @@ classdef serial_protocol_AC < AVP.serial_protocol
             delete(s)
           end
         end
-        
-        
+
+
         % looking through all available ports
         if ~exist('Port','var')
           for i=1:numel(AvailPorts)

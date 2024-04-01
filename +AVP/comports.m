@@ -16,7 +16,7 @@ if exist('jsystem','file')==2 %~10x faster then 'system'
 else 
 [~,str] = system(cmd); 
 end 
-names = regexp(str,'FriendlyName *REG_SZ *(?<name>.*?) \((?<port>COM.*?)\)','names'); 
+names = regexp(str,'FriendlyName *REG_SZ *(?<name>[^\n]*?) \((?<port>COM.*?)\)','names'); 
 [i,j] = ismember({ports.port},{names.port}); 
 [ports(i).name] = names(j(i)).name; 
 end

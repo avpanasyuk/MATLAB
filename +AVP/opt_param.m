@@ -4,7 +4,7 @@ function Value=opt_param(name,default,action)
   %> @param name - string, optional variable name as specified in varargin
   %> @param default - default value
   %> @param action: logical bitmap
-  %>     - if bit 1 is true removes given variable name form varargin
+  %>     - if bit 1 is true removes given variable name from varargin
   %>     - if bit 2 is true adds default value to varargin if absent (default)
   %> @retval Value in varargin if present, default if absent
   %> @retval out_varargin if base varargin with added default value
