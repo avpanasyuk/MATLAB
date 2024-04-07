@@ -68,7 +68,7 @@ classdef scrolling_active < AVP.PLOT.scrolling
       catch ME1
         if ~strcmp(ME1.identifier,'lock_commands:Locked'), rethrow(ME1); end
       end
-    end % first_time_func
+    end % time_func
     
     function start(a), start(a.timer_obj); end
     function stop(a), stop(a.timer_obj); end

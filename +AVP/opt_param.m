@@ -3,7 +3,7 @@ function Value=opt_param(name,default,action)
   %> check varargin on presence of a given variable
   %> @param name - string, optional variable name as specified in varargin
   %> @param default - default value
-  %> @param action: logical bitmap
+  %> @param action: logical bitmap, optional
   %>     - if bit 1 is true removes given variable name from varargin
   %>     - if bit 2 is true adds default value to varargin if absent (default)
   %> @retval Value in varargin if present, default if absent
@@ -11,8 +11,7 @@ function Value=opt_param(name,default,action)
   
   Varargin = evalin('caller','varargin');
   [Present, Place] = AVP.opt_param_present(name,Varargin);
-  if ~AVP.is_defined('action'), action = 2; end
-  if ~AVP.is_defined('default'), default = []; end
+  if ~exist('action','var'), action = 2; end
     
   if ~Present
     Value = default;
