@@ -46,6 +46,7 @@ classdef scrolling2 < handle
   methods
     function a=scrolling2(varargin)
       a.fig = figure('BusyAction','cancel','Interruptible','off');
+      set(a.fig,'CloseRequestFcn',@(varargin) a.delete);
       a.npoints = AVP.opt_param('x_npoints',200);
       a.same_plot = AVP.opt_param('same_axes',false);
     end % constructor

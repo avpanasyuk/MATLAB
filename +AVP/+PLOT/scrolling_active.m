@@ -28,7 +28,7 @@ classdef scrolling_active < AVP.PLOT.scrolling2
       a.timer_obj = timer('ExecutionMode','fixedSpacing',...
         'Period',period,'timerFcn',@(varargin) a.timer_func,...
         'BusyMode','drop');
-      set(a.fig,'DeleteFcn',@(varargin) a.delete);
+      set(a.fig,'CloseRequestFcn',@(varargin) a.delete);
       a.start
     end % scrolling_active
     
