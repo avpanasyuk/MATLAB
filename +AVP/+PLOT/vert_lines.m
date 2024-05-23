@@ -1,6 +1,9 @@
 function vert_lines(x,varargin)
-  for xi=1:numel(x)
-    plot([x(xi),x(xi)],get(gca,'YLim'),varargin{:}); 
-  end
+  error('Use XLINE instead!');
+  % hold on
+  % for xi=1:numel(x)
+  %   plot([x(xi),x(xi)],get(gca,'YLim'),varargin{:}); 
+  % end
+  % hold off
 end
   
