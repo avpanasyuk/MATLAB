@@ -1,4 +1,5 @@
 function out = pop(x,n)
+%> FIXME: THIS IS A WEIRD FUNCTION, REPLACE WITH "FIFO" 
 %> optimized version of "pop" in that it does not create partial copies of the   
 %> initial array, which may be very memory consuming. Optionally it uses 
 %> "memmapfile" to avoid copying big data
