@@ -30,11 +30,10 @@ classdef serial_protocol_AC < AVP.serial_protocol
       status = false;
     end
 
-    function status = CheckPort(Port,Code,varargin)
+    function status = CheckPort(Port,Code,BaudRate,varargin)
       fprintf('Checking port %s...\n',Port);
-      s = serial(Port,varargin{:});
+      s = serialport(Port,BaudRate,varargin{:});
       try
-        fopen(s);
         start = tic; % timeout
         while toc(start) < 0.5
           if s.BytesAvailable >= numel(Code)*2-1, % yes, port is transmitting something
@@ -47,21 +46,18 @@ classdef serial_protocol_AC < AVP.serial_protocol
               % sending command NOOP "manually" because object is not here yet
               disp('Found transmitting port...');
               status = AVP.serial_protocol_AC.PingNOOP(s);
-              fclose(s)
-              delete(s)
+              clear s
               return
             end
           end
         end
-        fclose(s);
       catch ME
         Port = [];
-        disp(['Problem with port ' s.Port]);
-        disp(ME.message);
+        warning(ME.message);
+        disp(['Problem with port ' Port]);
       end
-      delete(s);
       status = false;
-    end
+    end % CheckPort
   end % static methods
 
   methods
@@ -74,9 +70,12 @@ classdef serial_protocol_AC < AVP.serial_protocol
       %>      This function goes through all avaibale ports to find one
       %>      transmitting string "code"
       %>   - if numerical value, it is the port number to connect to
-      %> @param varargin is passed to serial() constructor
+      %> @param varargin is passed to serialport() constructor
       %>   - Type: what comports return in 'type' field
       %>   - name: what comports return in 'name' field
+      %>   - BaudRate:
+
+      AVP.opt_param('BaudRate',115200,1);
 
       if isstr(code) % port is identified by the broadcasted code
         ports = AVP.comports();
@@ -97,7 +96,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
             error(['No ports with name "' name '"']);
           end
         end
-        
+
         AvailPorts = {ports.port};
 
         global OldPorts %>< keeps information for different codes
@@ -106,15 +105,18 @@ classdef serial_protocol_AC < AVP.serial_protocol
           if any(strcmp(AvailPorts,OldPort))
             try
               disp('Trying old port first...')
-              s = serial(OldPort,varargin{:});
-              fopen(s);
+              s = serialportfind(Port=OldPort);
+              if ~isempty(s)
+                s.flush
+              else
+                s = serialport(OldPort,BaudRate);
+              end
               if AVP.serial_protocol_AC.PingNOOP(s), Port = OldPort; end
             catch ME
-              disp(['OldPort ' s.Port ' does not work:']);
-              disp(ME.message);
+              warning(ME.message);
+              disp(['OldPort "' OldPort '" does not work:']);
             end
-            fclose(s)
-            delete(s)
+            clear s
           end
         end
 
@@ -124,7 +126,8 @@ classdef serial_protocol_AC < AVP.serial_protocol
           for i=1:numel(AvailPorts)
             % now trying to open and read each of them with very small
             % timeout
-            if AVP.serial_protocol_AC.CheckPort(AvailPorts{i},code,varargin{:})
+            if AVP.serial_protocol_AC.CheckPort(AvailPorts{i},code,...
+                BaudRate,varargin{:})
               Port = AvailPorts{i};
               break;
             end

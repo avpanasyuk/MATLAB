@@ -131,20 +131,19 @@ classdef serial_protocol < handle
   methods
     %% STRUCTORS
     function a = serial_protocol(comPort,varargin)
-      a.s=serial(comPort,varargin{:});
-      fopen(a.s);
-      if ~a.port_status, error('Can not open com port!'); end
-      % a.flush
+      AVP.opt_param('BaudRate',115200,1);
+      a.s=serialport(comPort,BaudRate,varargin{:});
     end
     
     function delete(a)
-      fclose(a.s);
-      delete(a.s);
+      clear a.s
       disp('serial port is closed');
     end % delete
     
     function out = port_status(a)
-      out = isa(a.s,'serial') && isvalid(a.s) && strcmpi(get(a.s,'Status'),'open');
+      out = isa(a.s,'internal.Serialport') && ...
+        isvalid(a.s) && ...
+        strcmpi(get(a.s,'Status'),'open');
     end % function port_status
     
     function disp(a) % display
@@ -188,15 +187,8 @@ classdef serial_protocol < handle
         try
           fwrite(a.s,[cmd_bytes(:);sent_cs],'uint8');
         catch ME
-          if first_try
-            first_try = false;
-            fclose(a.s)
-            fopen(a.s)
-            a.flush
-            fprintf(1,'Something happened to port, reset seems to be successful!\n');
-            continue
-          else error('Communication broke!');
-          end
+          warning(ME.message);
+          error('Communication broke!');
         end
         while 1 % loop processing all info_messages until status is returned
           code = a.wait_and_read(1,'int8');

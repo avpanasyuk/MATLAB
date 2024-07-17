@@ -21,7 +21,7 @@ classdef fifo < handle
         end
 
         out = a.Buffer(a.CurI:a.CurI + n - 1);
-        a.CurI = a.CurI +  1;
+        a.CurI = a.CurI +  n;
       else
         out = typecast(pop(a, n*AVP.size_of_type(datatype)), datatype);
       end
