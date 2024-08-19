@@ -13,8 +13,8 @@ function Out = read_dir(read_file_func,varargin)
   while 1
     try
       Out{FileI} = read_file_func(directory,fn{FileI});
-    catch
-      warning(['Failed to read file ' fn{FileI}]);
+    catch Err
+      warning(['Failed to read file: ' Err.message]);
     end
 
     if FileI >= numel(fn), break; end
