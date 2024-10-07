@@ -1,4 +1,4 @@
-classdef lasso_class < AVP.LINREG.input_data
+classdef lasso_class < AVP.ALG.LINREG.input_data
   %> lasso_class evaluates lasso regression. Errors are aveluated using Kfold,
   %> either uniformly dividing on data blocks  or specified by the last index of
   %> each data block
@@ -15,7 +15,7 @@ classdef lasso_class < AVP.LINREG.input_data
       %> use "do_regression" for this
       %> @param X - [NumSamples,NumIndepParam] matrix
       %> @param y - [NumSamples] vector of dependent parameters
-      a = a@AVP.LINREG.input_data(X,y);
+      a = a@AVP.ALG.LINREG.input_data(X,y);
       a.C = [];
     end
     
@@ -69,16 +69,16 @@ classdef lasso_class < AVP.LINREG.input_data
       % error using removed block and RMS all such errors
       for dsI = 1:numel(KfoldDividers) - 1
         TrainIs = [1:KfoldDividers(dsI),KfoldDividers(dsI+1)+1:KfoldDividers(end)];
-        l_train{dsI} = AVP.LINREG.lasso_class(X(TrainIs,:),y(TrainIs));
+        l_train{dsI} = AVP.ALG.LINREG.lasso_class(X(TrainIs,:),y(TrainIs));
         TestIs{dsI} = [KfoldDividers(dsI)+1:KfoldDividers(dsI+1)];
         Xtest{dsI} = X(TestIs{dsI},:);
         ytest{dsI} = y(TestIs{dsI});
       end
       
-      l_whole = AVP.LINREG.lasso_class(X,y); % does normalizations
+      l_whole = AVP.ALG.LINREG.lasso_class(X,y); % does normalizations
       
       err_func = @(compl) ...
-        AVP.LINREG.lasso_class.K_fold_err(...
+        AVP.ALG.LINREG.lasso_class.K_fold_err(...
         l_train, compl, Xtest, ytest, TestIs, ...
         'AddForRelErr', AddForRelErr);
       best_compl = fminbnd(err_func,...

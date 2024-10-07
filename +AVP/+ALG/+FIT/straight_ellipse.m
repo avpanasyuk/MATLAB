@@ -36,7 +36,7 @@ function [coeffs, errs, params] = straight_ellipse(x,y,varargin)
     for IterI=1:8
       w = errs.^2 + realmin("single");
       w = 2./(w/median(w)+1);
-      [coeffs, errs] = AVP.FIT.straight_ellipse(x,y,'weights',w);
+      [coeffs, errs] = AVP.ALG.FIT.straight_ellipse(x,y,'weights',w);
     end
   end
   if nargout > 2 || AVP.opt_param_is_set('do_plot')

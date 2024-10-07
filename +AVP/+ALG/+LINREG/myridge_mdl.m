@@ -30,7 +30,7 @@ classdef myridge_mdl < handle
       %>      use, the rest is ignored
       %> @param SuppressPar - individual suppression factor for each of
       %>      coefficients
-      %> @param train_data: AVP.LINREG.input_data class
+      %> @param train_data: AVP.ALG.LINREG.input_data class
       %> retval C - [param_num,1]
       
       C = zeros(size(train_data.X.D,2),1);
@@ -59,8 +59,8 @@ classdef myridge_mdl < handle
       
       AVP.cell_struct_varargin
       
-      if ~isa(Kfold_data,'AVP.LINREG.kfold_class')
-        error('Kfold_data should be AVP.LINREG.kfold_class!');
+      if ~isa(Kfold_data,'AVP.ALG.LINREG.kfold_class')
+        error('Kfold_data should be AVP.ALG.LINREG.kfold_class!');
       end
       
       AVP.opt_param('tol',1e-2);
@@ -87,9 +87,9 @@ classdef myridge_mdl < handle
       
       for IterI=1:MaxIters
         % find minimum Kfold error vs complexity
-        % we need something we can ffed to AVP.LINREG.kfold_class.predict
+        % we need something we can ffed to AVP.ALG.LINREG.kfold_class.predict
         % as REGRESS_FUNC, which returns Ypredict
-        regress_func = @(compl, train_data) AVP.LINREG.myridge_mdl.do_regression(...
+        regress_func = @(compl, train_data) AVP.ALG.LINREG.myridge_mdl.do_regression(...
           train_data, SuppressFunc(compl)*ParSuppressFactor, SelectParIs);
         
         inv_merit_func = @(compl) ...
@@ -164,9 +164,9 @@ function test
   c(21:end) = 0;
   y = x*c + 2*rand(Ns,1);
   
-  Kfd = AVP.LINREG.kfold_class(x,y,10);
+  Kfd = AVP.ALG.LINREG.kfold_class(x,y,10);
   
-  m = AVP.LINREG.myridge_mdl(Kfd,'SmallnessThres',0.01,...
+  m = AVP.ALG.LINREG.myridge_mdl(Kfd,'SmallnessThres',0.01,...
     'WeightPwr',3,'fminbnd_options',optimset('Display','none','TolX',0.1));
   
   plot([c,m.C])

@@ -89,7 +89,7 @@ for DimI =1:size(grid,2),
   end
 end
 disp(['New level, Cube = ',mat2str(MeanP,4)])
-[x,fval,MinArrayX,MinArrayF] = AVP.fminsearch_global(fun,SampleCube,options,MinArrayX,MinArrayF);
+[x,fval,MinArrayX,MinArrayF] = AVP.ALG.OPTIM.fminsearch_global(fun,SampleCube,options,MinArrayX,MinArrayF);
 % find the best minimum and return it
 end
 

@@ -1,41 +1,36 @@
-classdef svd_mdl < handle
+classdef pls_mdl < handle
+  %> NOTE does not seem to reduce the numver of coeffs too well
   %> this class works with regression algorithm which can easily evaluate
-  %> solution for different complexities simultaniously
+  %> solution for different complexities simultaniously. It goes through
+  %> iterations, selecting best complecity on each and throwing away small
+  %> coefficients. We can select best iteration solution afterwards.
   properties
-    C %>< solution for zscored Kfold_data.X.D,y
-    Offset = 0
+    C %>< dezscored solution Kfold_data.X.D,y
+    Offset = 0 %>< dezscored solution Kfold_data.X.D,y
     options = struct;
     SelectParIs = {} % cell array of selected indep par indexes for each iteration
     KfoldErr = [] % array [num_iter] - error for each iteration
   end
   
   methods(Static)
-    function C = do_regression(train_data,SelectParIs,LastSVi,varargin)
+    function C = do_regression(train_data,SelectParIs,varargin)
       %> this function does regression for all complexities simultaniosly,
       %> because complexity is just a number of singular vectors/values we
       %> are using. SO we calculate all of them, then throw them away one
       %> by one
-      %> @param train_data: AVP.LINREG.input_data class
+      %> @param train_data: AVP.ALG.LINREG.input_data class
       %> @param SelectParIs - vector  of indexes of independent parameters we
       %>      use, the rest is ignored
+      %> @param varargin - passed to plsregress
       %> @retval C - coeff array [num_complexities,all_xvar]
       
-      if ~isa(train_data,'AVP.LINREG.input_data')
+      if ~isa(train_data,'AVP.ALG.LINREG.input_data')
         error('Wrong input data type!');
       end
       
-      [U,S,V] = svd(train_data.X.D(:,SelectParIs),0); % X = U*S*V'.
-      % we can not really use all S values, some of then are way too small and
-      % screw things up
-      S = diag(S);
-      UY = U(:,1:LastSVi).'*train_data.y.D; % vector UY indicates correlation between Svects
-      % and Y, we will prefer SVects with biggest correlation
-      
-      [~,SortI] = sort(abs(UY),'descend');
-      % Ok, now we just have to reorder matrices in order of best vector correlation
-      % and we are done
-      V = V(:,SortI);
-      SUY = UY(SortI)./S(SortI);
+      [~,SUY,~,~,~,a.pctVar,~,stats] = ...
+        plsregress(train_data.X.D(:,SelectParIs),train_data.y.D); % NO VARARGIN here
+      V = stats.W;
       
       C = zeros(size(train_data.X.D,2),numel(SUY));
       for ComplI = numel(SUY):-1:1
@@ -45,54 +40,41 @@ classdef svd_mdl < handle
   end % methods(Static)
   
   methods
-    function a = svd_mdl(Kfold_data,varargin)
+    function a = pls_mdl(Kfold_data,varargin)
       %> constructor just preprocess variables and do not run regression
       %> use "do_regression" for this
       %> @param Kfold_data: AVP.linreg.kfold_class
       %> @param varargin
-      %>        - ntol - interrupt iterrations when C changes less then this
-      %>        - fminbnd_options
-      %>        - WeightPwr - what power is supppression factor from coeff
-      %>            smallness. The smaller it is, the smaller the error but
-      %>             more coefficients.
-      %>        - TuneWeightPwr - whether to tune WeightPwr in run time.
+      %>        - small_par_thres - parameters with smaller weight get
+      %>            thrown out
       %>        - err_func - function err_func(data,fit) to estimate an
       %>             error. Returns a single normalized error value.
-      %>        - ComplRange - range of complixity changes, tuned.
-      %> @retval err = err_func(y,Ypredict)
+      %>        - MaxIters - maximum numer of iterations
       
-      if ~isa(Kfold_data,'AVP.LINREG.kfold_class')
-        error('Kfold_data should be AVP.LINREG.kfold_class!');
+      if ~isa(Kfold_data,'AVP.ALG.LINREG.kfold_class')
+        error('Kfold_data should be AVP.ALG.LINREG.kfold_class!');
       end
       
-      AVP.opt_param('tol',1e-3);
+      AVP.opt_param('small_par_thres',1e-2);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)./AVP.rms(data));
-      AVP.opt_param('DoPar',false,0);
-      AVP.opt_param('SV_range',3);
+      AVP.opt_param('MaxIters',min([30,size(Kfold_data.Xin,2)]));
       
+      CoeffsToThrowOutPerIter = fix(size(Kfold_data.Xin,2)/MaxIters);
+            
       a.options = struct(varargin{:});
       
       SelectParIs = 1:size(Kfold_data.Xin,2);
       
-      for IterI=1:size(Kfold_data.Xin,2) % because we throw away some parameters at each
+      for IterI=1:MaxIters % because we throw away some parameters at each
         % iteration, we can not have more iterations than parameters
         
-        % for each Kfold we have to run AVP.mysvd_mdl.do_regression once and
+        % for each Kfold we have to run AVP.pls_mdl.do_regression once and
         % then calculate C for all the complexities and corresponding error for all the complexities
         % then we should add those errors for all the Kfold to get a total
         % error for complexity.
-        
-        % we  got to have the same number of solutions for all Kfolds, so
-        % we have to determine it in advance
-        [U,S,V] = svd(Kfold_data.X.D(:,SelectParIs),0); % X = U*S*V'.
-        % we can not really use all S values, some of then are way too small and
-        % screw things up
-        S = diag(S);
-        LastSVi = find(S > S(1)/10.^SV_range,1,'last'); %> we remove low SVs
-        
+
         Ypredict = Kfold_data.predict(@(train_data)...
-          AVP.LINREG.svd_mdl.do_regression(train_data, ...
-          SelectParIs, LastSVi, varargin{:}),DoPar);
+          AVP.ALG.LINREG.pls_mdl.do_regression(train_data, SelectParIs, varargin{:}));
         % Ypredict is array [num_samples,num_solutions]
         
         % calculate errors
@@ -108,8 +90,7 @@ classdef svd_mdl < handle
         ylabel(sprintf('Data vs Fit, err = %g',a.KfoldErr(IterI)))
         
         % Ok, now lets get regression over all Kfolds at best complexity
-        Czscaled =  AVP.LINREG.svd_mdl.do_regression(Kfold_data, ...
-          SelectParIs, LastSVi, varargin{:});
+        Czscaled =  AVP.ALG.LINREG.pls_mdl.do_regression(Kfold_data, SelectParIs, varargin{:});
         BestC(:,IterI) = Czscaled(:,BestCompl);
         % Czcaled and BestC first dimention corresponds to all variables
         subplot(3,1,2)
@@ -120,23 +101,26 @@ classdef svd_mdl < handle
         
         
         % find low sensitivity parameters
-        SmallParIs = find(BestC(SelectParIs,IterI) < tol);
+        SmallParIs = find(abs(BestC(SelectParIs,IterI)) < small_par_thres);
         a.SelectParIs{IterI} = SelectParIs;
         
-        if isempty(SmallParIs) % no low-sens parameters, lets throw out least sensitive
-          [~,LeastI] = min(BestC(SelectParIs,IterI));
-          SelectParIs(LeastI) = [];
+        if numel(SmallParIs) < CoeffsToThrowOutPerIter % lets throw out least sensitive
+          [~,SortedI] = sort(abs(BestC(SelectParIs,IterI)));
+          %[~,LeastI] = min(abs(BestC(SelectParIs,IterI)));
+          fprintf('Throwing out small coeffs!\n');
+          if numel(SortedI) < CoeffsToThrowOutPerIter, break; end
+          SelectParIs(SortedI(1:CoeffsToThrowOutPerIter)) = [];
         else
+          fprintf('Number of small coeffs: %d\n',numel(SmallParIs));
           SelectParIs(SmallParIs) = [];
         end
         if isempty(SelectParIs), break; end % we ran out of parameters
       end
       
-      % ok, lets see what is the best iteration. Hmm, nope, the best error
-      % always in the first (all parameters) iteration
+      % ok, lets see what is the best iteration
       subplot(3,1,3)
       NumParams = cellfun(@numel,a.SelectParIs);
-      semilogy(NumParams,a.KfoldErr)
+      semilogy(NumParams,a.KfoldErr,'-+')
       xlabel('Number of Params')
       ylabel('Error')
       drawnow
@@ -155,14 +139,18 @@ function test
   c(21:end) = 0;
   y = x*c + 4*rand(Ns,1);
   
-  Kfd = AVP.LINREG.kfold_class(x,y,10);
+  Kfd = AVP.ALG.LINREG.kfold_class(x,y,10);
   
-  m = AVP.LINREG.univ_mdl(Kfd);
+  tic
+  m1 = AVP.ALG.LINREG.pls_mdl(Kfd);
+  toc; tic
+  m2 = AVP.ALG.LINREG.svd_mdl(Kfd);
+  toc
+  
+  clf
   subplot(2,1,1)
-  plot([c,m.C])
-  
-  m = AVP.LINREG.svd_mdl(Kfd);
-%   subplot(2,1,2)
-%   plot([c,m.C])
+  plot([c,m1.C])
+  subplot(2,1,2)
+  plot([c,m2.C])
 end
 

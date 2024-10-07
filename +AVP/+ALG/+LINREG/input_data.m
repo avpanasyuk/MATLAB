@@ -1,14 +1,14 @@
 classdef input_data < handle
   %>         y = Offset + Xtest*C;
   properties
-    X %> AVP.LINREG.zscored
-    y %> AVP.LINREG.zscored
+    X %> AVP.ALG.LINREG.zscored
+    y %> AVP.ALG.LINREG.zscored
   end
   
   methods
     function a = input_data(X,y)
-      a.X = AVP.LINREG.zscored(X);
-      a.y = AVP.LINREG.zscored(y);
+      a.X = AVP.ALG.LINREG.zscored(X);
+      a.y = AVP.ALG.LINREG.zscored(y);
     end
     
     function [C, Offset] = dezscore_solution(a,C_zscored)

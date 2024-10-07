@@ -26,8 +26,8 @@ classdef rref_mdl < handle
       %>        - ComplRange - range of complixity changes, tuned.
       %> @retval err = err_func(y,Ypredict)
       
-      if ~isa(Kfold_data,'AVP.LINREG.kfold_class')
-        error('Kfold_data should be AVP.LINREG.kfold_class!');
+      if ~isa(Kfold_data,'AVP.ALG.LINREG.kfold_class')
+        error('Kfold_data should be AVP.ALG.LINREG.kfold_class!');
       end
       
       tol = 0; err_func = {}; DoPar = false; % we have to do it due to presence of nested function
@@ -37,8 +37,8 @@ classdef rref_mdl < handle
       AVP.opt_param('DoPar',false);
       
       function C = regress_func(train_data)
-        if ~isa(train_data,'AVP.LINREG.input_data')
-          error('train_data should be AVP.LINREG.input_data!');
+        if ~isa(train_data,'AVP.ALG.LINREG.input_data')
+          error('train_data should be AVP.ALG.LINREG.input_data!');
         end
         [A,SelectParIs] = rref([train_data.X.D,train_data.y.D]);
         C = zeros(size(train_data.X.D,2),1);
@@ -69,13 +69,13 @@ function test
   c(21:end) = 0;
   y = x*c + 4*rand(Ns,1);
   
-  Kfd = AVP.LINREG.kfold_class(x,y,10);
+  Kfd = AVP.ALG.LINREG.kfold_class(x,y,10);
   
-  m = AVP.LINREG.rref_mdl(Kfd);
+  m = AVP.ALG.LINREG.rref_mdl(Kfd);
   subplot(2,1,1)
   plot([c,m.C])
   
-  m = AVP.LINREG.mysvd_mdl(Kfd,'method','pls');
+  m = AVP.ALG.LINREG.mysvd_mdl(Kfd,'method','pls');
   subplot(2,1,2)
   plot([c,m.C])
 end

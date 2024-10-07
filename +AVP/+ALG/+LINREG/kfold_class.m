@@ -1,14 +1,14 @@
 %> Ok, what we feed to all regression algorithms is usually Kfolded dataset
 %> with each training set zscored. Thta's what this class does
 
-classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - whole dataset zscored
+classdef kfold_class < AVP.ALG.LINREG.input_data %>< AVP.ALG.LINREG.input_data object - whole dataset zscored
   %> class which prepares Kfolds for regression
   properties
     Xin %>< original data
     yin %>< original data
     KfoldDivs %>< either
     %>< array[K+1] of last indexes in each Kold. First element is 0.
-    train %>< cell array[K] of AVP.LINREG.input_data objects - Kfold training sets zscored
+    train %>< cell array[K] of AVP.ALG.LINREG.input_data objects - Kfold training sets zscored
   end % properties
   
   methods
@@ -17,7 +17,7 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
       %> @param KfoldDivs: either array giving the last index of each fold
       %>       (first element is the end of the first fold, not 0)
       %>       or scalar giving K: number of uniformly distributed folds
-      a = a@AVP.LINREG.input_data(X,y);
+      a = a@AVP.ALG.LINREG.input_data(X,y);
       a.Xin = X;
       a.yin = y;
       
@@ -32,7 +32,7 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
         TrainInds = [1:a.KfoldDivs(foldI),a.KfoldDivs(foldI+1)+1:a.KfoldDivs(end)]; % everything except of test fold
         
         a.train{foldI} =  ...
-          AVP.LINREG.input_data(X(TrainInds,:), y(TrainInds)); % does zscore
+          AVP.ALG.LINREG.input_data(X(TrainInds,:), y(TrainInds)); % does zscore
       end
     end % constructor
     
@@ -52,7 +52,7 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
       %> calculates prediction for corresponding test set, and combines all
       %> predictions into Ypredict
       %> @param regress_func(train_data), where train_data are
-      %>               AVP.LINREG.input_data, and which returns C is either
+      %>               AVP.ALG.LINREG.input_data, and which returns C is either
       %>               [x_varI] vector or [x_varI,num_solutions] matrix
       %>               (latter is when several cases/complexities are
       %>               calculated simultanously
@@ -60,7 +60,7 @@ classdef kfold_class < AVP.LINREG.input_data %>< AVP.LINREG.input_data object - 
       
       function y_test = predict(train_data, Xtest)
         %> function does regression of the train_data
-        %>       (AVP.LINREG.input_data class)
+        %>       (AVP.ALG.LINREG.input_data class)
         %>       and applies result to Xtest, which is not zscaled data
         %> retval y - predicted results array [num_samples,num_solutions]
         C0 = regress_func(train_data); % C0 may be matrix  [x_varI,num_solutions]

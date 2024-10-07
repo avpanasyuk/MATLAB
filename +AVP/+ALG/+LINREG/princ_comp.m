@@ -30,15 +30,15 @@ function test
   y = x*c + 4*rand(Ns,1);
   err_func = @(data,fit) AVP.rms(fit-data)./AVP.rms(data);
   
-  Kfd = AVP.LINREG.kfold_class(x,y,10);
+  Kfd = AVP.ALG.LINREG.kfold_class(x,y,10);
   
-  [C,SelectedVarIs] = AVP.LINREG.princ_comp(Kfd.X.D,Kfd.y.D);
+  [C,SelectedVarIs] = AVP.ALG.LINREG.princ_comp(Kfd.X.D,Kfd.y.D);
   plot([Kfd.y.D,Kfd.X.D*C(:,end)])
   err_func(Kfd.y.D,Kfd.X.D*C(:,end))
   subplot(2,1,1)
   plot([c,m.C])
   
-  m = AVP.LINREG.mysvd_mdl(Kfd,'method','pls');
+  m = AVP.ALG.LINREG.mysvd_mdl(Kfd,'method','pls');
   subplot(2,1,2)
   plot([c,m.C])
 end
