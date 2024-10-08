@@ -1,4 +1,4 @@
-function Pos = min_using_3D_cube(D27)
+function [Pos, c] = min_using_3D_cube(D27)
   %> I need new optimization algorithm, where a lot of points are calculated
   %> first, and then a new guess made. Lets try to do it on a basis of
   %> 3D. we will fit 27 points in the cube with 3d hyperbola,
@@ -33,7 +33,7 @@ function Pos = min_using_3D_cube(D27)
     InvA = pinv(A);
   end
 
-  c = InvA*D27; % looks correct, how to get the position of minimum from c
+  c = InvA*D27(:); % looks correct, how to get the position of minimum from c
 
   % c2 + 2*c5*x + c8*y + c9*z = 0
   % c3 + 2*c6*y + c8*x + c10*z = 0

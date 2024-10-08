@@ -1,4 +1,4 @@
-function data = xmodem(serial_obj_or_name,varargin)
+function [data, packet_num] = xmodem(serial_obj_or_name,varargin)
   if strcmp(class(serial_obj_or_name), 'internal.Serialport')
     s = serial_obj_or_name;
   else
@@ -38,7 +38,7 @@ function data = xmodem(serial_obj_or_name,varargin)
       s.write('C','uint8'); % NAK
     else
       s.write(6,'uint8'); % 6 ACK
-      packet_num = packet_num + 1
+      packet_num = packet_num + 1;
       data = [data, packet];
     end
   end
