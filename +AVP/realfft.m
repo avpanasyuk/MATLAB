@@ -10,7 +10,7 @@ end
 
 function test
   x = [1:64].'/64*2*pi;
-  f = AVP.realfft(3*sin(5.7*x) + 7*cos(8.2*x));
+  f = AVP.realfft(3*sin(5*x) + 7*cos(8*x));
   plot(abs(f))
   set(gca,'XLim',[0,20])
 end
