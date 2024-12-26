@@ -1,11 +1,10 @@
 function Inv = inv_svd(M, varargin)
-  [U,S,V] = svd(M);
+  %> inverting matrix M while keeping it stable by removing SVs too small 
+  AVP.opt_param('MinRelSV',0.01);
+
+  [U,S,V] = svd(M,"econ");
   SVs = diag(S);
-  Last = find(SVs/SVs(1) < 10*eps,1,'first');
-  if ~isempty(Last)
-    SVs = SVs(1:Last);
-    V = V(:,1:Last);
-    U = U(:,1:Last);
-  end  
-  Inv = V*diag(1./SVs)*U.';    
+  InvSVs = 1./SVs;
+  InvSVs(SVs < SVs(1)*MinRelSV) = 0;
+  Inv = V*diag(InvSVs)*U.';    
 end
