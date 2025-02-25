@@ -27,8 +27,12 @@ classdef fifo < handle
       end
     end
 
-    function n = remains(a)
+    function n = size_left(a)
       n = numel(a.Buffer) - a.CurI + 1;
-    end
+    end % size_left
+
+    function bytes = preview_rest(a)
+      bytes = a.Buffer(a.CurI:end);
+    end % preview_rest
   end
 end % classdef fifo

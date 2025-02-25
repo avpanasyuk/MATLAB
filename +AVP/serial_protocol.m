@@ -133,6 +133,7 @@ classdef serial_protocol < handle
     function a = serial_protocol(comPort,varargin)
       AVP.opt_param('BaudRate',115200,1);
       a.s=serialport(comPort,BaudRate,varargin{:});
+      a.s.UserData = a; % for callbacks
     end
     
     function delete(a)
