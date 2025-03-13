@@ -16,7 +16,7 @@ classdef fifo < handle
 
 
       if strcmp(datatype, 'uint8')
-        if n > a.remains()
+        if n > a.size_left()
           error('Not enough bytes to pop from!');
         end
 
