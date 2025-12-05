@@ -11,7 +11,7 @@ function [density values ydivs p] = hist(y,varargin)
   %>      nbins
   %>      show
   
-  y = y(isfinite(y(:)));
+  y = double(y(isfinite(y(:))));
   n = numel(y);
   AVP.opt_param('nbins',ceil(sqrt(n)));
   AVP.opt_param('show',true);

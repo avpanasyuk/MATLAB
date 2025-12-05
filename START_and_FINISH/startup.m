@@ -9,8 +9,18 @@ if (~isdeployed)
   TailDir = filesep;
   
   while ~isempty(TailDir)
+    if exist([CurDir filesep '+AVP'],'dir')
+      MATLAB_DIR = CurDir;
+      PROJECT_DIR = CurDir;
+      break
+    end
     if exist([CurDir filesep 'MATLAB'],'dir')
       MATLAB_DIR = [CurDir filesep 'MATLAB'];
+      PROJECT_DIR = CurDir;
+      break
+    end
+    if exist([CurDir filesep 'AVP_LIBS'],'dir')
+      MATLAB_DIR = [CurDir filesep 'AVP_LIBS' filesep 'MATLAB'];
       PROJECT_DIR = CurDir;
       break
     end
@@ -26,6 +36,9 @@ if (~isdeployed)
     addpath(MATLAB_DIR)
     if exist([MATLAB_DIR filesep 'AVP_LIB'],'dir')
         addpath([MATLAB_DIR filesep 'AVP_LIB']); 
+    end
+    if exist([MATLAB_DIR filesep 'LIB'],'dir')
+        addpath([MATLAB_DIR filesep 'LIB']); 
     end
   end
   
@@ -89,11 +102,12 @@ co = [1.00 0.00 0.00;
 % co = CONTRIB.brewermap(8,'Accent');
 set(0,'defaultAxesColorOrder',co)
 
-try, AVP.clearvars(); catch; end
 try
   run mystartup.m
 catch
 end
+
+try, AVP.clearvars(); catch; end
 
 format compact
 format shortg
