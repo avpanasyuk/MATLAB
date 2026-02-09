@@ -4,11 +4,23 @@ if (~isdeployed)
   global PROJECT_DIR MATLAB_DIR
   INIT_DIR = pwd; INIT_DIR(1) = upper(INIT_DIR(1));
   PROJECT_DIR = INIT_DIR;
+ %  keyboard
   CurDir = INIT_DIR;
+  TailDir = filesep;
   
-  while ~isempty(CurDir)
+  while ~isempty(TailDir)
+    if exist([CurDir filesep '+AVP'],'dir')
+      MATLAB_DIR = CurDir;
+      PROJECT_DIR = CurDir;
+      break
+    end
     if exist([CurDir filesep 'MATLAB'],'dir')
       MATLAB_DIR = [CurDir filesep 'MATLAB'];
+      PROJECT_DIR = CurDir;
+      break
+    end
+    if exist([CurDir filesep 'AVP_LIBS'],'dir')
+      MATLAB_DIR = [CurDir filesep 'AVP_LIBS' filesep 'MATLAB'];
       PROJECT_DIR = CurDir;
       break
     end
@@ -17,11 +29,18 @@ if (~isdeployed)
       PROJECT_DIR = CurDir;
       break
     end
-    CurDir = fileparts(CurDir);
+    [CurDir,TailDir] = fileparts(CurDir);
   end
   
-  addpath(MATLAB_DIR)
-  if exist([MATLAB_DIR filesep 'AVP_LIB'],'dir'), addpath([MATLAB_DIR filesep 'AVP_LIB']); end
+  if ~isempty(MATLAB_DIR)
+    addpath(MATLAB_DIR)
+    if exist([MATLAB_DIR filesep 'AVP_LIB'],'dir')
+        addpath([MATLAB_DIR filesep 'AVP_LIB']); 
+    end
+    if exist([MATLAB_DIR filesep 'LIB'],'dir')
+        addpath([MATLAB_DIR filesep 'LIB']); 
+    end
+  end
   
   %% let's open  files from the last visit.
   %% Try current directory
@@ -83,11 +102,12 @@ co = [1.00 0.00 0.00;
 % co = CONTRIB.brewermap(8,'Accent');
 set(0,'defaultAxesColorOrder',co)
 
-try, AVP.clearvars(); catch; end
 try
   run mystartup.m
 catch
 end
+
+try, AVP.clearvars(); catch; end
 
 format compact
 format shortg
