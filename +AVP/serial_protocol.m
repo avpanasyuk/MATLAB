@@ -55,11 +55,6 @@ classdef serial_protocol < handle
       a.command_lock = true;
     end
     
-    function unlock_commands(a)
-      a.command_lock = false;
-      a.check_messages
-    end
-    
     function check_messages(a)
       if ~a.port_status || a.command_lock, return; end
       while get(a.s,'BytesAvailable') ~= 0,
@@ -156,6 +151,11 @@ classdef serial_protocol < handle
         disp('Please delete the object');
         disp(' ');
       end
+    end
+    
+    function unlock_commands(a)
+      a.command_lock = false;
+      a.check_messages
     end
     
     % read and discard everything from the serial port
