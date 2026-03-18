@@ -1,4 +1,4 @@
-function ymodem_receive(serial_obj, output_dir)
+function files = ymodem_receive(serial_obj, output_dir)
 	% Minimal YMODEM Receiver (Rollover & sscanf fixes included)
 	% serial_obj: configured serialport object (e.g., s = serialport("COM3", 115200))
 
@@ -11,6 +11,7 @@ function ymodem_receive(serial_obj, output_dir)
 	file_open = false;
 	bytes_remaining = 0;
 	expected_blk = 0; % Track expected block to handle 8-bit rollover
+	files = {};
 
 	try
 		while true
@@ -60,6 +61,7 @@ function ymodem_receive(serial_obj, output_dir)
 							file_open = true;
 							bytes_remaining = filesize;
 							expected_blk = 1; % Next expected block is 1
+							files = {files{:},filename};
 
 							write(serial_obj, ACK, 'uint8');
 							write(serial_obj, C, 'uint8');
