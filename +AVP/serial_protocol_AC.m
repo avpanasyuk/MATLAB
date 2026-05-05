@@ -11,16 +11,16 @@ classdef serial_protocol_AC < AVP.serial_protocol
 	methods(Static)
 		function status = PingNOOP(s)
 			disp('Sending NOOP...');
-			fwrite(s,0,'uint8'); % NOOP is part of the handshake
+			write(s,0,'uint8'); % NOOP is part of the handshake
 			% it causes FW to stop sending beacon.
 			% now we have to skip all the beacon stuff until we get
 			% NOOP's reply whoch should be 0 byte status 0 16-bit size
 			% of data and 0 checksum
 			start = tic;
 			while toc(start) < 1
-				if s.BytesAvailable >= 4
-					if fread(s,1,'uint8') == 0, % possible skipping remaining broadcast
-						fread(s,3,'uint8');  % 2 bytes size and 1 byte checksum
+				if s.NumBytesAvailable >= 4
+					if read(s,1,'uint8') == 0, % possible skipping remaining broadcast
+						read(s,3,'uint8');  % 2 bytes size and 1 byte checksum
 						status = true;
 						return
 					end
@@ -34,19 +34,21 @@ classdef serial_protocol_AC < AVP.serial_protocol
 			fprintf('Checking port %s...\n',Port);
 			try
 				s = serialport(Port,BaudRate,varargin{:});
+				cleanup = onCleanup(@() delete(s));
 				start = tic; % timeout
+				LengthToGetWholeCode = numel(char(Code))*2-1;
 				while toc(start) < 0.5
-					if s.BytesAvailable >= numel(Code)*2-1, % yes, port is transmitting something
-						str = char(fread(s,numel(Code)*2-1)); % make sure that captures string is long
+					if s.NumBytesAvailable >= LengthToGetWholeCode % yes, port is transmitting something
+						str = char(read(s,LengthToGetWholeCode,'uint8')); % make sure that captures string is long
 						% enough to contain the whole code
 						fprintf(1,'Port is transmitting "%s"...\n',str);
 						if ~isempty(strfind(str(:).',Code)) %found port transmitting Code
 							% clean receive buffer, so it is not likely to overfloat
-							if s.BytesAvailable ~= 0, fread(s,s.BytesAvailable); end
+							if s.NumBytesAvailable ~= 0, read(s,s.NumBytesAvailable,'uint8'); end
 							% sending command NOOP "manually" because object is not here yet
 							disp('Found transmitting port...');
 							status = AVP.serial_protocol_AC.PingNOOP(s);
-							clear s
+							delete(s);
 							return
 						end
 					end
@@ -110,13 +112,14 @@ classdef serial_protocol_AC < AVP.serial_protocol
 								s.flush
 							else
 								s = serialport(OldPort,BaudRate);
+								cleanup = onCleanup(@() delete(s));
 							end
 							if AVP.serial_protocol_AC.PingNOOP(s), Port = OldPort; end
 						catch ME
 							warning(ME.message);
 							disp(['OldPort "' OldPort '" does not work:']);
 						end
-						clear s
+						delete(s)
 					end
 				end
 

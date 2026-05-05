@@ -3,6 +3,7 @@ function [data, packet_num] = xmodem(serial_obj_or_name,varargin)
 		s = serial_obj_or_name;
 	else
 		s = serialport(serial_obj_or_name,varargin{:});
+		cleanup = onCleanup(@() delete(s));
 	end
 	data = [];
 	if s.NumBytesAvailable ~= 0, s.read(s.NumBytesAvailable,'uint8'); end
