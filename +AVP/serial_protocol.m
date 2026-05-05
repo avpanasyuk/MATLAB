@@ -179,15 +179,23 @@ classdef serial_protocol < handle
 			%> data, not even size word
 			%> BECAUSE IT DOES NOT READ ALL OUTPUT IT DOES NOT CHECK CS OR UNLOCK_COMMANDS
 			%> WHEN COMMAND SUCCEDES
-			%> @param cmd_bytes is array containing both command byte and parameters bytes
+			%> @param cmd_bytes: both command ID followed by parameter bytes
+			%     if numeric vector it will be cast to uint8 vector
+			%>    if cell array each element will be typecast to uint8 vector
 			%> @retval error_message - if empty command succedded. If not - error message
 			a.lock_commands
 			% command can contain negative arguments, but we have to pass them
 			% as uint8. MATLAB cast is totally screwy
-			if ~isa(cmd_bytes,'uint8')
-				neg = find(cmd_bytes(2:end) < 0) + 1;
-				cmd_bytes(neg) = 256 + cmd_bytes(neg);
-				cmd_bytes = uint8(cmd_bytes); % now we can convert everything to uint8
+			if iscell(cmd_bytes)
+				cmd_id = uint8(cmd_bytes{1});
+				cmd_bytes = cellfun(@(x) typecast(x,'uint8'), cmd_bytes{2:end},'UniformOutput',false);
+				cmd_bytes = [cmd_id(:).', cmd_bytes{:}];
+			else
+				if ~isa(cmd_bytes,'uint8')
+					neg = find(cmd_bytes(2:end) < 0) + 1;
+					cmd_bytes(neg) = 256 + cmd_bytes(neg);
+					cmd_bytes = uint8(cmd_bytes); % now we can convert everything to uint8
+				end
 			end
 			sent_cs = mod(sum(cmd_bytes(:)),256);
 			% first_try = true;
@@ -226,8 +234,8 @@ classdef serial_protocol < handle
 			%> @detail handles error condition by issuing error. Handles blocking and
 			%> non-blocking commands
 			%> @param ID -  coomand ID,  may be uint8 or string.
-			%> @param cmd_bytes - vector of command parameters which will be
-			%>    "cast" to uint8
+			%> @param cmd_bytes: if numeric vector it will be cast to uint8 vector
+			%>    if cell array each element will be typecast to uint8 vector
 			%> @param no_block logical
 			%>    - if true command processing never waits for a serial port
 			%>    it returns immideatly with output of the previous command, if
@@ -240,10 +248,14 @@ classdef serial_protocol < handle
 
 			if ~exist('cmd_bytes','var'), cmd_bytes = []; end
 			if isstring(ID), ID = char(ID); end
-			if ischar(ID)
-				cmd_bytes = [uint8(ID),cmd_bytes(:).'];
+			if iscell(cmd_bytes)
+				cmd_bytes = {ID, cmd_bytes{:}};
 			else
-				cmd_bytes = [ID,cmd_bytes(:).'];
+				if ischar(ID)
+					cmd_bytes = [uint8(ID),cmd_bytes(:).'];
+				else
+					cmd_bytes = [ID,cmd_bytes(:).'];
+				end
 			end
 
 			if a.prev_command.output_size == 0 % we are not waiting for prevous command output
