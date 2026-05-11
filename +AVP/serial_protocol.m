@@ -132,7 +132,7 @@ classdef serial_protocol < handle
 			AVP.opt_param('BaudRate',115200,1);
 			persistent s
 			if ~isstruct(s), s = struct(); end
-			if isempty(s.(comPort)) || ~isvalid(s.(comPort))
+			if ~isfield(s, comPort) || isempty(s.(comPort)) || ~isvalid(s.(comPort))
 				s.(comPort) = serialport(comPort,BaudRate,varargin{:});
 			end
 			a.s = s.(comPort);
@@ -150,7 +150,7 @@ classdef serial_protocol < handle
 		end % function port_status
 
 		function disp(a) % display
-			if port_status(a),
+			if port_status(a)
 				disp(['object connected to ' char(a.s.Port) ' port']);
 				disp(a.s)
 			else
@@ -188,7 +188,7 @@ classdef serial_protocol < handle
 			% as uint8. MATLAB cast is totally screwy
 			if iscell(cmd_bytes)
 				cmd_id = uint8(cmd_bytes{1});
-				cmd_bytes = cellfun(@(x) typecast(x,'uint8'), cmd_bytes{2:end},'UniformOutput',false);
+				cmd_bytes = cellfun(@(x) typecast(x,'uint8'), cmd_bytes(2:end),'UniformOutput',false);
 				cmd_bytes = [cmd_id(:).', cmd_bytes{:}];
 			else
 				if ~isa(cmd_bytes,'uint8')
