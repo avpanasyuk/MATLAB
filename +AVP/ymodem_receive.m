@@ -57,7 +57,7 @@ function files = ymodem_receive(serial_obj, output_dir)
 							filesize = sscanf(fileinfo_str, '%f', 1);
 
 							disp(['Receiving file: ', filename, ' (', num2str(filesize), ' bytes)']);
-							fid = fopen([output_dir filesep filename], 'w');
+							fid = fopen([char(output_dir) filesep filename], 'w');
 							file_open = true;
 							bytes_remaining = filesize;
 							expected_blk = 1; % Next expected block is 1
