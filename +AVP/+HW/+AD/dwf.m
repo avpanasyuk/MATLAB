@@ -8,30 +8,37 @@ classdef dwf < handle
 	%> method's own name from @c dbstack. Adding a new wrapper is one line:
 	%>   function AnalogInReset(a), a.Call(); end
 	%>
+	%> Per-channel state (scope, wavegen, supplies) lives on dedicated channel
+	%> classes (@c AnalogInChannel, @c AnalogOutChannel, @c AnalogIOChannel),
+	%> eagerly instantiated in the constructor and reached as
+	%> @c a.In(k) / @c a.Out(k) / @c a.IO(k) (1-based MATLAB indexing).
+	%>
 	%> Covers what the AD1 actually has: 2 scope channels, 2 wavegen channels,
 	%> the ±5 V supplies (Analog I/O), trigger plumbing. Skips DMM, FIR/IIR,
 	%> Power Out, Eclypse/ADP-only constants and digital protocols.
-  % Typical usage
-  % ad = AVP.HW.AD.dwf();                          % opens first AD1
-  % ad.AnalogInReset();
-  % ad.AnalogInChannelEnableSet(0, true);
-  % ad.AnalogInChannelRangeSet(0, 5);              % ±2.5 V
-  % ad.AnalogInFrequencySet(3900); % sets sampling rate, ADC rate is fixed
-	%   to 1e8
-	% ad.AnalogInChannelFilterSet(0, ad.filterAverage); oversample by
-	% 1e6/sampling rate
-  % ad.AnalogInBufferSizeSet(8192);
-  % ad.AnalogInAcquisitionModeSet(ad.acqmodeSingle);
-  % ad.AnalogInTriggerSourceSet(ad.trigsrcDetectorAnalogIn);
-  % ad.AnalogInTriggerChannelSet(0);
-  % ad.AnalogInTriggerLevelSet(1.0);
-  % ad.AnalogInTriggerConditionSet(ad.DwfTriggerSlopeRise);
-  % ad.AnalogInConfigure(true, true);              % apply + start
-  % while ad.AnalogInStatus(true) ~= ad.DwfStateDone, pause(0.005); end
-  % y = ad.AnalogInStatusData(0, ad.AnalogInBufferSizeGet());
-	% 
+	%
+	% Typical usage:
+	%   ad = AVP.HW.AD.dwf();                              % opens first AD1
+	%   ad.AnalogInReset();
+	%   ad.In(1).EnableSet(true);
+	%   ad.In(1).RangeSet(5);                              % ±2.5 V
+	%   ad.AnalogInFrequencySet(3900);                     % ADC rate fixed at 1e8
+	%   ad.In(1).FilterSet(ad.filterAverage);              % oversample by 1e8/fs
+	%   ad.AnalogInBufferSizeSet(8192);
+	%   ad.AnalogInAcquisitionModeSet(ad.acqmodeSingle);
+	%   ad.AnalogInTriggerSourceSet(ad.trigsrcDetectorAnalogIn);
+	%   ad.AnalogInTriggerChannelSet(0);
+	%   ad.AnalogInTriggerLevelSet(1.0);
+	%   ad.AnalogInTriggerConditionSet(ad.DwfTriggerSlopeRise);
+	%   ad.AnalogInConfigure(true, true);                  % apply + start
+	%   while ad.AnalogInStatus(true) ~= ad.DwfStateDone, pause(0.005); end
+	%   y = ad.In(1).StatusData(ad.AnalogInBufferSizeGet());
+
 	properties
-		h %>< HDWF device handle returned by @c FDwfDeviceOpen
+		h    %>< HDWF device handle returned by @c FDwfDeviceOpen
+		In   %>< AVP.HW.AD.AnalogInChannel array (1-based; SDK idx is 0-based internally)
+		Out  %>< AVP.HW.AD.AnalogOutChannel array
+		IO   %>< AVP.HW.AD.AnalogIOChannel array
 	end
 
 	properties (Constant, Hidden)
@@ -151,7 +158,8 @@ classdef dwf < handle
 
 	methods
 		function a = dwf(idxDevice)
-			%> Opens an Analog Discovery device. With no argument, opens the first one.
+			%> Opens an Analog Discovery and eagerly builds @c In, @c Out, @c IO
+			%> channel arrays from the device's reported counts.
 			%> @param idxDevice: 0-based index from @c Enum; -1 (default) = first available.
 			if nargin < 1, idxDevice = -1; end
 			AVP.HW.AD.dwf.ensureLoaded();
@@ -161,6 +169,13 @@ classdef dwf < handle
 				error('AVP:HW:AD:dwf', 'FDwfDeviceOpen failed: %s', AVP.HW.AD.dwf.GetLastErrorMsg());
 			end
 			a.h = p.Value;
+
+			nIn  = a.AnalogInChannelCount();
+			nOut = a.AnalogOutCount();
+			nIO  = a.AnalogIOChannelCount();
+			a.In  = arrayfun(@(k) AVP.HW.AD.AnalogInChannel (a, k), 0:nIn -1);
+			a.Out = arrayfun(@(k) AVP.HW.AD.AnalogOutChannel(a, k), 0:nOut-1);
+			a.IO  = arrayfun(@(k) AVP.HW.AD.AnalogIOChannel (a, k), 0:nIO -1);
 		end
 
 		function delete(a)
@@ -184,7 +199,7 @@ classdef dwf < handle
 			v = double(p.Value);
 		end
 
-		%%%%%%%%%%%%%%%%%%%%%%%%% ANALOG IN (Scope) %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%%%%%%%%%%%%%%%%%%%%%%%%% ANALOG IN (Scope - device-wide) %%%%%%%%%%%%%%%
 
 		function AnalogInReset(a),                              a.Call(); end
 		function AnalogInConfigure(a, fReconfigure, fStart)
@@ -194,6 +209,7 @@ classdef dwf < handle
 
 		function sts = AnalogInStatus(a, fReadData)
 			%> Pull device state; @p fReadData = true also pulls samples into the driver buffer.
+			%> Per-channel sample readers live on @c a.In(k).Status*.
 			if nargin < 2, fReadData = false; end
 			p = libpointer('uint8Ptr', uint8(0));
 			a.CallExplicit('AnalogInStatus', int32(logical(fReadData)), p);
@@ -206,30 +222,6 @@ classdef dwf < handle
 			p = libpointer('int32Ptr', int32(0));
 			a.CallExplicit('AnalogInStatusAutoTriggered', p);
 			f = logical(p.Value);
-		end
-		function data = AnalogInStatusData(a, idxCh, cdData)
-			%> Read scaled-volt samples after status returned @c DwfStateDone.
-			p = libpointer('doublePtr', zeros(cdData,1));
-			a.CallExplicit('AnalogInStatusData', int32(idxCh), p, int32(cdData));
-			data = p.Value;
-		end
-		function data = AnalogInStatusData16(a, idxCh, cdData)
-			%> Read raw 16-bit ADC samples (no scaling applied).
-			p = libpointer('int16Ptr', zeros(cdData,1,'int16'));
-			a.CallExplicit('AnalogInStatusData16', int32(idxCh), p, int32(0), int32(cdData));
-			data = p.Value;
-		end
-		function [dMin, dMax] = AnalogInStatusNoise(a, idxCh, cdData)
-			%> Per-sample min/max envelope (use with @c filterMinMax).
-			pMin = libpointer('doublePtr', zeros(cdData,1));
-			pMax = libpointer('doublePtr', zeros(cdData,1));
-			a.CallExplicit('AnalogInStatusNoise', int32(idxCh), pMin, pMax, int32(cdData));
-			dMin = pMin.Value; dMax = pMax.Value;
-		end
-		function v = AnalogInStatusSample(a, idxCh)
-			p = libpointer('doublePtr', 0);
-			a.CallExplicit('AnalogInStatusSample', int32(idxCh), p);
-			v = p.Value;
 		end
 		function [avail, lost, corrupt] = AnalogInStatusRecord(a)
 			pA = libpointer('int32Ptr', int32(0));
@@ -260,10 +252,9 @@ classdef dwf < handle
 		function AnalogInAcquisitionModeSet(a, mode),           a.Call(int32(mode)); end
 		function m  = AnalogInAcquisitionModeGet(a),            m = a.GetValue('int32'); end
 
-		% Channel config
+		% Channel counts & device-wide range/offset info (the per-channel setters
+		% are on AnalogInChannel - reached via a.In(k).RangeSet, etc.)
 		function n = AnalogInChannelCount(a),                   n = a.GetValue('int32'); end
-		function AnalogInChannelEnableSet(a, idxCh, fEnable),   a.Call(int32(idxCh), int32(logical(fEnable))); end
-		function AnalogInChannelFilterSet(a, idxCh, filter),    a.Call(int32(idxCh), int32(filter)); end
 		function [vMin, vMax, n] = AnalogInChannelRangeInfo(a)
 			pMin = libpointer('doublePtr', 0); pMax = libpointer('doublePtr', 0);
 			pN   = libpointer('doublePtr', 0);
@@ -276,20 +267,12 @@ classdef dwf < handle
 			a.Call(p, pN);
 			steps = p.Value(1:pN.Value);
 		end
-		function AnalogInChannelRangeSet(a, idxCh, voltsRange), a.Call(int32(idxCh), double(voltsRange)); end
-		function v = AnalogInChannelRangeGet(a, idxCh)
-			p = libpointer('doublePtr', 0);
-			a.CallExplicit('AnalogInChannelRangeGet', int32(idxCh), p);
-			v = p.Value;
-		end
 		function [vMin, vMax, n] = AnalogInChannelOffsetInfo(a)
 			pMin = libpointer('doublePtr', 0); pMax = libpointer('doublePtr', 0);
 			pN   = libpointer('doublePtr', 0);
 			a.Call(pMin, pMax, pN);
 			vMin = pMin.Value; vMax = pMax.Value; n = pN.Value;
 		end
-		function AnalogInChannelOffsetSet(a, idxCh, voltsOff),  a.Call(int32(idxCh), double(voltsOff)); end
-		function AnalogInChannelAttenuationSet(a, idxCh, x),    a.Call(int32(idxCh), double(x)); end
 
 		% Trigger
 		function AnalogInTriggerSourceSet(a, trigsrc),          a.Call(uint8(trigsrc)); end
@@ -310,49 +293,15 @@ classdef dwf < handle
 		function AnalogInTriggerHoldOffSet(a, sec),             a.Call(double(sec)); end
 		function AnalogInTriggerAutoTimeoutSet(a, sec),         a.Call(double(sec)); end
 
-		%%%%%%%%%%%%%%%%%%%%%%%%% ANALOG OUT (Wavegen) %%%%%%%%%%%%%%%%%%%%%%%%%
+		%%%%%%%%%%%%%%%%%%%%%%%%% ANALOG OUT (Wavegen - count only) %%%%%%%%%%%%%
 
-		function AnalogOutReset(a, idxCh),                      a.Call(int32(idxCh)); end
-		function AnalogOutConfigure(a, idxCh, fStart),          a.Call(int32(idxCh), int32(logical(fStart))); end
 		function n = AnalogOutCount(a),                         n = a.GetValue('int32'); end
-		function sts = AnalogOutStatus(a, idxCh)
-			p = libpointer('uint8Ptr', uint8(0));
-			a.CallExplicit('AnalogOutStatus', int32(idxCh), p);
-			sts = double(p.Value);
-		end
-		function AnalogOutNodeEnableSet(a, idxCh, node, fEnable)
-			a.Call(int32(idxCh), int32(node), int32(logical(fEnable)));
-		end
-		function AnalogOutNodeFunctionSet(a, idxCh, node, func)
-			a.Call(int32(idxCh), int32(node), uint8(func));
-		end
-		function AnalogOutNodeFrequencySet(a, idxCh, node, hz)
-			a.Call(int32(idxCh), int32(node), double(hz));
-		end
-		function AnalogOutNodeAmplitudeSet(a, idxCh, node, v)
-			a.Call(int32(idxCh), int32(node), double(v));
-		end
-		function AnalogOutNodeOffsetSet(a, idxCh, node, v)
-			a.Call(int32(idxCh), int32(node), double(v));
-		end
-		function AnalogOutNodeSymmetrySet(a, idxCh, node, pct)
-			a.Call(int32(idxCh), int32(node), double(pct));
-		end
-		function AnalogOutNodePhaseSet(a, idxCh, node, deg)
-			a.Call(int32(idxCh), int32(node), double(deg));
-		end
-		function AnalogOutNodeDataSet(a, idxCh, node, samples)
-			%> Upload a custom waveform. Samples should be in [-1,1]; output is then
-			%> scaled by the amplitude/offset settings. Implies @c funcCustom on the node.
-			samples = double(samples(:));
-			a.Call(int32(idxCh), int32(node), samples, int32(numel(samples)));
-		end
-		function AnalogOutRunSet(a, idxCh, sec),                a.Call(int32(idxCh), double(sec)); end
-		function AnalogOutWaitSet(a, idxCh, sec),               a.Call(int32(idxCh), double(sec)); end
-		function AnalogOutRepeatSet(a, idxCh, n),               a.Call(int32(idxCh), int32(n)); end
-		function AnalogOutTriggerSourceSet(a, idxCh, trigsrc),  a.Call(int32(idxCh), uint8(trigsrc)); end
-		function AnalogOutTriggerSlopeSet(a, idxCh, slope),     a.Call(int32(idxCh), int32(slope)); end
-		function AnalogOutIdleSet(a, idxCh, idle),              a.Call(int32(idxCh), int32(idle)); end
+		% Per-channel and per-node wavegen control is on AnalogOutChannel:
+		%   a.Out(k).Reset(), .Configure(start), .Status(), .RunSet(sec), .WaitSet,
+		%   .RepeatSet, .TriggerSourceSet, .TriggerSlopeSet, .IdleSet, .ModeSet,
+		%   .NodeEnableSet(node, ...), .NodeFunctionSet, .NodeFrequencySet,
+		%   .NodeAmplitudeSet, .NodeOffsetSet, .NodeSymmetrySet, .NodePhaseSet,
+		%   .NodeDataSet(node, samples).
 
 		%%%%%%%%%%%%%%%%%%%%%%%%% ANALOG IO (V+ / V-) %%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -362,19 +311,9 @@ classdef dwf < handle
 		function AnalogIOEnableSet(a, fEnable),                 a.Call(int32(logical(fEnable))); end %>< master power-supply enable
 		function f = AnalogIOEnableGet(a),                      f = logical(a.GetValue('int32')); end
 		function n = AnalogIOChannelCount(a),                   n = a.GetValue('int32'); end
-		function AnalogIOChannelNodeSet(a, idxCh, idxNode, v),  a.Call(int32(idxCh), int32(idxNode), double(v)); end
-		function v = AnalogIOChannelNodeGet(a, idxCh, idxNode)
-			p = libpointer('doublePtr', 0);
-			a.CallExplicit('AnalogIOChannelNodeGet', int32(idxCh), int32(idxNode), p);
-			v = p.Value;
-		end
-		function v = AnalogIOChannelNodeStatus(a, idxCh, idxNode)
-			%> Latest measured value for a node (e.g. supply readback). Call
-			%> @c AnalogIOStatus() first to refresh.
-			p = libpointer('doublePtr', 0);
-			a.CallExplicit('AnalogIOChannelNodeStatus', int32(idxCh), int32(idxNode), p);
-			v = p.Value;
-		end
+		% Per-channel node access on AnalogIOChannel:
+		%   a.IO(k).NodeSet(idxNode, value), .NodeGet(idxNode), .NodeStatus(idxNode),
+		%   .NodeCount(), .Name().
 	end
 
 	methods (Access = protected)
@@ -490,10 +429,12 @@ classdef dwf < handle
 		end
 	end
 
-	methods (Static, Access = protected)
+	methods (Static, Hidden)
 		function callByName(nameOrStack, varargin)
 			%> Routes to @c calllib('dwf','FDwf<name>',...) where @c <name> is either
-			%> passed in directly or derived from a @c dbstack(1) frame.
+			%> passed in directly or derived from a @c dbstack(1) frame. Hidden but
+			%> public so the channel classes (@c AnalogInChannel, etc.) can dispatch
+			%> here without duplicating the calllib/error path.
 			if isstruct(nameOrStack)
 				parts = split(nameOrStack(1).name, '.');
 				fname = parts{end};        % strip "ClassName." prefix if present
