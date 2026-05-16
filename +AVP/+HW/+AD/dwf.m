@@ -236,50 +236,61 @@ classdef dwf < handle
 		function sec = AnalogInRecordLengthGet(a),              sec = a.GetValue('double'); end
 
 		function rec = InitRecording(a, chIdx1)
-			%> Validate the channel list against the device's enabled-channel set
-			%> and arm acquisition (record mode). Call once before @c DoRecording.
-			%> @param chIdx1 1-based channel list. Default = all currently-enabled
-			%>   In channels. Must equal the set of enabled channels exactly -
-			%>   enabled-but-unread channels would overflow (the SDK's @c lost
-			%>   counter is global, so you'd see noise on the channels you
-			%>   thought were "fine"); requested-but-disabled channels return
-			%>   garbage from the SDK.
+			%> Enforce the REQUIRED settings (acquisition mode = @c acqmodeRecord,
+			%> enable mask matching @p chIdx1 exactly), then arm acquisition.
+			%> Channels not in @p chIdx1 are disabled so they can't overflow the
+			%> SDK's shared @c lost counter while no one drains them.
+			%> @param chIdx1 1-based channel list. Default = currently-enabled
+			%>   channels (errors if none).
 			%> @retval rec context struct (@c chIdx1, @c K) passed to @c DoRecording.
 
-			enabledMask = arrayfun(@(c) c.EnableGet(), a.In);
-			if nargin < 2 || isempty(chIdx1), chIdx1 = find(enabledMask); end
+			if nargin < 2 || isempty(chIdx1)
+				chIdx1 = find(arrayfun(@(c) c.EnableGet(), a.In));
+				if isempty(chIdx1)
+					error('AVP:HW:AD:dwf:InitRecording', ...
+						'no channel list given and no In channels are enabled');
+				end
+			end
 			chIdx1 = chIdx1(:).';
 
 			if any(chIdx1 < 1 | chIdx1 > numel(a.In))
 				error('AVP:HW:AD:dwf:InitRecording', ...
 					'channel indices must be 1..%d (got %s)', numel(a.In), mat2str(chIdx1));
 			end
-			reqMask = false(size(enabledMask));
-			reqMask(chIdx1) = true;
-			leak = find(enabledMask & ~reqMask);
-			miss = find(reqMask     & ~enabledMask);
-			if ~isempty(leak)
-				error('AVP:HW:AD:dwf:InitRecording', ...
-					'In(%s) enabled but not in record list - would overflow; disable them or add to list', ...
-					mat2str(leak));
+
+			% REQUIRED state: only listed channels enabled, record mode active,
+			% staging FIFO at max so polling latency doesn't cost samples.
+			for k = 1:numel(a.In)
+				a.In(k).EnableSet(any(chIdx1 == k));
 			end
-			if ~isempty(miss)
-				error('AVP:HW:AD:dwf:InitRecording', ...
-					'In(%s) in record list but not enabled', mat2str(miss));
-			end
+			a.AnalogInAcquisitionModeSet(AVP.HW.AD.dwf.acqmodeRecord);
+			[~, sMax] = a.AnalogInBufferSizeInfo();
+			a.AnalogInBufferSizeSet(sMax);
 
 			rec = struct('chIdx1', chIdx1, 'K', numel(chIdx1));
 			a.AnalogInConfigure(true, true);
 		end % InitRecording
 
 		function [data, lost, corrupt] = DoRecording(a, rec, nSamples)
-			%> Drain up to @p nSamples per channel from the armed acquisition.
-			%> Call repeatedly to chunk a long capture; the device keeps streaming
-			%> until @c AnalogInRecordLength expires (or forever if it was -1).
+			%> Drain samples from the armed acquisition.
 			%> @param rec context returned by @c InitRecording.
+			%> @param nSamples per-channel sample count to drain. If omitted, the
+			%>   function derives it from @c AnalogInRecordLengthGet * @c AnalogInFrequencyGet
+			%>   (whole capture in one call). Errors if the record length is
+			%>   infinite (-1) and @p nSamples wasn't given - chunked draining of
+			%>   an infinite capture has to be sized by the caller.
 			%> @retval data N×K double matrix (column k = channel @c rec.chIdx1(k));
 			%>   row count may be < @p nSamples if the device reached @c DwfStateDone.
 			%> @retval lost,corrupt cumulative SDK counters; non-zero ⇒ USB throughput hit.
+
+			if nargin < 3 || isempty(nSamples)
+				sec = a.AnalogInRecordLengthGet();
+				if sec <= 0
+					error('AVP:HW:AD:dwf:DoRecording', ...
+						'AnalogInRecordLength is infinite (%g); pass nSamples explicitly', sec);
+				end
+				nSamples = round(sec * a.AnalogInFrequencyGet());
+			end
 
 			K       = rec.K;
 			data    = zeros(nSamples, K);
