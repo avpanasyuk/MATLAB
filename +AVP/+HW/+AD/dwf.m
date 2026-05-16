@@ -23,8 +23,10 @@ classdef dwf < handle
 	%   ad.In(1).EnableSet(true);
 	%   ad.In(1).RangeSet(5);                              % ±2.5 V
 	%   ad.AnalogInFrequencySet(3900);                     % ADC rate fixed at 1e8
-	%   ad.In(1).FilterSet(ad.filterAverage);              % oversample by 1e8/fs
-	%   ad.AnalogInBufferSizeSet(8192);
+	%   ad.In(1).FilterSet(ad.filterAverage);              % oversample by
+	%     1e8/fs, but takes mean, so resolution mV/unit does not improve, has
+	%     to be done manually using AnalogInChannel.Record
+	%   ad.AnalogInBufferSizeSet(8192);                    % [16, 8192]
 	%   ad.AnalogInAcquisitionModeSet(ad.acqmodeSingle);
 	%   ad.AnalogInTriggerSourceSet(ad.trigsrcDetectorAnalogIn);
 	%   ad.AnalogInTriggerChannelSet(0);
@@ -232,6 +234,76 @@ classdef dwf < handle
 		end
 		function AnalogInRecordLengthSet(a, sec),               a.Call(double(sec)); end
 		function sec = AnalogInRecordLengthGet(a),              sec = a.GetValue('double'); end
+
+		function rec = InitRecording(a, chIdx1)
+			%> Validate the channel list against the device's enabled-channel set
+			%> and arm acquisition (record mode). Call once before @c DoRecording.
+			%> @param chIdx1 1-based channel list. Default = all currently-enabled
+			%>   In channels. Must equal the set of enabled channels exactly -
+			%>   enabled-but-unread channels would overflow (the SDK's @c lost
+			%>   counter is global, so you'd see noise on the channels you
+			%>   thought were "fine"); requested-but-disabled channels return
+			%>   garbage from the SDK.
+			%> @retval rec context struct (@c chIdx1, @c K) passed to @c DoRecording.
+
+			enabledMask = arrayfun(@(c) c.EnableGet(), a.In);
+			if nargin < 2 || isempty(chIdx1), chIdx1 = find(enabledMask); end
+			chIdx1 = chIdx1(:).';
+
+			if any(chIdx1 < 1 | chIdx1 > numel(a.In))
+				error('AVP:HW:AD:dwf:InitRecording', ...
+					'channel indices must be 1..%d (got %s)', numel(a.In), mat2str(chIdx1));
+			end
+			reqMask = false(size(enabledMask));
+			reqMask(chIdx1) = true;
+			leak = find(enabledMask & ~reqMask);
+			miss = find(reqMask     & ~enabledMask);
+			if ~isempty(leak)
+				error('AVP:HW:AD:dwf:InitRecording', ...
+					'In(%s) enabled but not in record list - would overflow; disable them or add to list', ...
+					mat2str(leak));
+			end
+			if ~isempty(miss)
+				error('AVP:HW:AD:dwf:InitRecording', ...
+					'In(%s) in record list but not enabled', mat2str(miss));
+			end
+
+			rec = struct('chIdx1', chIdx1, 'K', numel(chIdx1));
+			a.AnalogInConfigure(true, true);
+		end % InitRecording
+
+		function [data, lost, corrupt] = DoRecording(a, rec, nSamples)
+			%> Drain up to @p nSamples per channel from the armed acquisition.
+			%> Call repeatedly to chunk a long capture; the device keeps streaming
+			%> until @c AnalogInRecordLength expires (or forever if it was -1).
+			%> @param rec context returned by @c InitRecording.
+			%> @retval data N×K double matrix (column k = channel @c rec.chIdx1(k));
+			%>   row count may be < @p nSamples if the device reached @c DwfStateDone.
+			%> @retval lost,corrupt cumulative SDK counters; non-zero ⇒ USB throughput hit.
+
+			K       = rec.K;
+			data    = zeros(nSamples, K);
+			got     = 0;
+			lost    = 0;
+			corrupt = 0;
+
+			while got < nSamples
+				sts                       = a.AnalogInStatus(true);
+				[avail, lostNow, corrNow] = a.AnalogInStatusRecord();
+				lost    = lost    + lostNow;
+				corrupt = corrupt + corrNow;
+				if avail == 0
+					if sts == AVP.HW.AD.dwf.DwfStateDone, break; end
+					continue;
+				end
+				take = min(avail, nSamples - got);
+				for k = 1:K
+					data(got+1:got+take, k) = a.In(rec.chIdx1(k)).StatusData(take);
+				end
+				got = got + take;
+			end
+			data = data(1:got, :);
+		end % DoRecording
 
 		% Acquisition config
 		function [hzMin, hzMax] = AnalogInFrequencyInfo(a)

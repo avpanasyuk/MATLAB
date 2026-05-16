@@ -147,6 +147,13 @@ classdef serial_protocol < handle
 			out = isa(a.s,'internal.Serialport') && ...
 				isvalid(a.s) && ...
 				strcmpi(get(a.s,'Status'),'open');
+			if out
+				try
+					a.s.NumBytesAvailable;  %#ok<VUNUS> probe transport - throws if it died
+				catch
+					out = false;
+				end
+			end
 		end % function port_status
 
 		function disp(a) % display
