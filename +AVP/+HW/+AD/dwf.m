@@ -543,41 +543,34 @@ classdef dwf < handle
 
 	methods (Access = protected)
 		function bgPoll(a)
-			%> Timer callback: drain everything currently available, update
-			%> @c a.bg counters, stop the timer when done.
+			%> Timer callback: drain ONE batch of currently-available samples,
+			%> then return so the next tick can fire. Looping until @c avail==0
+			%> would block here for the full record duration, because at typical
+			%> sample rates the device produces new samples as fast as we drain
+			%> them - the loop never sees a "no samples available" moment.
 			if isempty(a.bg), return; end
 			rec = a.bg.rec;
-			while true
-				sts                       = a.AnalogInStatus(true);
-				[avail, lostNow, corrNow] = a.AnalogInStatusRecord();
-				a.bg.corrupt = a.bg.corrupt + corrNow;
-				if lostNow > 0
-					gap        = min(lostNow, a.bg.nSamples - a.bg.got);
-					a.bg.got   = a.bg.got + gap;
-					a.bg.lost  = a.bg.lost + lostNow;
-				end
-				if avail == 0
-					if sts == AVP.HW.AD.dwf.DwfStateDone
-						a.bg.done = true;
-						if ~isempty(a.bg.timer) && isvalid(a.bg.timer), stop(a.bg.timer); end
-					end
-					return;
-				end
+
+			sts                       = a.AnalogInStatus(true);
+			[avail, lostNow, corrNow] = a.AnalogInStatusRecord();
+			a.bg.corrupt = a.bg.corrupt + corrNow;
+			if lostNow > 0
+				gap        = min(lostNow, a.bg.nSamples - a.bg.got);
+				a.bg.got   = a.bg.got + gap;
+				a.bg.lost  = a.bg.lost + lostNow;
+			end
+			if avail > 0
 				take = min(avail, a.bg.nSamples - a.bg.got);
-				if take <= 0
-					a.bg.done = true;
-					if ~isempty(a.bg.timer) && isvalid(a.bg.timer), stop(a.bg.timer); end
-					return;
+				if take > 0
+					for k = 1:rec.K
+						a.bg.data(a.bg.got+1:a.bg.got+take, k) = a.In(rec.chIdx1(k)).StatusData(take);
+					end
+					a.bg.got = a.bg.got + take;
 				end
-				for k = 1:rec.K
-					a.bg.data(a.bg.got+1:a.bg.got+take, k) = a.In(rec.chIdx1(k)).StatusData(take);
-				end
-				a.bg.got = a.bg.got + take;
-				if a.bg.got >= a.bg.nSamples
-					a.bg.done = true;
-					if ~isempty(a.bg.timer) && isvalid(a.bg.timer), stop(a.bg.timer); end
-					return;
-				end
+			end
+			if a.bg.got >= a.bg.nSamples || sts == AVP.HW.AD.dwf.DwfStateDone
+				a.bg.done = true;
+				if ~isempty(a.bg.timer) && isvalid(a.bg.timer), stop(a.bg.timer); end
 			end
 		end % bgPoll
 
