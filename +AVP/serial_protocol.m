@@ -20,15 +20,15 @@ classdef serial_protocol < handle
 			while a.s.NumBytesAvailable < N
 				if ~a.port_status, error('wait_for_serial:COM_died','Oops!'); end
 				if toc(start) > a.s.Timeout
-					% dbstack
-					% a.close_serial;
 					error('serial_protocol:wait_for_serial:Timeout',...
 						['waited for %d bytes, available %d bytes!'],...
 						N,a.s.NumBytesAvailable);
 				end
-				drawnow % to allow sending and receiving to complete
+				% pause for wire-time of the bytes we still need, floored at 1 ms
+				% (MATLAB pause granularity). Yields CPU and processes events.
+				pause(max((N - a.s.NumBytesAvailable) * 10 / a.s.BaudRate, 0.001));
 			end
-		end
+		end % wait_for_serial
 
 		function out = wait_and_read_bytes(a,size)
 			if nargin < 2, size = 1; end
@@ -268,7 +268,10 @@ classdef serial_protocol < handle
 			if a.prev_command.output_size == 0 % we are not waiting for prevous command output
 				output = a.send_new_command(cmd_bytes,no_block);
 			else
-				drawnow
+				needed = a.prev_command.output_size + 1 - a.s.NumBytesAvailable; % plus CS
+				if needed > 0
+					pause(max(needed * 10 / a.s.BaudRate, 0.001));
+				end
 				if a.s.NumBytesAvailable < a.prev_command.output_size + 1 % plus CS
 					% still not all prevous command output arrived
 					if no_block % drop current command - we have nothing else to do
@@ -297,7 +300,6 @@ classdef serial_protocol < handle
 			for k=0:7
 				write(s,zeros(2^k,1),'uint8');
 				pause(s.Timeout/20)
-				drawnow
 				if s.NumBytesAvailable >= 4 % 4 zeros is the NOOP response
 					str = uint8(read(s,3,'uint8'));
 					for c=1:s.NumBytesAvailable

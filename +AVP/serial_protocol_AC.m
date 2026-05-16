@@ -25,10 +25,11 @@ classdef serial_protocol_AC < AVP.serial_protocol
 						return
 					end
 				end
+				pause(max(4 * 10 / s.BaudRate, 0.001));
 			end
 			error('Did not get 0 - protocol is broken!');
 			status = false;
-		end
+		end % PingNOOP
 
 		function status = CheckPort(Port,Code,BaudRate,varargin)
 			fprintf('Checking port %s...\n',Port);
@@ -52,6 +53,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
 							return
 						end
 					end
+					pause(max(LengthToGetWholeCode * 10 / s.BaudRate, 0.001));
 				end
 			catch ME
 				Port = [];
@@ -79,7 +81,10 @@ classdef serial_protocol_AC < AVP.serial_protocol
 
 			AVP.opt_param('BaudRate',115200,1);
 
-			if isstr(code) % port is identified by the broadcasted code
+			if ischar(code) || isstring(code)
+				code = char(code);  % normalize - isstr is char-only and `string` would skip this branch
+			end
+			if ischar(code) % port is identified by the broadcasted code
 				ports = AVP.comports();
 				if isempty(ports)
 					error('Can not find any COM port');
@@ -134,7 +139,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
 							Port = AvailPorts{i};
 							break;
 						end
-						drawnow
+						pause(0.001)
 					end
 				end
 			else % code is a number, so it is specifying port directly

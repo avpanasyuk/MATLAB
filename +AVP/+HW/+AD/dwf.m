@@ -17,30 +17,60 @@ classdef dwf < handle
 	%> the ±5 V supplies (Analog I/O), trigger plumbing. Skips DMM, FIR/IIR,
 	%> Power Out, Eclypse/ADP-only constants and digital protocols.
 	%
-	% Typical usage:
+	% Typical record-mode workflow (continuous streaming, NaN-padded for losses):
 	%   ad = AVP.HW.AD.dwf();                              % opens first AD1
 	%   ad.AnalogInReset();
-	%   ad.In(1).EnableSet(true);
-	%   ad.In(1).RangeSet(5);                              % ±2.5 V
-	%   ad.AnalogInFrequencySet(3900);                     % ADC rate fixed at 1e8
-	%   ad.In(1).FilterSet(ad.filterAverage);              % oversample by
-	%     1e8/fs, but takes mean, so resolution mV/unit does not improve, has
-	%     to be done manually using AnalogInChannel.Record
-	%   ad.AnalogInBufferSizeSet(8192);                    % [16, 8192]
-	%   ad.AnalogInAcquisitionModeSet(ad.acqmodeSingle);
-	%   ad.AnalogInTriggerSourceSet(ad.trigsrcDetectorAnalogIn);
-	%   ad.AnalogInTriggerChannelSet(0);
-	%   ad.AnalogInTriggerLevelSet(1.0);
-	%   ad.AnalogInTriggerConditionSet(ad.DwfTriggerSlopeRise);
-	%   ad.AnalogInConfigure(true, true);                  % apply + start
-	%   while ad.AnalogInStatus(true) ~= ad.DwfStateDone, pause(0.005); end
-	%   y = ad.In(1).StatusData(ad.AnalogInBufferSizeGet());
+	%   ad.In(1).RangeSet(5);                              % ±2.5 V (per channel)
+	%   ad.In(2).RangeSet(5);
+	%   ad.AnalogInFrequencySet(40e3);                     % sample rate, Hz
+	%
+	% Two steps matter for record mode:
+	%   ARM   = device leaves DwfStateReady, ready to capture (or sit waiting for trigger)
+	%   FIRE  = trigger condition met, samples start flowing into the FIFO
+	% With trigsrcNone (default) ARM and FIRE happen in the same call (InitRecording).
+	% With any other trigger source InitRecording only ARMs; FIRE happens later.
+	%
+	% InitRecording takes the recording length (seconds AFTER the trigger fires;
+	% Inf or -1 = unbounded) as its last argument, so each call site is self-contained.
+	%
+	%   % --- Free-run (no trigger): InitRecording does ARM + FIRE -----------
+	%   rec       = ad.InitRecording([1 2], 'None', 2);      % 2 s capture
+	%   [y, lost] = ad.DoRecording(rec);                     % nSamples derived from length × fs
+	%
+	%   % --- Software-triggered: ARM now, FIRE later ------------------------
+	%   rec = ad.InitRecording([1 2], 'PC', 2);              % ARM (DwfStateArmed, FIFO empty)
+	%   % ... do whatever needs to happen first, then:
+	%   ad.DeviceTriggerPC();                                % FIRE
+	%   [y, lost] = ad.DoRecording(rec);                     % collects 2 s after FIRE
+	%
+	%   % --- External BNC trigger ------------------------------------------
+	%   rec = ad.InitRecording([1 2], 'External1', 2);       % ARM, wait for BNC T1 edge
+	%   [y, lost] = ad.DoRecording(rec);                     % FIRE happens externally
+	%
+	%   % --- Background (timer-driven drain - works with any trigger source)
+	%   rec = ad.InitRecording([1 2], 'PC', 5);              % 5 s after trigger
+	%   ad.StartBackgroundRecording(rec);                    % timer drains FIFO once samples arrive
+	%   % ... prep work, then:
+	%   ad.DeviceTriggerPC();                                % FIRE (omit for 'None')
+	%   % ... do other MATLAB work while samples accumulate ...
+	%   while ~ad.IsBackgroundRecordingDone(), pause(0.05); end
+	%   [y, lost] = ad.StopBackgroundRecording();
+	%
+	% Notes:
+	%   - InitRecording enforces acqmodeRecord, enables only the listed channels,
+	%     sets BufferSize to max, and arms the acquisition.
+	%   - DoRecording fills @c y with @c NaN where the SDK reported lost samples,
+	%     so @c (0:N-1)/fs stays a truthful time axis.
 
 	properties
 		h    %>< HDWF device handle returned by @c FDwfDeviceOpen
 		In   %>< AVP.HW.AD.AnalogInChannel array (1-based; SDK idx is 0-based internally)
 		Out  %>< AVP.HW.AD.AnalogOutChannel array
 		IO   %>< AVP.HW.AD.AnalogIOChannel array
+	end
+
+	properties (Transient, Hidden)
+		bg = []  %>< background-recording state struct, populated by StartBackgroundRecording
 	end
 
 	properties (Constant, Hidden)
@@ -181,11 +211,17 @@ classdef dwf < handle
 		end
 
 		function delete(a)
+			if ~isempty(a.bg)
+				if ~isempty(a.bg.timer) && isvalid(a.bg.timer)
+					stop(a.bg.timer); delete(a.bg.timer);
+				end
+				a.bg = [];
+			end
 			if ~isempty(a.h) && a.h ~= 0 && libisloaded('dwf')
 				calllib('dwf', 'FDwfDeviceClose', a.h);
 			end
 			a.h = int32(0);
-		end
+		end % delete
 
 		%%%%%%%%%%%%%%%%%%%%%%%%% DEVICE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -235,14 +271,27 @@ classdef dwf < handle
 		function AnalogInRecordLengthSet(a, sec),               a.Call(double(sec)); end
 		function sec = AnalogInRecordLengthGet(a),              sec = a.GetValue('double'); end
 
-		function rec = InitRecording(a, chIdx1)
+		function rec = InitRecording(a, chIdx1, trigsrc, durationSec)
 			%> Enforce the REQUIRED settings (acquisition mode = @c acqmodeRecord,
-			%> enable mask matching @p chIdx1 exactly), then arm acquisition.
+			%> enable mask matching @p chIdx1 exactly, staging FIFO at max,
+			%> trigger source = @p trigsrc, record length = @p durationSec),
+			%> then arm acquisition. With @c trigsrcNone (default) ARM and FIRE
+			%> happen here; with any other source the device waits in
+			%> @c DwfStateArmed until the trigger fires.
 			%> Channels not in @p chIdx1 are disabled so they can't overflow the
 			%> SDK's shared @c lost counter while no one drains them.
 			%> @param chIdx1 1-based channel list. Default = currently-enabled
 			%>   channels (errors if none).
-			%> @retval rec context struct (@c chIdx1, @c K) passed to @c DoRecording.
+			%> @param trigsrc trigger source. Accepts either:
+			%>   - a numeric @c trigsrc* constant: @c ad.trigsrcPC
+			%>   - the bare name as char/string:   @c 'PC'  (looked up as @c trigsrc<name>)
+			%>   See the "Trigger sources" properties block for the list of names.
+			%>   Default = @c trigsrcNone.
+			%> @param durationSec recording length in seconds AFTER TRIGGER FIRES
+			%>   (or after ARM in free-run). Maps to @c FDwfAnalogInRecordLengthSet.
+			%>   Pass @c Inf or @c -1 for unbounded. If omitted, the device's
+			%>   current setting is left untouched.
+			%> @retval rec context struct (@c chIdx1, @c K).
 
 			if nargin < 2 || isempty(chIdx1)
 				chIdx1 = find(arrayfun(@(c) c.EnableGet(), a.In));
@@ -252,6 +301,15 @@ classdef dwf < handle
 				end
 			end
 			chIdx1 = chIdx1(:).';
+			if nargin < 3 || isempty(trigsrc)
+				trigsrc = AVP.HW.AD.dwf.trigsrcNone;
+			elseif ischar(trigsrc) || isstring(trigsrc)
+				trigsrc = AVP.HW.AD.dwf.(['trigsrc' char(trigsrc)]);
+			end
+			if nargin >= 4 && ~isempty(durationSec)
+				if isinf(durationSec), durationSec = -1; end
+				a.AnalogInRecordLengthSet(durationSec);
+			end
 
 			if any(chIdx1 < 1 | chIdx1 > numel(a.In))
 				error('AVP:HW:AD:dwf:InitRecording', ...
@@ -259,20 +317,24 @@ classdef dwf < handle
 			end
 
 			% REQUIRED state: only listed channels enabled, record mode active,
-			% staging FIFO at max so polling latency doesn't cost samples.
+			% staging FIFO at max so polling latency doesn't cost samples,
+			% trigger source set explicitly.
 			for k = 1:numel(a.In)
 				a.In(k).EnableSet(any(chIdx1 == k));
 			end
 			a.AnalogInAcquisitionModeSet(AVP.HW.AD.dwf.acqmodeRecord);
 			[~, sMax] = a.AnalogInBufferSizeInfo();
 			a.AnalogInBufferSizeSet(sMax);
+			a.AnalogInTriggerSourceSet(trigsrc);
 
 			rec = struct('chIdx1', chIdx1, 'K', numel(chIdx1));
 			a.AnalogInConfigure(true, true);
 		end % InitRecording
 
 		function [data, lost, corrupt] = DoRecording(a, rec, nSamples)
-			%> Drain samples from the armed acquisition.
+			%> Drain samples from the armed acquisition. If the trigger source
+			%> is anything other than @c trigsrcNone, fire the trigger before
+			%> calling (e.g. @c DeviceTriggerPC for @c trigsrcPC).
 			%> @param rec context returned by @c InitRecording.
 			%> @param nSamples per-channel sample count to drain. If omitted, the
 			%>   function derives it from @c AnalogInRecordLengthGet * @c AnalogInFrequencyGet
@@ -293,7 +355,7 @@ classdef dwf < handle
 			end
 
 			K       = rec.K;
-			data    = zeros(nSamples, K);
+			data    = NaN(nSamples, K);  %>< NaN-init: any rows we don't write stay as gap markers
 			got     = 0;
 			lost    = 0;
 			corrupt = 0;
@@ -301,13 +363,23 @@ classdef dwf < handle
 			while got < nSamples
 				sts                       = a.AnalogInStatus(true);
 				[avail, lostNow, corrNow] = a.AnalogInStatusRecord();
-				lost    = lost    + lostNow;
 				corrupt = corrupt + corrNow;
+
+				% Lost samples fell between the previous batch and the upcoming one.
+				% Advance the cursor by lostNow so subsequent writes land at the
+				% correct time index; the skipped slice keeps its NaN init.
+				if lostNow > 0
+					gap  = min(lostNow, nSamples - got);
+					got  = got + gap;
+					lost = lost + lostNow;
+				end
+
 				if avail == 0
 					if sts == AVP.HW.AD.dwf.DwfStateDone, break; end
 					continue;
 				end
 				take = min(avail, nSamples - got);
+				if take <= 0, break; end  % filled by gaps alone
 				for k = 1:K
 					data(got+1:got+take, k) = a.In(rec.chIdx1(k)).StatusData(take);
 				end
@@ -315,6 +387,76 @@ classdef dwf < handle
 			end
 			data = data(1:got, :);
 		end % DoRecording
+
+		function StartBackgroundRecording(a, rec, nSamples, period)
+			%> Start a @c timer that drains the FIFO in the background. Acquisition
+			%> is already armed by @c InitRecording; for triggered captures fire
+			%> the trigger (e.g. @c DeviceTriggerPC) at the right moment. Returns
+			%> immediately. Collect results with @c StopBackgroundRecording.
+			%> Background polling runs on the main MATLAB thread between user
+			%> commands (cooperative, not preemptive). The user's command line
+			%> stays responsive between timer ticks, but each tick briefly blocks.
+			%> @param rec context returned by @c InitRecording.
+			%> @param nSamples per-channel target count. Default = derived from
+			%>   @c AnalogInRecordLengthGet * @c AnalogInFrequencyGet (errors on
+			%>   infinite record length).
+			%> @param period timer period in seconds. Default 0.01 (10 ms) - keep
+			%>   it well below the FIFO budget @c bufferSize / (K * fs).
+
+			if nargin < 4 || isempty(period),   period   = 0.01; end
+			if nargin < 3 || isempty(nSamples)
+				sec = a.AnalogInRecordLengthGet();
+				if sec <= 0
+					error('AVP:HW:AD:dwf:StartBackgroundRecording', ...
+						'AnalogInRecordLength is infinite (%g); pass nSamples explicitly', sec);
+				end
+				nSamples = round(sec * a.AnalogInFrequencyGet());
+			end
+			if ~isempty(a.bg)
+				error('AVP:HW:AD:dwf:StartBackgroundRecording', ...
+					'a background recording is already active - call StopBackgroundRecording first');
+			end
+
+			a.bg = struct('rec', rec, ...
+				'data',     NaN(nSamples, rec.K), ...
+				'got',      0, ...
+				'lost',     0, ...
+				'corrupt',  0, ...
+				'nSamples', nSamples, ...
+				'done',     false, ...
+				'timer',    []);
+			a.bg.timer = timer( ...
+				'ExecutionMode', 'fixedSpacing', ...
+				'Period',        period, ...
+				'BusyMode',      'drop', ...
+				'TimerFcn',      @(~,~) a.bgPoll(), ...
+				'ErrorFcn',      @(~,~) []);
+			start(a.bg.timer);
+		end % StartBackgroundRecording
+
+		function [data, lost, corrupt] = StopBackgroundRecording(a)
+			%> Stop the background timer, drain any leftovers, return collected
+			%> data. Same return semantics as @c DoRecording.
+			if isempty(a.bg)
+				error('AVP:HW:AD:dwf:StopBackgroundRecording', ...
+					'no background recording active');
+			end
+			if ~isempty(a.bg.timer) && isvalid(a.bg.timer)
+				stop(a.bg.timer);
+				delete(a.bg.timer);
+			end
+			a.bgPoll();   % final drain
+			data    = a.bg.data(1:a.bg.got, :);
+			lost    = a.bg.lost;
+			corrupt = a.bg.corrupt;
+			a.bg    = [];
+		end % StopBackgroundRecording
+
+		function done = IsBackgroundRecordingDone(a)
+			%> True if the background recording has hit its sample target or the
+			%> device reached @c DwfStateDone.
+			done = isempty(a.bg) || a.bg.done || a.bg.got >= a.bg.nSamples;
+		end % IsBackgroundRecordingDone
 
 		% Acquisition config
 		function [hzMin, hzMax] = AnalogInFrequencyInfo(a)
@@ -400,6 +542,45 @@ classdef dwf < handle
 	end
 
 	methods (Access = protected)
+		function bgPoll(a)
+			%> Timer callback: drain everything currently available, update
+			%> @c a.bg counters, stop the timer when done.
+			if isempty(a.bg), return; end
+			rec = a.bg.rec;
+			while true
+				sts                       = a.AnalogInStatus(true);
+				[avail, lostNow, corrNow] = a.AnalogInStatusRecord();
+				a.bg.corrupt = a.bg.corrupt + corrNow;
+				if lostNow > 0
+					gap        = min(lostNow, a.bg.nSamples - a.bg.got);
+					a.bg.got   = a.bg.got + gap;
+					a.bg.lost  = a.bg.lost + lostNow;
+				end
+				if avail == 0
+					if sts == AVP.HW.AD.dwf.DwfStateDone
+						a.bg.done = true;
+						if ~isempty(a.bg.timer) && isvalid(a.bg.timer), stop(a.bg.timer); end
+					end
+					return;
+				end
+				take = min(avail, a.bg.nSamples - a.bg.got);
+				if take <= 0
+					a.bg.done = true;
+					if ~isempty(a.bg.timer) && isvalid(a.bg.timer), stop(a.bg.timer); end
+					return;
+				end
+				for k = 1:rec.K
+					a.bg.data(a.bg.got+1:a.bg.got+take, k) = a.In(rec.chIdx1(k)).StatusData(take);
+				end
+				a.bg.got = a.bg.got + take;
+				if a.bg.got >= a.bg.nSamples
+					a.bg.done = true;
+					if ~isempty(a.bg.timer) && isvalid(a.bg.timer), stop(a.bg.timer); end
+					return;
+				end
+			end
+		end % bgPoll
+
 		function Call(a, varargin)
 			%> Calls @c FDwf<caller>(@c a.h, varargin{:}) where <caller> is the
 			%> name of the method that invoked @c Call (read from @c dbstack).
