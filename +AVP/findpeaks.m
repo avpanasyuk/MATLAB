@@ -11,6 +11,8 @@ function [xs,ws,ys] = findpeaks(d,varargin)
   %> @retval ys - amplitude of the peaks
 
   %% let's try a "gaussian - twice as wide gaussian" kernel
+  d  = d(:);
+  if mod(numel(d), 2) == 1, d = d(1:end-1); end   % AVP.realfft requires even length
   Np = numel(d);
   
   %% let's distribute the width of the kernel using gamma 
@@ -21,27 +23,24 @@ function [xs,ws,ys] = findpeaks(d,varargin)
   % W_vect = linspace(wmin^(1/Gamma),wmax^(1/Gamma),Np/2).^Gamma;
   W_vect = 10.^linspace(log10(wmin),log10(wmax),Np/2);
   
-  KernMat = [];
-  for wI = 1:numel(W_vect)
+  nW    = numel(W_vect);
+  shift = floor(Np/2) + 1;                          % integer; handles odd Np
+  KernMat = zeros(Np, nW);                          % preallocate, no row-by-row growth
+  x = (1:Np) - Np/2;
+  for wI = 1:nW
     w = W_vect(wI);
-    kern = exp(-(([1:Np] - Np/2)/w).^2).' - ...
-      0.5*exp(-(([1:Np] - Np/2)/w/2).^2).';
-    kern = circshift(kern,Np/2+1)/w;
-    kern = kern - mean(kern);
-    % kern = kern / std(kern);
-    KernMat = [KernMat,kern];
+    kern = (exp(-(x/w).^2) - 0.5*exp(-(x/w/2).^2)).' / w;
+    kern = circshift(kern, shift);
+    KernMat(:,wI) = kern - mean(kern);
   end
-  
+
   % imagesc(KernMat)
   % plot(KernMat(:,32))
-  
+
   kern_fft = AVP.realfft(KernMat);
-  %imagesc(abs(f))
-  
-  
-  d_fft = repmat(AVP.realfft(d(:)),1,Np/2);
-  Amat = AVP.realifft(d_fft.*kern_fft);
-  %imagesc(Amat);
+  d_fft    = AVP.realfft(d(:));                     % column; broadcast across kern_fft columns
+  Amat     = AVP.realifft(d_fft .* kern_fft);       % implicit expansion - no repmat needed
+  imagesc(Amat);
   
   C = contour(Amat,Np/2);
   

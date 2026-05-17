@@ -61,6 +61,10 @@ classdef dwf < handle
 	%     sets BufferSize to max, and arms the acquisition.
 	%   - DoRecording fills @c y with @c NaN where the SDK reported lost samples,
 	%     so @c (0:N-1)/fs stays a truthful time axis.
+	%   - Sample values are in VOLTS (double), already scaled by the device for
+	%     the active @c RangeSet / @c OffsetSet / @c AttenuationSet and per-channel
+	%     calibration. Multiply by 1000 for mV. The raw-codes path
+	%     (@c In(k).StatusData16) is the only exception - those are unscaled int16.
 
 	properties
 		h    %>< HDWF device handle returned by @c FDwfDeviceOpen

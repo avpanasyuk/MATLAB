@@ -11,6 +11,7 @@ function [d, d_subsize] = bin(d,bin_size,func)
   if numel(bin_size) ~= nd
     if numel(bin_size) == 1
       bin_size = repmat(bin_size,1,numel(sz));
+      bin_size(sz == 1) = 1;   % don't bin singleton dims (e.g. column vectors)
     else
       error(['Number of elements in "factors" should be equal to the number',...
         ' of dimensions in "d" or 1'])
