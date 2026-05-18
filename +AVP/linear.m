@@ -7,9 +7,11 @@
 % dc2/dyi = (xi - sum(x)/n)/(sum(x^2) - sum(x)^2/n)
 % dc1/dyi = 1;
 function [c e fit]= linear(y,x,show),
-
+y = y(:); 
 n = numel(y);
-if nargin < 2 || isempty(x), x = y; x(:)=0:n-1; end
+if nargin < 2 || isempty(x), x = y; x(:)=0:n-1; 
+else x = x(:);
+end
 if nargin < 3, show = []; end
 sx = sum(x);
 sx2 = sum(x.^2);
