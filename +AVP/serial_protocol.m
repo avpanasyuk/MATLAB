@@ -130,12 +130,7 @@ classdef serial_protocol < handle
 		%% STRUCTORS
 		function a = serial_protocol(comPort,varargin)
 			AVP.opt_param('BaudRate',115200,1);
-			persistent s
-			if ~isstruct(s), s = struct(); end
-			if ~isfield(s, comPort) || isempty(s.(comPort)) || ~isvalid(s.(comPort))
-				s.(comPort) = serialport(comPort,BaudRate,varargin{:});
-			end
-			a.s = s.(comPort);
+			a.s = AVP.HW.open_serialport(comPort,BaudRate,varargin{:});
 		end
 
 		function delete(a)
@@ -144,16 +139,17 @@ classdef serial_protocol < handle
 		end % delete
 
 		function out = port_status(a)
-			out = isa(a.s,'internal.Serialport') && ...
-				isvalid(a.s) && ...
-				strcmpi(get(a.s,'Status'),'open');
-			if out
-				try
-					a.s.NumBytesAvailable;  %#ok<VUNUS> probe transport - throws if it died
-				catch
-					out = false;
-				end
-			end
+			out = AVP.HW.check_serialport(a.s);
+			% ,'internal.Serialport') && ...
+			% 	isvalid(a.s) && ...
+			% 	strcmpi(get(a.s,'Status'),'open');
+			% if out
+			% 	try
+			% 		a.s.NumBytesAvailable;  %#ok<VUNUS> probe transport - throws if it died
+			% 	catch
+			% 		out = false;
+			% 	end
+			% end
 		end % function port_status
 
 		function disp(a) % display

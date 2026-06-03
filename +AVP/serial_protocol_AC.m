@@ -34,7 +34,7 @@ classdef serial_protocol_AC < AVP.serial_protocol
 		function status = CheckPort(Port,Code,BaudRate,varargin)
 			fprintf('Checking port %s...\n',Port);
 			try
-				s = serialport(Port,BaudRate,varargin{:});
+				s = AVP.HW.open_serialport(Port,BaudRate,varargin{:});
 				cleanup = onCleanup(@() delete(s));
 				start = tic; % timeout
 				LengthToGetWholeCode = numel(char(Code))*2-1;
