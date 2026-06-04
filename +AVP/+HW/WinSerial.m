@@ -149,22 +149,30 @@ classdef WinSerial < matlab.mixin.SetGet
 		end % writeline
 
 		function line = readline(a)
-			%> Read bytes up to (and including) the Terminator, return the text
-			%> with the terminator stripped. Honors a.Timeout. Empty on timeout.
+			%> Read up to (and including) the Terminator; return a string with the
+			%> terminator stripped (serialport parity). Honors a.Timeout.
 			term = a.term_bytes(); tlen = numel(term);
 			buf = uint8([]); start = tic;
 			while toc(start) < a.Timeout
 				if a.NumBytesAvailable > 0
 					buf = [buf, AVP.HW.win32serial_mex('try_read', a.handle, uint32(a.NumBytesAvailable))]; %#ok<AGROW>
 					if numel(buf) >= tlen && isequal(buf(end-tlen+1:end), term)
-						line = char(buf(1:end-tlen)); return
+						line = string(char(buf(1:end-tlen))); return
 					end
 				else
 					pause(0.001)
 				end
 			end
-			line = char(buf); % timeout: return whatever arrived
+			line = string(char(buf)); % timeout: return whatever arrived
 		end % readline
+
+		function configureTerminator(a, readTerm, ~)
+			%> serialport-compatible: set the line terminator used by
+			%> writeline/readline. Accepts "LF"/"CR"/"CR/LF" (or a literal). A
+			%> second (write) terminator argument is accepted and ignored - this
+			%> transport uses one terminator for both directions.
+			a.Terminator = readTerm;
+		end % configureTerminator
 
 		function configureCallback(a, mode, varargin)
 			%> serialport-compatible data callback. A MATLAB timer polls the
@@ -277,6 +285,19 @@ classdef WinSerial < matlab.mixin.SetGet
 				remove(R, key);
 			end
 		end % find
+
+		function closeall()
+			%> Recovery hatch: close every open WinSerial and free every OS port
+			%> handle, WITHOUT restarting MATLAB. Deletes all registered objects,
+			%> then unloads the MEX so its mexAtExit closes any handle that leaked
+			%> out of the registry (e.g. after 'clear classes'). Use this if a port
+			%> is stuck "in use" and you have lost its object.
+			try
+				R = AVP.HW.WinSerial.registry();
+				for k = keys(R), try, delete(R(k{1})); catch, end, end
+			catch, end
+			clear AVP.HW.win32serial_mex   % -> mexAtExit cleanup_all closes all handles
+		end % closeall
 	end
 
 	methods (Static, Access=private)

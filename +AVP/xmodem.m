@@ -1,8 +1,8 @@
 function [data, packet_num] = xmodem(serial_obj_or_name,varargin)
-	if strcmp(class(serial_obj_or_name), 'internal.Serialport')
+	if isa(serial_obj_or_name, 'internal.Serialport') || isa(serial_obj_or_name, 'AVP.HW.WinSerial')
 		s = serial_obj_or_name;
 	else
-		s = serialport(serial_obj_or_name,varargin{:});
+		s = AVP.HW.open_serialport(serial_obj_or_name,varargin{:});
 		cleanup = onCleanup(@() delete(s));
 	end
 	data = [];

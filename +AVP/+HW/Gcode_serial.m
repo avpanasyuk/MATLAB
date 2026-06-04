@@ -24,7 +24,7 @@ classdef Gcode_serial < handle
 			else
 				port = AVP.opt_param('port');
 			end
-			a.s = serialport(port, Baudrate,varargin{:});
+			a.s = AVP.HW.open_serialport(port, Baudrate,varargin{:});
 			configureTerminator(a.s, 'LF');   % \n terminator
 			pause(2);
 			flush(a.s);
