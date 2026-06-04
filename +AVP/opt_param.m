@@ -15,10 +15,10 @@ function Value=opt_param(name,default,action)
     
   if ~Present
     Value = default;
-    if AVP.getbit(action,2), assignin('caller','varargin',{Varargin{:},name,Value}); end
+    if bitget(action,2), assignin('caller','varargin',{Varargin{:},name,Value}); end
   else
     Value = Varargin{2*Place};
-    if AVP.getbit(action,1) 
+    if bitget(action,1)
       evalin('caller',['varargin(',num2str(2*Place-1),':',num2str(2*Place),') = [];'])
     end
   end
