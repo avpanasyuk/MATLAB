@@ -1,7 +1,9 @@
-classdef WinSerial < handle
+classdef WinSerial < matlab.mixin.SetGet
 	%> Drop-in replacement for MATLAB's serialport using Win32 API via MEX.
 	%> Constructor: AVP.HW.WinSerial(port, baud, Name, Value, ...)
 	%>   Name-Value: 'Timeout' (s), 'DataBits', 'Parity', 'StopBits'
+	%> Inherits matlab.mixin.SetGet so get(obj,'Prop')/set(obj,'Prop',v) work
+	%> like serialport (e.g. get(s,'Status')). matlab.mixin.SetGet is a handle.
 	properties (SetAccess=protected, GetAccess=public)
 		Port      = ''
 		handle    = 0
@@ -14,14 +16,24 @@ classdef WinSerial < handle
 		BaudRate     = 115200
 		Timeout      = 10         % seconds (to match serialport semantics)
 		WriteTimeout = 10         % seconds
+		Terminator   = "LF"       % writeline/readline line terminator: "LF","CR","CR/LF"
 	end
 	properties (Constant, Access=private)
 		PARITY_MAP   = struct('none',0,'odd',1,'even',2,'mark',3,'space',4)
 		STOPBITS_MAP = struct('one',0,'onepointfive',1,'two',2,'x1',0,'x1_5',1,'x2',2)
 	end
+	properties (Access=private)
+		cb_timer  = []   % MATLAB timer emulating serialport's data callback
+		cb_fcn    = []   % user callback, signature cb(src,event)
+		cb_count  = 1    % "byte" mode: fire when this many bytes are available
+	end
 	methods
 		function a = WinSerial(port, baud, varargin)
 			p = inputParser;
+			% tolerate serialport-style Name-Value pairs we don't act on
+			% ('FlowControl','ByteOrder','name','Type',...) so WinSerial is a
+			% true drop-in for the existing open_serialport call sites.
+			p.KeepUnmatched = true;
 			p.addRequired ('port',  @(x) ischar(x) || isstring(x));
 			p.addRequired ('baud',  @(x) isnumeric(x) && isscalar(x));
 			p.addParameter('Timeout',     10,    @(x) isnumeric(x) && isscalar(x));
@@ -29,6 +41,7 @@ classdef WinSerial < handle
 			p.addParameter('DataBits',     8,    @(x) any(x == [5 6 7 8]));
 			p.addParameter('Parity',       'none', @(x) ischar(x) || isstring(x));
 			p.addParameter('StopBits',     1,    @(x) any(x == [1 1.5 2]));
+			p.addParameter('Terminator',   "LF", @(x) ischar(x) || isstring(x));
 			p.parse(port, baud, varargin{:});
 			r = p.Results;
 
@@ -42,16 +55,26 @@ classdef WinSerial < handle
 			a.BaudRate = r.baud;
 			a.Timeout      = r.Timeout;
 			a.WriteTimeout = r.WriteTimeout;
+			a.Terminator   = r.Terminator;
 			a.handle = AVP.HW.win32serial_mex('open', a.Port, r.baud, ...
 				uint8(r.DataBits), uint8(parity_num), uint8(stop_num), ...
 				uint32(round(r.Timeout * 1000)), uint32(round(r.WriteTimeout * 1000)));
+			R = AVP.HW.WinSerial.registry(); R(upper(a.Port)) = a; %#ok<NASGU>
 		end % WinSerial
 
 		function delete(a)
+			if ~isempty(a.cb_timer) && isvalid(a.cb_timer)
+				try, stop(a.cb_timer); delete(a.cb_timer); catch, end
+			end
+			a.cb_timer = [];
 			if a.handle ~= 0
 				try, AVP.HW.win32serial_mex('close', a.handle); catch, end
 				a.handle = 0;
 			end
+			try
+				R = AVP.HW.WinSerial.registry(); key = upper(a.Port);
+				if isKey(R, key) && isequal(R(key), a), remove(R, key); end
+			catch, end
 		end % delete
 
 		function out = get.NumBytesAvailable(a)
@@ -119,6 +142,61 @@ classdef WinSerial < handle
 			AVP.HW.win32serial_mex('write', a.handle, raw);
 		end % write
 
+		function writeline(a, line)
+			%> Write a string followed by the configured Terminator (serialport parity).
+			raw = [uint8(char(line)), a.term_bytes()];
+			AVP.HW.win32serial_mex('write', a.handle, raw);
+		end % writeline
+
+		function line = readline(a)
+			%> Read bytes up to (and including) the Terminator, return the text
+			%> with the terminator stripped. Honors a.Timeout. Empty on timeout.
+			term = a.term_bytes(); tlen = numel(term);
+			buf = uint8([]); start = tic;
+			while toc(start) < a.Timeout
+				if a.NumBytesAvailable > 0
+					buf = [buf, AVP.HW.win32serial_mex('try_read', a.handle, uint32(a.NumBytesAvailable))]; %#ok<AGROW>
+					if numel(buf) >= tlen && isequal(buf(end-tlen+1:end), term)
+						line = char(buf(1:end-tlen)); return
+					end
+				else
+					pause(0.001)
+				end
+			end
+			line = char(buf); % timeout: return whatever arrived
+		end % readline
+
+		function configureCallback(a, mode, varargin)
+			%> serialport-compatible data callback. A MATLAB timer polls the
+			%> port and fires the callback the same way serialport's event loop
+			%> does (serviced during pause/drawnow). Supported:
+			%>   configureCallback(s,"byte",count,@cb)  - fire when >=count bytes available
+			%>   configureCallback(s,"off")             - disable
+			%> The callback signature is cb(src,event), matching serialport.
+			mode = lower(char(mode));
+			if ~isempty(a.cb_timer) && isvalid(a.cb_timer)
+				stop(a.cb_timer); delete(a.cb_timer);
+			end
+			a.cb_timer = []; a.cb_fcn = [];
+			switch mode
+				case 'off'
+					return
+				case 'byte'
+					a.cb_count = varargin{1};
+					a.cb_fcn   = varargin{2};
+				case 'terminator'
+					error('WinSerial:configureCallback', ...
+						['"terminator" callback mode is not implemented (it needs a ' ...
+						 'non-consuming buffer peek); use "byte" mode with readline.']);
+				otherwise
+					error('WinSerial:configureCallback', 'Unknown mode "%s"', mode);
+			end
+			a.cb_timer = timer('ExecutionMode','fixedSpacing', 'Period', 0.02, ...
+				'BusyMode','drop', 'Name', ['WinSerial_' a.Port], ...
+				'TimerFcn', @(~,~) a.cb_tick());
+			start(a.cb_timer);
+		end % configureCallback
+
 		function flush(a, which)
 			if a.handle == 0, return; end
 			if nargin < 2
@@ -145,6 +223,31 @@ classdef WinSerial < handle
 			fprintf('  AVP.HW.WinSerial on %s, %d baud, Timeout=%g s, %d bytes available\n\n', ...
 				a.Port, a.BaudRate, a.Timeout, a.NumBytesAvailable);
 		end % disp
+
+		function b = term_bytes(a)
+			%> Terminator string -> raw bytes (LF default), mirroring serialport.
+			switch upper(char(a.Terminator))
+				case 'LF',                b = uint8(10);
+				case 'CR',                b = uint8(13);
+				case {'CR/LF','CRLF'},    b = uint8([13 10]);
+				otherwise,                b = uint8(char(a.Terminator));
+			end
+		end % term_bytes
+
+		function cb_tick(a)
+			%> Timer worker for configureCallback: fire the user callback while
+			%> at least cb_count bytes are available. The callback is expected to
+			%> consume bytes (as serialport callbacks do); errors are surfaced as
+			%> warnings so a throwing callback doesn't silently kill the timer.
+			if a.handle == 0 || isempty(a.cb_fcn), return; end
+			try
+				if a.NumBytesAvailable >= a.cb_count
+					a.cb_fcn(a, struct('AbsTime', datetime('now')));
+				end
+			catch ME
+				warning('WinSerial:callback', '%s', ME.message);
+			end
+		end % cb_tick
 	end % methods
 
 	methods (Static)
@@ -152,6 +255,28 @@ classdef WinSerial < handle
 			%> Cell array of COM port names from registry.
 			ports = AVP.HW.win32serial_mex('list');
 		end % list
+
+		function reg = registry()
+			%> Process-wide map of live open WinSerial objects, keyed by
+			%> upper-case port name. Mirrors serialportfind so open_serialport
+			%> can reuse an already-open handle (Win32 opens are exclusive).
+			persistent R
+			if isempty(R), R = containers.Map('KeyType','char','ValueType','any'); end
+			reg = R;
+		end % registry
+
+		function s = find(port)
+			%> Live, healthy WinSerial on @p port, or [] if none. Prunes dead entries.
+			s = [];
+			R = AVP.HW.WinSerial.registry(); key = upper(char(port));
+			if isKey(R, key)
+				cand = R(key);
+				if isvalid(cand) && cand.handle ~= 0
+					try, cand.NumBytesAvailable; s = cand; return; catch, end
+				end
+				remove(R, key);
+			end
+		end % find
 	end
 
 	methods (Static, Access=private)

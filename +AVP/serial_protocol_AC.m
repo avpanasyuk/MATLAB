@@ -112,11 +112,11 @@ classdef serial_protocol_AC < AVP.serial_protocol
 					if any(strcmp(AvailPorts,OldPort))
 						try
 							disp('Trying old port first...')
-							s = serialportfind(Port=OldPort);
+							s = AVP.HW.WinSerial.find(OldPort);
 							if ~isempty(s)
 								s.flush
 							else
-								s = serialport(OldPort,BaudRate);
+								s = AVP.HW.open_serialport(OldPort,BaudRate);
 								cleanup = onCleanup(@() delete(s));
 							end
 							if AVP.serial_protocol_AC.PingNOOP(s), Port = OldPort; end
