@@ -274,17 +274,40 @@ classdef WinSerial < matlab.mixin.SetGet
 		end % registry
 
 		function s = find(port)
-			%> Live, healthy WinSerial on @p port, or [] if none. Prunes dead entries.
-			s = [];
-			R = AVP.HW.WinSerial.registry(); key = upper(char(port));
-			if isKey(R, key)
-				cand = R(key);
-				if isvalid(cand) && cand.handle ~= 0
-					try, cand.NumBytesAvailable; s = cand; return; catch, end
+			%> With a port name: the live, healthy WinSerial on that port, or [].
+			%> With no argument: an array of all live WinSerial objects (parity
+			%> with serialportfind(), which only finds internal.Serialport). Prunes
+			%> dead registry entries either way.
+			R = AVP.HW.WinSerial.registry();
+			if nargin >= 1
+				s = []; key = upper(char(port));
+				if isKey(R, key)
+					cand = R(key);
+					if isvalid(cand) && cand.handle ~= 0
+						try, cand.NumBytesAvailable; s = cand; return; catch, end
+					end
+					remove(R, key);
 				end
-				remove(R, key);
+				return
+			end
+			s = AVP.HW.WinSerial.empty;
+			for k = keys(R)
+				cand = R(k{1});
+				if isvalid(cand) && cand.handle ~= 0
+					try, cand.NumBytesAvailable; s(end+1) = cand; continue; catch, end %#ok<AGROW>
+				end
+				remove(R, k{1});
 			end
 		end % find
+
+		function s = open(port, varargin)
+			%> Find-or-create a WinSerial on @p port (reuses an already-open one
+			%> from the registry; Win32 opens are exclusive). The transport-agnostic
+			%> entry point is AVP.HW.open_serialport, which adds the native-backend
+			%> rollback switch; call this when you specifically want a WinSerial.
+			s = AVP.HW.WinSerial.find(port);
+			if isempty(s), s = AVP.HW.WinSerial(port, varargin{:}); end
+		end % open
 
 		function closeall()
 			%> Recovery hatch: close every open WinSerial and free every OS port

@@ -23,8 +23,6 @@ function s = open_serialport(COM_name, varargin)
 		s = serialport(COM_name, varargin{:});
 		return
 	end
-	% --- default: AVP.HW.WinSerial (Win32 API via MEX), reuse via its registry ---
-	s = AVP.HW.WinSerial.find(COM_name);
-	if ~isempty(s), return; end
-	s = AVP.HW.WinSerial(COM_name, varargin{:});
+	% --- default: AVP.HW.WinSerial (Win32 API via MEX), find-or-create ---
+	s = AVP.HW.WinSerial.open(COM_name, varargin{:});
 end % open_serialport
