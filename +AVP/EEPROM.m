@@ -32,7 +32,7 @@ classdef EEPROM < handle
     
     function store(a,thing)
       a.CS = 0;
-      bytes = AVP.save2bytestream(thing);
+      bytes = AVP.CONVERT.save2bytestream(thing);
       a.write(typecast(uint32(numel(bytes)),'uint8')); % size
       a.write(bytes); % data
       a.write(uint8(255-a.CS)); % cs is written in negative, so zero filed does not pass checksumming

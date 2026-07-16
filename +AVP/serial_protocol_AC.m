@@ -1,6 +1,6 @@
 classdef serial_protocol_AC < AVP.serial_protocol
   %> finds port automatically
-  %> goes through all available ports and finds one broadcasting a given
+  %> goes through all available ports and finds one transmitting a given
   %> string
   properties
     TimeOfLastResponce = cputime;
@@ -40,12 +40,12 @@ classdef serial_protocol_AC < AVP.serial_protocol
           if s.BytesAvailable >= numel(Code)*2-1, % yes, port is transmitting something
             str = char(fread(s,numel(Code)*2-1)); % make sure that captures string is long
             % enough to contain the whole code
-            fprintf(1,'Port is broascasting "%s"...\n',str);
+            fprintf(1,'Port is transmitting "%s"...\n',str);
             if ~isempty(strfind(str(:).',Code)) %found port transmitting Code
               % clean receive buffer, so it is not likely to overfloat
               if s.BytesAvailable ~= 0, fread(s,s.BytesAvailable); end
               % sending command NOOP "manually" because object is not here yet
-              disp('Found breadcasting port...');
+              disp('Found transmitting port...');
               status = AVP.serial_protocol_AC.PingNOOP(s);
               fclose(s)
               delete(s)
@@ -66,12 +66,12 @@ classdef serial_protocol_AC < AVP.serial_protocol
   
   methods
     %> finds port which broadcasts code or tries to connect to old one
-    %> (because FW stops broadcasting on first connection).
-    %> FIXME implement broadcasting restart on disconnect
+    %> (because FW stops transmitting on first connection).
+    %> FIXME implement transmitting restart on disconnect
     %> @param code
     %>   - if string value it is the string broadcasted by FW.
     %>      This function goes through all avaibale ports to find one
-    %>      broadcasting string "code"
+    %>      transmitting string "code"
     %>   - if numerical value, it is the port number to connect to
     %> @param varargin is passed to serial() constructor
     function a = serial_protocol_AC(code,varargin)

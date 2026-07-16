@@ -118,7 +118,7 @@ classdef scrolling < handle
           a.plots.XData = a.data_x;
           a.plots.YData = a.data_y;
           if a.show_std
-            a.legend.String = AVP.num2str(AVP.rel_std(a.data_y),'%6.2e');
+            a.legend.String = AVP.CONVERT.num2str(AVP.rel_std(a.data_y),'%6.2e');
           end
         else
           for pli=1:n_vars

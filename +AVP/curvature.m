@@ -11,5 +11,13 @@ function c = curvature(y,x)
   c = smooth([c(1);c;c(end)],3);
 end
 
+function test
+  ang = linspace(0, 360, 100);
+  x = cosd(ang(1:end-1));
+  y = sind(ang(1:end-1));
+  plot(AVP.curvature(y,x))
+  plot(AVP.curvature_via_diff(y,x)) 
+end
+
 
 

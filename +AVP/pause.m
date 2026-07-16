@@ -1,7 +1,8 @@
 
 function pause(varargin)
-  fprintf('PAUSED, PRESS KEY ...\n')
+  AVP.opt_param('prompt','PAUSED, PRESS ANY KEY ...',1);
+  fprintf([prompt '\n'])
   pause(varargin{:});
-  fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+  fprintf(repmat('\b',1,numel(prompt)+1))
 end
 

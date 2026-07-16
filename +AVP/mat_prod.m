@@ -1,15 +1,15 @@
 function C = mat_prod(A,B,dimA,dimB)
-%> multiplies multidimensional array along selected dimensions
+%> multiplies multidimensional array along selected dimensions, by default
+%> the last dimension of array A by the first dimension of array B.
 if nargin < 4 || isempty(dimB), dimB = 1; end
-if nargin < 3 || isempty(dimA), dimA = 2; end
+if nargin < 3 || isempty(dimA), dimA = ndims(A); end
 
 SzA = size(A); SzB = size(B);
 if SzA(dimA) ~= SzB(dimB)
   error('Can not multiply!');
 end
-RdimA = [1:ndims(A)] ~= dimA;
+RdimA = [1:ndims(A)] ~= dimA; % indexes of remaining dimensions
 RdimB = [1:ndims(B)] ~= dimB;
-
 
 if ndims(A) > 2, 
   A = permute(A,[find(RdimA),dimA]);

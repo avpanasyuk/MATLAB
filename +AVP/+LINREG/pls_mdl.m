@@ -21,6 +21,7 @@ classdef pls_mdl < handle
       %> @param train_data: AVP.LINREG.input_data class
       %> @param SelectParIs - vector  of indexes of independent parameters we
       %>      use, the rest is ignored
+      %> @param varargin - passed to plsregress
       %> @retval C - coeff array [num_complexities,all_xvar]
       
       if ~isa(train_data,'AVP.LINREG.input_data')
@@ -28,12 +29,12 @@ classdef pls_mdl < handle
       end
       
       [~,SUY,~,~,~,a.pctVar,~,stats] = ...
-        plsregress(train_data.X.D(:,SelectParIs),train_data.y.D);
+        plsregress(train_data.X.D(:,SelectParIs),train_data.y.D); % NO VARARGIN here
       V = stats.W;
       
       C = zeros(size(train_data.X.D,2),numel(SUY));
       for ComplI = numel(SUY):-1:1
-        C(SelectParIs,ComplI) = V(:,1:ComplI)*AVP.to_column(SUY(1:ComplI));
+        C(SelectParIs,ComplI) = V(:,1:ComplI)*AVP.CONVERT.to_column(SUY(1:ComplI));
       end
     end  % do_regression
   end % methods(Static)
@@ -44,25 +45,19 @@ classdef pls_mdl < handle
       %> use "do_regression" for this
       %> @param Kfold_data: AVP.linreg.kfold_class
       %> @param varargin
-      %>        - ntol - interrupt iterrations when C changes less then this
-      %>        - fminbnd_options
-      %>        - WeightPwr - what power is supppression factor from coeff
-      %>            smallness. The smaller it is, the smaller the error but
-      %>             more coefficients.
-      %>        - TuneWeightPwr - whether to tune WeightPwr in run time.
+      %>        - small_par_thres - parameters with smaller weight get
+      %>            thrown out
       %>        - err_func - function err_func(data,fit) to estimate an
       %>             error. Returns a single normalized error value.
-      %>        - ComplRange - range of complixity changes, tuned.
-      %> @retval err = err_func(y,Ypredict)
+      %>        - MaxIters - maximum numer of iterations
       
       if ~isa(Kfold_data,'AVP.LINREG.kfold_class')
         error('Kfold_data should be AVP.LINREG.kfold_class!');
       end
       
-      AVP.opt_param('tol',1e-2);
+      AVP.opt_param('small_par_thres',1e-2);
       AVP.opt_param('err_func',@(data,fit) AVP.rms(fit - data)./AVP.rms(data));
-      AVP.opt_param('DoPar',false,0);
-      AVP.opt_param('MaxIters',min([20,size(Kfold_data.Xin,2)]));
+      AVP.opt_param('MaxIters',min([30,size(Kfold_data.Xin,2)]));
       
       CoeffsToThrowOutPerIter = fix(size(Kfold_data.Xin,2)/MaxIters);
             
@@ -73,13 +68,13 @@ classdef pls_mdl < handle
       for IterI=1:MaxIters % because we throw away some parameters at each
         % iteration, we can not have more iterations than parameters
         
-        % for each Kfold we have to run AVP.mysvd_mdl.do_regression once and
+        % for each Kfold we have to run AVP.pls_mdl.do_regression once and
         % then calculate C for all the complexities and corresponding error for all the complexities
         % then we should add those errors for all the Kfold to get a total
         % error for complexity.
 
         Ypredict = Kfold_data.predict(@(train_data)...
-          AVP.LINREG.pls_mdl.do_regression(train_data, SelectParIs, varargin{:}),DoPar);
+          AVP.LINREG.pls_mdl.do_regression(train_data, SelectParIs, varargin{:}));
         % Ypredict is array [num_samples,num_solutions]
         
         % calculate errors
@@ -106,7 +101,7 @@ classdef pls_mdl < handle
         
         
         % find low sensitivity parameters
-        SmallParIs = find(abs(BestC(SelectParIs,IterI)) < tol);
+        SmallParIs = find(abs(BestC(SelectParIs,IterI)) < small_par_thres);
         a.SelectParIs{IterI} = SelectParIs;
         
         if numel(SmallParIs) < CoeffsToThrowOutPerIter % lets throw out least sensitive

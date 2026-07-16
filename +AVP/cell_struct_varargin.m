@@ -17,7 +17,9 @@ function cell_struct_varargin()
       Varargin = {first{:},Varargin(2:end)};
     else
       if isstruct(first)
-        x = [fieldnames(first),struct2cell(first)].';
+        fn = fieldnames(first);
+        if isempty(fn), return; end
+        x = [fn,struct2cell(first)].';
         Varargin = {x{:},Varargin(2:end)};
       end
     end
