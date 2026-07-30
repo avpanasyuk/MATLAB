@@ -32,6 +32,12 @@ It returns `y` (samples × channels), `t` (s, **0 = the trigger instant**), `Fs`
 - **`Fire` runs after the scope is armed, and its errors are caught.** The usual case is a target
   that resets or stops answering *because of* the event being captured; that is the expected
   outcome, not a failure.
+- **`out.dead` flags a non-acquiring instrument.** An Analog Discovery that has lost USB
+  enumeration returns a *constant* instead of erroring, and a dead instrument reading as a clean
+  quiet signal is the worst failure this can have — it looks exactly like "the thing you were
+  worried about is fine". Even a shorted input dithers by an LSB, so zero variance on every channel
+  is never real data. Check `out.dead` before drawing any conclusion from a suspiciously clean
+  trace; the fix is to reseat the USB.
 
 `longest_run(mask)` gives the longest consecutive run in samples. For a supply dip this is the
 statistic that matters — total time below a threshold conflates one long excursion with many short

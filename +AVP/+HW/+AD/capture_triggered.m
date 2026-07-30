@@ -98,4 +98,16 @@ for k = 1:numel(chans)
     out.y(:, k) = ad.In(chans(k)).StatusData(smax);
 end
 out.t = ((0:smax-1).' - smax/2) / out.Fs;       % s, 0 = trigger instant
+
+% A device that has lost USB enumeration hands back a constant rather than erroring, and a dead
+% instrument reading as a clean, quiet signal is the worst failure this can have - it looks exactly
+% like "the thing you were worried about is fine". Even a shorted input dithers by an LSB or two, so
+% zero variance on every channel is never real data.
+out.dead = all(var(out.y, 0, 1) == 0);
+if out.dead
+    warning('AVP:AD:deadCapture', ...
+        ['All %d channel(s) returned zero variance (constant %.4f V) - the Analog Discovery is not ' ...
+         'acquiring. Reseat its USB before believing anything. This is NOT a quiet signal.'], ...
+        numel(chans), out.y(1, 1));
+end
 end
