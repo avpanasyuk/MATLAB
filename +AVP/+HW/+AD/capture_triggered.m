@@ -90,6 +90,12 @@ if ~out.triggered && a.Force
     ad.AnalogInTriggerForce();
     pause(0.3);
 end
+% MUST re-read status after forcing. StatusData does not fetch anything - it returns whatever the
+% most recent AnalogInStatus(true) snapshot holds (see AnalogInChannel.StatusData). Without this
+% call the samples come from the pre-force snapshot, which is empty whenever the trigger never
+% armed - e.g. a falling-edge level the signal starts below and so never crosses. That returns a
+% constant and reads as a clean quiet trace rather than as a failure.
+out.done = (ad.AnalogInStatus(true) == ad.DwfStateDone);
 out.auto = ad.AnalogInStatusAutoTriggered();
 out.Fs = ad.AnalogInFrequencyGet();
 out.channels = chans;
