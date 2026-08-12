@@ -155,7 +155,7 @@ classdef WinSerial < matlab.mixin.SetGet
 			buf = uint8([]); start = tic;
 			while toc(start) < a.Timeout
 				if a.NumBytesAvailable > 0
-					buf = [buf, AVP.HW.win32serial_mex('try_read', a.handle, uint32(a.NumBytesAvailable))]; %#ok<AGROW>
+					buf = [buf, a.try_read(a.NumBytesAvailable)]; %#ok<AGROW>
 					if numel(buf) >= tlen && isequal(buf(end-tlen+1:end), term)
 						line = string(char(buf(1:end-tlen))); return
 					end
@@ -217,6 +217,7 @@ classdef WinSerial < matlab.mixin.SetGet
 		function out = try_read(a, n)
 			%> Non-blocking; returns up to n bytes that are currently available.
 			out = AVP.HW.win32serial_mex('try_read', a.handle, uint32(n));
+			out = out(:).';   % row, matching read(); MEX returns a column and readline needs a row
 		end % try_read
 
 		function info = info(a)

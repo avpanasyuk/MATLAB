@@ -17,10 +17,13 @@ function [bg bg_std] = find_bg(x, varargin)
   cs_x2 = cumsum(xs.^2);
   N = [1:numel(xs)].';
   x_std = (cs_x2./N - (cs_x./N).^2)./sqrt(N-0.999);
-  [bg_std,ii] = min(x_std(Same:end));
-  bg_std = bg_std*sqrt(ii + Same);
-  bg = xs(ii + Same);
-  % removing outliers
-  xs = xs(find(xs(Same:ii) >= bg - Nsigmas*bg_std));
-  bg = mean(xs); bg_std = std(xs);
+  [minstd,ii] = min(x_std(Same:end));
+  Nbg = Same + ii - 1;              % absolute index of the min-std boundary (ii is relative to Same:end)
+  bg = xs(Nbg);
+  bg_std = minstd*sqrt(Nbg);
+  % remove low outliers within the background cluster, then average
+  cluster = xs(Same:Nbg);
+  cluster = cluster(cluster >= bg - Nsigmas*bg_std);
+  if isempty(cluster), cluster = xs(Same:Nbg); end   % degenerate guard (flat bg, bg_std ~ 0)
+  bg = mean(cluster); bg_std = std(cluster);
 end
