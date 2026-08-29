@@ -8,14 +8,23 @@ submodule, e.g. in ElectricPanelMeter).
 
 - **`+AVP/`** — the author's own MATLAB package (utilities, reachable as `AVP.*`).
 - **`+CONTRIB/`** — contributed / adapted helpers in package form (`CONTRIB.*`).
-- **`ARESLab/`, `ARESLab.1.8.2/`** — ARESLab, the Adaptive Regression Splines (MARS) toolbox.
+- **`ARESLab/`** — ARESLab, the Adaptive Regression Splines (MARS) toolbox
+  (v1.13.0, May 2016 — the final upstream release).
 - **`M5PrimeLab/`** — M5'-style regression- / model-tree toolbox.
 - **`LWP/`** — locally weighted polynomial regression.
-- **`Objects/`, `START_and_FINISH/`** — class definitions and session start/cleanup helpers.
+- **`START_and_FINISH/`** — session start/cleanup helpers.
 - **`MatlabDocMaker.m`** — documentation generator.
 
 ## Use
 
 Add the repo root to your MATLAB path; the `+AVP` / `+CONTRIB` packages are then
 reachable as `AVP.*` / `CONTRIB.*`. The regression toolboxes (ARESLab, M5PrimeLab,
-LWP) are vendored third-party packages — see their own license / readme files.
+LWP) are vendored third-party packages (GPL-3.0) — see their own license / readme files.
+
+## Branches
+
+The GitHub default branch is `2Xi_V3` — a frozen snapshot. Current work happens
+on `development`.
+
+Note: some local checkouts contain extra gitignored directories (e.g.
+`ARESLab.1.10.1/`); these are local-only and not part of the repo.
