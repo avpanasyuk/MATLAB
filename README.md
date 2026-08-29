@@ -23,8 +23,8 @@ LWP) are vendored third-party packages (GPL-3.0) — see their own license / rea
 
 ## Branches
 
-The GitHub default branch is `2Xi_V3` — a frozen snapshot. Current work happens
-on `development`.
+The default branch is `development`, where current work happens. `2Xi_V3` is
+a frozen legacy snapshot.
 
 Note: some local checkouts contain extra gitignored directories (e.g.
 `ARESLab.1.10.1/`); these are local-only and not part of the repo.
