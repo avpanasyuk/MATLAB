@@ -10,6 +10,7 @@ function out = capture_triggered(varargin)
 %> Name-value arguments (all optional):
 %>   Channels   [1 2]   channels to enable, 1-based
 %>   Range      5       input range V, per channel or scalar
+%>   Offset     0       input offset V, per channel or scalar; centres the window off ground
 %>   Rate       200e3   sample rate Hz
 %>   TrigChan   1       trigger channel, 1-based (converted to DWF's 0-based internally)
 %>   TrigLevel  1.0     trigger level V
@@ -19,8 +20,17 @@ function out = capture_triggered(varargin)
 %>   Timeout    10      how long to wait for the trigger, s
 %>   Fire       []      function handle invoked once armed, to cause the event
 %>   Force      true    on timeout, force a capture so the idle trace is still returned
+%>   Settle     0.4     s to wait for the offset DAC after a change; see below
 %>
 %> Returns a struct: y (samples x channels), t (s, 0 = trigger), Fs, triggered, auto, channels.
+%>
+%> Offset moves the acquisition window off ground - a 0..12 V node needs Range 50 with Offset ~6,
+%> because Range 5 only spans +-2.76 V. It costs a wait: the offset DAC slews with tau ~80 ms while
+%> FDwfAnalogInConfigure returns at once and OffsetGet immediately echoes the COMMANDED value, so
+%> there is nothing to poll. Worse, DWF adds the full requested offset to the reported volts in
+%> software straight away, so an early read has a correct span sitting at a wrong absolute level.
+%> Settle is therefore applied before arming whenever the requested offset differs from what the
+%> device already holds, and skipped when it does not - a repeat capture pays nothing.
 %>
 %> Fire runs AFTER the scope is armed and its errors are caught, not propagated: the usual case is
 %> a device that resets or stops answering because of the very event being captured, and that is a
@@ -36,6 +46,7 @@ function out = capture_triggered(varargin)
 p = inputParser;
 p.addParameter('Channels', [1 2]);
 p.addParameter('Range', 5);
+p.addParameter('Offset', 0);
 p.addParameter('Rate', 200e3);
 p.addParameter('TrigChan', 1);
 p.addParameter('TrigLevel', 1.0);
@@ -45,18 +56,25 @@ p.addParameter('HoldOff', 0);
 p.addParameter('Timeout', 10);
 p.addParameter('Fire', []);
 p.addParameter('Force', true);
+p.addParameter('Settle', 0.4);
 p.parse(varargin{:});
 a = p.Results;
 
 chans = a.Channels(:).';
 rng = a.Range;
 if isscalar(rng), rng = repmat(rng, 1, numel(chans)); end
+off = a.Offset;
+if isscalar(off), off = repmat(off, 1, numel(chans)); end
 
 ad = AVP.HW.AD.dwf();
+% Read the offsets the device is physically holding BEFORE the reset commands them to 0, so a
+% capture that is not moving the DAC can skip the settle entirely.
+held = arrayfun(@(c) ad.In(c).OffsetGet(), chans);
 ad.AnalogInReset();
 for k = 1:numel(chans)
     ad.In(chans(k)).EnableSet(true);
     ad.In(chans(k)).RangeSet(rng(k));
+    ad.In(chans(k)).OffsetSet(off(k));
 end
 [~, smax] = ad.AnalogInBufferSizeInfo();
 ad.AnalogInBufferSizeSet(smax);
@@ -70,8 +88,10 @@ ad.AnalogInTriggerLevelSet(a.TrigLevel);
 ad.AnalogInTriggerPositionSet(a.TrigPos);
 ad.AnalogInTriggerHoldOffSet(a.HoldOff);
 ad.AnalogInTriggerAutoTimeoutSet(0);            % never auto-trigger; wait for a real edge
-ad.AnalogInConfigure(true, true);               % arm
-pause(0.05);                                    % let it reach DwfStateArmed before firing
+ad.AnalogInConfigure(true, true);               % arm, which is also what applies the offset
+settle = 0.05;                                  % enough on its own to reach DwfStateArmed
+if any(abs(off - held) > 0.01), settle = max(settle, a.Settle); end
+pause(settle);
 
 if ~isempty(a.Fire)
     try
