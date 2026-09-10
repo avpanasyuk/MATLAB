@@ -21,8 +21,27 @@ function out = capture_triggered(varargin)
 %>   Fire       []      function handle invoked once armed, to cause the event
 %>   Force      true    on timeout, force a capture so the idle trace is still returned
 %>   Settle     0.4     s to wait for the offset DAC after a change; see below
+%>   Filter     []      per-channel acquisition filter; [] leaves the device default
+%>   Noise      false   also return the per-bucket min/max envelope; see below
 %>
 %> Returns a struct: y (samples x channels), t (s, 0 = trigger), Fs, triggered, auto, channels.
+%> With Noise: also noiseMin / noiseMax (buckets x channels) and noiseT (bucket centres, s).
+%>
+%> Noise is opt-in because it changes what the device allocates, and this function is vendored by
+%> a dozen projects that did not ask for it. Three measured properties of the underlying SDK calls
+%> shape how it is wired, none of them guessable from dwf.h:
+%>   - FDwfAnalogInNoiseSizeSet is an ENABLE FLAG, not a size - the magnitude is discarded.
+%>   - The applied size is buffer/8, capped at 1024, and it materialises at FDwfAnalogInFrequencySet
+%>     rather than at Configure. So the flag is set BELOW between BufferSizeSet and FrequencySet;
+%>     after the FrequencySet it silently allocates nothing and StatusNoise then fails with
+%>     "Invalid data count provided", far from the cause.
+%>   - StatusNoise must be called with exactly the applied size, so this function reads it back and
+%>     uses it. Never re-derive the count in a caller: buffer/8 is right until the 1024 cap bites.
+%> Enabling the buffer does NOT require filterMinMax - the applied size is identical under
+%> filterDecimate - but the ENVELOPE is only meaningful under filterMinMax, so pass
+%> 'Filter', AVP.HW.AD.dwf.filterMinMax when you want to read it. The two are deliberately not
+%> coupled here. Reference table (both libraries agreeing, measured): LAB_EQUIP's
+%> instruments/analog-discovery-input-ranges.md, "The noise buffer".
 %>
 %> Offset moves the acquisition window off ground - a 0..12 V node needs Range 50 with Offset ~6,
 %> because Range 5 only spans +-2.76 V. It costs a wait: the offset DAC slews with tau ~80 ms while
@@ -57,6 +76,8 @@ p.addParameter('Timeout', 10);
 p.addParameter('Fire', []);
 p.addParameter('Force', true);
 p.addParameter('Settle', 0.4);
+p.addParameter('Filter', []);
+p.addParameter('Noise', false);
 p.parse(varargin{:});
 a = p.Results;
 
@@ -75,10 +96,16 @@ for k = 1:numel(chans)
     ad.In(chans(k)).EnableSet(true);
     ad.In(chans(k)).RangeSet(rng(k));
     ad.In(chans(k)).OffsetSet(off(k));
+    if ~isempty(a.Filter), ad.In(chans(k)).FilterSet(a.Filter); end
 end
 [~, smax] = ad.AnalogInBufferSizeInfo();
 ad.AnalogInBufferSizeSet(smax);
+% MUST precede the FrequencySet - that is what actually allocates the noise buffer. See the
+% header: after it, this silently allocates nothing and StatusNoise fails much later.
+if a.Noise, ad.AnalogInNoiseSizeSet(1); end
 ad.AnalogInFrequencySet(a.Rate);
+nNoise = 0;
+if a.Noise, nNoise = ad.AnalogInNoiseSizeGet(); end
 ad.AnalogInAcquisitionModeSet(ad.acqmodeSingle);
 ad.AnalogInTriggerSourceSet(ad.trigsrcDetectorAnalogIn);
 ad.AnalogInTriggerTypeSet(ad.trigtypeEdge);
@@ -124,6 +151,16 @@ for k = 1:numel(chans)
     out.y(:, k) = ad.In(chans(k)).StatusData(smax);
 end
 out.t = ((0:smax-1).' - smax/2) / out.Fs;       % s, 0 = trigger instant
+
+if a.Noise
+    out.noiseMin = zeros(nNoise, numel(chans));
+    out.noiseMax = zeros(nNoise, numel(chans));
+    for k = 1:numel(chans)
+        [out.noiseMin(:, k), out.noiseMax(:, k)] = ad.In(chans(k)).StatusNoise(nNoise);
+    end
+    % Bucket centres on the same axis as out.t.
+    out.noiseT = (((0:nNoise-1).' + 0.5) * (smax/nNoise) - smax/2) / out.Fs;
+end
 
 % A device that has lost USB enumeration hands back a constant rather than erroring, and a dead
 % instrument reading as a clean, quiet signal is the worst failure this can have - it looks exactly
