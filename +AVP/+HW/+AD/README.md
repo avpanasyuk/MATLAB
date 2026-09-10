@@ -2,8 +2,11 @@
 
 Thin MATLAB wrapper over the WaveForms SDK (`C:\Program Files (x86)\Digilent\WaveFormsSDK\`).
 Use it to see what a pin, bus or supply rail **actually does** on a live board — UART, SWI/1-Wire,
-SPI, or an analog rail during a transient. Input impedance is ~50 MΩ, so it does not load what it
-watches.
+SPI, or an analog rail during a transient.
+
+⛔ **Electrical facts about the instrument belong to `PROJECTS/LAB_EQUIP`, not to this file.**
+Input impedance, ranges, bandwidth and isolation are stated there and were wrong here by ~50x.
+This README owns the *mechanism* of driving the AD from MATLAB and nothing else.
 
 `dwf.m` maps method names 1:1 onto the SDK's `FDwf*` functions (a method `XYZ` calls `FDwfXYZ`),
 and carries the SDK's enums as constants — `acqmode*`, `trigsrc*`, `trigtype*`, `DwfState*`. Read
