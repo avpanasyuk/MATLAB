@@ -478,6 +478,21 @@ classdef dwf < handle
 		end
 		function AnalogInBufferSizeSet(a, nSize),               a.Call(int32(nSize)); end
 		function n  = AnalogInBufferSizeGet(a),                 n = a.GetValue('int32'); end
+
+		% Noise buffer (the per-bucket min/max envelope read by AnalogInChannel.StatusNoise).
+		% All three are misleadingly named; measured on dwf 3.24.3:
+		%  - Set is an ENABLE FLAG, not a size. Any non-zero enables, 0 disables, and the
+		%    magnitude is discarded -- Set(64) and Set(1024) give an identical result.
+		%  - The applied size is the sample buffer size / 8, capped at Info's max (1024).
+		%  - It materialises at AnalogInFrequencySet, NOT at Configure. Set the flag, then set
+		%    the frequency, then Get reads the applied size immediately. Skip the frequency set
+		%    and it stays 0 through Configure, auto-configure on or off. AnalogInReset clears it.
+		% So the only working order is Set(1) -> AnalogInFrequencySet(fs) -> n = Get(), and n is
+		% what StatusNoise must be called with; any other count errors "Invalid data count
+		% provided". In capture_triggered the flag therefore goes BEFORE the FrequencySet.
+		function n  = AnalogInNoiseSizeInfo(a),                 n = a.GetValue('int32'); end %>< max, 1024 on AD gen 1
+		function AnalogInNoiseSizeSet(a, nSize),                a.Call(int32(nSize)); end    %>< non-zero enables, 0 disables
+		function n  = AnalogInNoiseSizeGet(a),                  n = a.GetValue('int32'); end %>< applied size; 0 until FrequencySet
 		function AnalogInAcquisitionModeSet(a, mode),           a.Call(int32(mode)); end
 		function m  = AnalogInAcquisitionModeGet(a),            m = a.GetValue('int32'); end
 
