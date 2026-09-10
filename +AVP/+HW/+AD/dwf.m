@@ -490,9 +490,13 @@ classdef dwf < handle
 		% So the only working order is Set(1) -> AnalogInFrequencySet(fs) -> n = Get(), and n is
 		% what StatusNoise must be called with; any other count errors "Invalid data count
 		% provided". In capture_triggered the flag therefore goes BEFORE the FrequencySet.
-		function n  = AnalogInNoiseSizeInfo(a),                 n = a.GetValue('int32'); end %>< max, 1024 on AD gen 1
-		function AnalogInNoiseSizeSet(a, nSize),                a.Call(int32(nSize)); end    %>< non-zero enables, 0 disables
-		function n  = AnalogInNoiseSizeGet(a),                  n = a.GetValue('int32'); end %>< applied size; 0 until FrequencySet
+		% Both counts come back as double, like AnalogInBufferSizeInfo and unlike the raw
+		% GetValue idiom: they are sizes that get used in arithmetic, and an int32 silently
+		% turns a bucket-centre expression into integer division that rounds a whole time
+		% axis to zero.
+		function n  = AnalogInNoiseSizeInfo(a),                 n = double(a.GetValue('int32')); end %>< max, 1024 on AD gen 1
+		function AnalogInNoiseSizeSet(a, nSize),                a.Call(int32(nSize)); end            %>< non-zero enables, 0 disables
+		function n  = AnalogInNoiseSizeGet(a),                  n = double(a.GetValue('int32')); end %>< applied size; 0 until FrequencySet
 		function AnalogInAcquisitionModeSet(a, mode),           a.Call(int32(mode)); end
 		function m  = AnalogInAcquisitionModeGet(a),            m = a.GetValue('int32'); end
 
@@ -638,16 +642,12 @@ classdef dwf < handle
 		function s = GetVersion()
 			%> @retval s: dwf.dll version, e.g. "3.20.32"
 			AVP.HW.AD.dwf.ensureLoaded();
-			buf = blanks(32);
-			[~, buf] = calllib('dwf', 'FDwfGetVersion', buf);
-			s = strtrim(buf);
+			s = AVP.HW.AD.dwf.cstrOut(32, 'FDwfGetVersion');
 		end
 
 		function s = GetLastErrorMsg()
 			if ~libisloaded('dwf'), s = '(dwf.dll not loaded)'; return; end
-			buf = blanks(512);
-			[~, buf] = calllib('dwf', 'FDwfGetLastErrorMsg', buf);
-			s = strtrim(buf);
+			s = AVP.HW.AD.dwf.cstrOut(512, 'FDwfGetLastErrorMsg');
 		end
 
 		function n = Enum(filter)
@@ -672,16 +672,12 @@ classdef dwf < handle
 
 		function name = EnumDeviceName(idxDevice)
 			AVP.HW.AD.dwf.ensureLoaded();
-			buf = blanks(32);
-			[~, buf] = calllib('dwf', 'FDwfEnumDeviceName', int32(idxDevice), buf);
-			name = strtrim(buf);
+			name = AVP.HW.AD.dwf.cstrOut(32, 'FDwfEnumDeviceName', int32(idxDevice));
 		end
 
 		function sn = EnumSN(idxDevice)
 			AVP.HW.AD.dwf.ensureLoaded();
-			buf = blanks(32);
-			[~, buf] = calllib('dwf', 'FDwfEnumSN', int32(idxDevice), buf);
-			sn = strtrim(buf);
+			sn = AVP.HW.AD.dwf.cstrOut(32, 'FDwfEnumSN', int32(idxDevice));
 		end
 
 		function f = EnumDeviceIsOpened(idxDevice)
@@ -706,6 +702,24 @@ classdef dwf < handle
 	end
 
 	methods (Static, Hidden)
+		function s = cstrOut(nBytes, fname, varargin)
+			%> Call an @c FDwf* function whose LAST argument is a @c char* output buffer.
+			%>
+			%> The obvious @c blanks(nBytes) does not work: it is a char array, and
+			%> loadlibrary maps @c char* to @c int8Ptr, so calllib rejects it outright with
+			%> "Array must be numeric or logical or a pointer to one". An int8 buffer is
+			%> what it wants. The SDK NUL-terminates inside the buffer and leaves the rest
+			%> zero-padded, and @c strtrim does not strip NULs -- the padding then prints as
+			%> blanks while comparing unequal to the string you expect, so truncate at the
+			%> first NUL before trimming.
+			p = libpointer('int8Ptr', int8(zeros(1, nBytes)));
+			calllib('dwf', fname, varargin{:}, p);
+			s = char(p.Value(:)');
+			k = find(s == 0, 1);
+			if ~isempty(k), s = s(1:k-1); end
+			s = strtrim(s);
+		end
+
 		function callByName(nameOrStack, varargin)
 			%> Routes to @c calllib('dwf','FDwf<name>',...) where @c <name> is either
 			%> passed in directly or derived from a @c dbstack(1) frame. Hidden but
