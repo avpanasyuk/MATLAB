@@ -5,14 +5,18 @@ function ok = selftest()
 %> Mirrors the Python side's scripts/ad_*_selftest.py. Checks the things that fail SILENTLY -- a
 %> wrong return class, a buffer that allocates nothing, an envelope read from the wrong snapshot --
 %> because those are what a reader cannot catch and what has actually bitten here:
-%>   - the four char* wrappers rejected every call until cstrOut replaced blanks() (calllib: "Array
-%>     must be numeric"), and one of them sits in the constructor's own error path, so it only
-%>     surfaced once something else was already wrong;
+%>   - five char* wrappers rejected every call until cstrOut replaced blanks() / cstring (calllib:
+%>     "Array must be numeric"), and one of them sits in the constructor's own error path, so it
+%>     only surfaced once something else was already wrong;
 %>   - AnalogInNoiseSizeGet returned int32, which turned capture_triggered's bucket-centre
 %>     expression into integer division and rounded a whole time axis to zero.
 %>
-%> The first block needs only dwf.dll. The capture block needs an attached Analog Discovery and is
-%> skipped with a notice if none enumerates, so this is safe to run anywhere.
+%> The first block needs only dwf.dll. The rest need an attached Analog Discovery and are skipped
+%> with a notice if none enumerates, so this is safe to run anywhere.
+%>
+%> There is ONE Analog Discovery on this workstation and PROJECTS/LAB_EQUIP drives it too, so a run
+%> can fail with "Devices are busy, used by other applications" rather than a wrong number. That is
+%> the loud failure, not a broken unit -- wait and re-run.
 %>
 %> @retval ok true if every check passed.
 
@@ -44,8 +48,20 @@ if n > 0
 end
 
 if n == 0
-    fprintf('--- capture block SKIPPED: no Analog Discovery attached ---\n');
+    fprintf('--- device blocks SKIPPED: no Analog Discovery attached ---\n');
 else
+    fprintf('--- AnalogIO channel names (the two-buffer cstrOut path) ---\n');
+    ad0 = AVP.HW.AD.dwf();
+    nio = ad0.AnalogIOChannelCount();
+    allNamed = nio > 0;
+    for k = 1:nio
+        [nm, lb] = ad0.IO(k).Name();
+        fprintf('    IO(%d) name="%s" label="%s"\n', k, nm, lb);
+        allNamed = allNamed && ~isempty(nm) && ~isempty(lb);
+    end
+    check('every AnalogIO channel returns name + label', allNamed);
+    clear ad0
+
     fprintf('--- capture_triggered (needs the device) ---\n');
     % TrigLevel 99 can never be crossed, so Force returns the idle trace without waiting.
     d = AVP.HW.AD.capture_triggered('Channels',1,'Rate',200e3,'Timeout',1,'TrigLevel',99);

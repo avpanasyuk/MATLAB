@@ -702,22 +702,31 @@ classdef dwf < handle
 	end
 
 	methods (Static, Hidden)
-		function s = cstrOut(nBytes, fname, varargin)
-			%> Call an @c FDwf* function whose LAST argument is a @c char* output buffer.
+		function varargout = cstrOut(nBytes, fname, varargin)
+			%> Call an @c FDwf* function whose TRAILING arguments are @c char* output buffers.
+			%> @param nBytes buffer size, or a vector of sizes for a call with several
+			%>   (@c FDwfAnalogIOChannelName takes [32 16]); one output per entry.
 			%>
-			%> The obvious @c blanks(nBytes) does not work: it is a char array, and
-			%> loadlibrary maps @c char* to @c int8Ptr, so calllib rejects it outright with
-			%> "Array must be numeric or logical or a pointer to one". An int8 buffer is
-			%> what it wants. The SDK NUL-terminates inside the buffer and leaves the rest
+			%> Neither obvious spelling works. @c blanks(n) is a char array, and
+			%> @c libpointer('cstring', blanks(n)) is a cstring -- loadlibrary maps @c char*
+			%> to @c int8Ptr and neither satisfies it, so calllib rejects both with "Array
+			%> must be numeric or logical or a pointer to one". An int8 buffer is what it
+			%> wants. The SDK NUL-terminates inside the buffer and leaves the rest
 			%> zero-padded, and @c strtrim does not strip NULs -- the padding then prints as
 			%> blanks while comparing unequal to the string you expect, so truncate at the
 			%> first NUL before trimming.
-			p = libpointer('int8Ptr', int8(zeros(1, nBytes)));
-			calllib('dwf', fname, varargin{:}, p);
-			s = char(p.Value(:)');
-			k = find(s == 0, 1);
-			if ~isempty(k), s = s(1:k-1); end
-			s = strtrim(s);
+			ps = cell(1, numel(nBytes));
+			for i = 1:numel(nBytes)
+				ps{i} = libpointer('int8Ptr', int8(zeros(1, nBytes(i))));
+			end
+			calllib('dwf', fname, varargin{:}, ps{:});
+			varargout = cell(1, numel(nBytes));
+			for i = 1:numel(nBytes)
+				s = char(ps{i}.Value(:)');
+				k = find(s == 0, 1);
+				if ~isempty(k), s = s(1:k-1); end
+				varargout{i} = strtrim(s);
+			end
 		end
 
 		function callByName(nameOrStack, varargin)
