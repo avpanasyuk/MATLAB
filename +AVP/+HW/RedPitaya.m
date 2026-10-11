@@ -101,14 +101,28 @@ classdef RedPitaya < handle
 
     function out = writeread(a, text)
       writeline(a.tcpc,text);
-      while a.tcpc.NumBytesAvailable == 0, end;
-      out = readline(a.tcpc);
+      out = readline(a.tcpc); % waits up to Timeout, then returns [] with only a warning
+      if isempty(out), error('RedPitaya: no reply to %s within %g s', text, a.tcpc.Timeout); end
     end
 
-    function out = writereadbin(a, text, varargin)
+    function out = writereadbin(a, text)
+      %> one SCPI definite-length block: '#', a digit k, k digits of byte count, the payload, CR LF.
+      %> Returns the payload. The CR LF must be consumed too, or every later reply is misaligned.
       writeline(a.tcpc,text);
-      while a.tcpc.NumBytesAvailable < 65543, end;
-      out = read(a.tcpc,65543,varargin{:});
+      h = a.readn(2);
+      if h(1) ~= '#' || h(2) < '1' || h(2) > '9'
+        error('RedPitaya: %s - expected a #<k><count> block header, got bytes %s', text, mat2str(h));
+      end
+      out = a.readn(str2double(char(a.readn(double(h(2)-'0')))));
+      t = a.readn(2);
+      if ~isequal(t(:).',uint8([13 10]))
+        error('RedPitaya: %s - block not followed by CR LF (got %s)', text, mat2str(t));
+      end
+    end
+
+    function b = readn(a, n)
+      %> exactly n bytes; read() errors rather than returning short when Timeout expires
+      b = read(a.tcpc,n,'uint8');
     end
 
     %!
@@ -121,6 +135,8 @@ classdef RedPitaya < handle
       % one) resets at least DEC and GAIN, and both GetDeltaT and the correction below assume what
       % StartAcq recorded.
       if a.SampleRateDividerLog2 < 0 || isempty(a.Channel), error('Call StartAcq first'); end
+      % drop anything a previous call left unread (an error mid-block), before the first query
+      flush(a.tcpc,'input');
       writeline(a.tcpc,['ACQ:DEC ' num2str(2^a.SampleRateDividerLog2)]);
       writeline(a.tcpc,'ACQ:DATA:UNITS VOLTS');
       writeline(a.tcpc,'ACQ:DATA:FORMAT BIN');
@@ -138,14 +154,13 @@ classdef RedPitaya < handle
         if '1' ==  fill_state(1:1), break; end
       end
 
-      read(a.tcpc);
       % Read data from buffer
       x = [];
       c = a.Calib(a.Host);
       for ChI=1:2
         if any(a.Channel == ChI)
           b = writereadbin(a,['ACQ:SOUR' num2str(ChI) ':DATA?']);
-          y = double(typecast(swapbytes(typecast(b(8:end),'uint32')),'single'));
+          y = double(typecast(swapbytes(typecast(b,'uint32')),'single'));
           if a.Range(ChI) > 1 && ~isempty(c)
             y = (y - c(ChI,2))/c(ChI,1);
           elseif a.Range(ChI) <= 1
