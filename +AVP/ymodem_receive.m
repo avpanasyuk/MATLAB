@@ -1,6 +1,9 @@
-function files = ymodem_receive(serial_obj, output_dir)
+function files = ymodem_receive(serial_obj, output_dir, start_timeout_s)
 	% Minimal YMODEM Receiver (Rollover & sscanf fixes included)
 	% serial_obj: configured serialport object (e.g., s = serialport("COM3", 115200))
+	% start_timeout_s: seconds to wait for the sender's first byte; on expiry returns {}
+	%   (a sender with nothing to send may stay silent). Default Inf.
+	if nargin < 3, start_timeout_s = Inf; end
 
 	% Protocol Constants
 	SOH = 1; STX = 2; EOT = 4; ACK = 6; NAK = 21; C = 67;
@@ -12,6 +15,15 @@ function files = ymodem_receive(serial_obj, output_dir)
 	bytes_remaining = 0;
 	expected_blk = 0; % Track expected block to handle 8-bit rollover
 	files = {};
+
+	t0 = tic;
+	while serial_obj.NumBytesAvailable == 0
+		if toc(t0) > start_timeout_s
+			disp('YMODEM: no sender within the start timeout.');
+			return
+		end
+		pause(0.005);
+	end
 
 	try
 		while true
