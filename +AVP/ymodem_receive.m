@@ -31,8 +31,16 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s, byte_ti
 		if serial_obj.NumBytesAvailable
 			b = read(serial_obj, 1, 'uint8');
 			if b == SOH || b == STX, header = b; end
-			if b == EOT % a batch with nothing in it
+			if b == EOT % a batch with nothing in it; ACK any repeat EOT so none is left buffered
 				write(serial_obj, ACK, 'uint8');
+				t1 = tic;
+				while toc(t1) < 0.5
+					if serial_obj.NumBytesAvailable && read(serial_obj, 1, 'uint8') == EOT
+						write(serial_obj, ACK, 'uint8'); t1 = tic;
+					else
+						pause(0.005);
+					end
+				end
 				return
 			end
 		else
@@ -111,6 +119,7 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s, byte_ti
 
 				elseif blk == mod(expected_blk - 1, 256)
 					% Sender missed our ACK and sent a duplicate. ACK it again.
+					nak_run = 0;
 					write(serial_obj, ACK, 'uint8');
 				else
 					% Out of sync sequence
