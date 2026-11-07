@@ -16,6 +16,7 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s, byte_ti
 	bytes_remaining = 0;
 	expected_blk = 0; % Track expected block to handle 8-bit rollover
 	files = {};
+	nak_run = 0; max_naks = 10; % consecutive NAKs before the transfer is abandoned
 
 	% Re-send "C" every 3 s until a header arrives: a sender not yet listening misses
 	% the first one. Bytes before the header (console text) are dropped.
@@ -30,6 +31,10 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s, byte_ti
 		if serial_obj.NumBytesAvailable
 			b = read(serial_obj, 1, 'uint8');
 			if b == SOH || b == STX, header = b; end
+			if b == EOT % a batch with nothing in it
+				write(serial_obj, ACK, 'uint8');
+				return
+			end
 		else
 			pause(0.005);
 		end
@@ -57,6 +62,7 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s, byte_ti
 				% --- Verification ---
 				if (blk + inv_blk ~= 255) || (calc_crc16(data) ~= rx_crc)
 					disp(['Corrupted packet (Block ', num2str(blk), '). Sending NAK...']);
+					nak_run = nak_naks(nak_run, max_naks);
 					write(serial_obj, NAK, 'uint8');
 					header = [];
 					continue;
@@ -64,6 +70,7 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s, byte_ti
 
 				% --- Sequence Handling ---
 				if blk == expected_blk
+					nak_run = 0;
 					if expected_blk == 0 && ~file_open
 						% --- Handle True Block 0 (Header or Null) ---
 						if data(1) == 0
@@ -108,13 +115,15 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s, byte_ti
 				else
 					% Out of sync sequence
 					disp(['Out of sync. Expected ', num2str(expected_blk), ' got ', num2str(blk)]);
+					nak_run = nak_naks(nak_run, max_naks);
 					write(serial_obj, NAK, 'uint8');
 				end
 
 			elseif header == EOT
 				% 4. Handle YMODEM EOT handshake
 				write(serial_obj, NAK, 'uint8');     % Reject first EOT
-				wait_for_bytes(serial_obj, 1, byte_timeout_s); % Wait for second EOT
+				b = wait_for_bytes(serial_obj, 1, byte_timeout_s); % Wait for second EOT
+				while b ~= EOT, b = wait_for_bytes(serial_obj, 1, byte_timeout_s); end
 				write(serial_obj, ACK, 'uint8');     % ACK second EOT
 				write(serial_obj, C, 'uint8');       % Request next file or Null Block 0
 
@@ -137,6 +146,14 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s, byte_ti
 		if file_open, fclose(fid); end
 		disp('Transfer interrupted or failed.');
 		rethrow(ME);
+	end
+end
+
+% --- Helper: count one more consecutive NAK; error past the limit ---
+function n = nak_naks(n, max_naks)
+	n = n + 1;
+	if n > max_naks
+		error('ymodem_receive:naks', '%d consecutive bad or out-of-sync blocks', max_naks);
 	end
 end
 
