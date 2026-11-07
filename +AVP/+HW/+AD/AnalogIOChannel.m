@@ -18,13 +18,12 @@ classdef AnalogIOChannel < handle
 			c.idx    = int32(idx);
 		end
 
-		function s = Name(c)
-			%> Human-readable channel name from the SDK (e.g. @c "Positive Supply").
-			pName  = libpointer('cstring', blanks(32));
-			pLabel = libpointer('cstring', blanks(16));
-			AVP.HW.AD.dwf.callByName('AnalogIOChannelName', ...
-				c.parent.h, c.idx, pName, pLabel);
-			s = strtrim(pName.Value);
+		function [s, label] = Name(c)
+			%> Human-readable channel name from the SDK, and its short label.
+			%> @retval s     e.g. @c "Positive Supply"
+			%> @retval label e.g. @c "V+" -- the one you want on a plot axis or a log line
+			[s, label] = AVP.HW.AD.dwf.cstrOut([32 16], 'FDwfAnalogIOChannelName', ...
+				c.parent.h, c.idx);
 		end
 
 		function n = NodeCount(c)
