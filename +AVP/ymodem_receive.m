@@ -1,34 +1,44 @@
-function files = ymodem_receive(serial_obj, output_dir, start_timeout_s)
+function files = ymodem_receive(serial_obj, output_dir, start_timeout_s, byte_timeout_s)
 	% Minimal YMODEM Receiver (Rollover & sscanf fixes included)
 	% serial_obj: configured serialport object (e.g., s = serialport("COM3", 115200))
-	% start_timeout_s: seconds to wait for the sender's first byte; on expiry returns {}
+	% start_timeout_s: seconds to wait for the sender's first header; on expiry returns {}
 	%   (a sender with nothing to send may stay silent). Default Inf.
+	% byte_timeout_s: once the transfer has started, seconds of silence that abort it with
+	%   an error. Default 10.
+	% A file whose received length falls short of its header's size is an error.
 	if nargin < 3, start_timeout_s = Inf; end
+	if nargin < 4, byte_timeout_s = 10; end
 
 	% Protocol Constants
 	SOH = 1; STX = 2; EOT = 4; ACK = 6; NAK = 21; C = 67;
-
-	disp('Initiating YMODEM transfer. Sending "C"...');
-	write(serial_obj, C, 'uint8');
 
 	file_open = false;
 	bytes_remaining = 0;
 	expected_blk = 0; % Track expected block to handle 8-bit rollover
 	files = {};
 
-	t0 = tic;
-	while serial_obj.NumBytesAvailable == 0
+	% Re-send "C" every 3 s until a header arrives: a sender not yet listening misses
+	% the first one. Bytes before the header (console text) are dropped.
+	disp('Initiating YMODEM transfer. Sending "C"...');
+	t0 = tic; tC = -Inf; header = [];
+	while isempty(header)
 		if toc(t0) > start_timeout_s
 			disp('YMODEM: no sender within the start timeout.');
 			return
 		end
-		pause(0.005);
+		if toc(t0) - tC >= 3, write(serial_obj, C, 'uint8'); tC = toc(t0); end
+		if serial_obj.NumBytesAvailable
+			b = read(serial_obj, 1, 'uint8');
+			if b == SOH || b == STX, header = b; end
+		else
+			pause(0.005);
+		end
 	end
 
 	try
 		while true
-			% 1. Wait for a header byte (SOH, STX, or EOT)
-			header = wait_for_bytes(serial_obj, 1);
+			% 1. Wait for a header byte (SOH, STX, or EOT); the first was read above
+			if isempty(header), header = wait_for_bytes(serial_obj, 1, byte_timeout_s); end
 
 			if header == SOH || header == STX
 				% 2. Determine packet size (SOH = 128, STX = 1024)
@@ -36,9 +46,9 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s)
 				if header == STX, len = 1024; end
 
 				% 3. Read the rest of the packet
-				packet = wait_for_bytes(serial_obj, len + 4);
-				blk = packet(1);
-				inv_blk = packet(2);
+				packet = wait_for_bytes(serial_obj, len + 4, byte_timeout_s);
+				blk = double(packet(1));
+				inv_blk = double(packet(2));
 				data = packet(3 : end-2);
 
 				% Extract received CRC
@@ -48,6 +58,7 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s)
 				if (blk + inv_blk ~= 255) || (calc_crc16(data) ~= rx_crc)
 					disp(['Corrupted packet (Block ', num2str(blk), '). Sending NAK...']);
 					write(serial_obj, NAK, 'uint8');
+					header = [];
 					continue;
 				end
 
@@ -70,6 +81,7 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s)
 
 							disp(['Receiving file: ', filename, ' (', num2str(filesize), ' bytes)']);
 							fid = fopen([char(output_dir) filesep filename], 'w');
+							if fid < 0, error('ymodem_receive:open', 'cannot open %s for writing', filename); end
 							file_open = true;
 							bytes_remaining = filesize;
 							expected_blk = 1; % Next expected block is 1
@@ -102,17 +114,22 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s)
 			elseif header == EOT
 				% 4. Handle YMODEM EOT handshake
 				write(serial_obj, NAK, 'uint8');     % Reject first EOT
-				wait_for_bytes(serial_obj, 1);       % Wait for second EOT
+				wait_for_bytes(serial_obj, 1, byte_timeout_s); % Wait for second EOT
 				write(serial_obj, ACK, 'uint8');     % ACK second EOT
 				write(serial_obj, C, 'uint8');       % Request next file or Null Block 0
 
 				if file_open
 					fclose(fid);
 					file_open = false;
+					if bytes_remaining > 0
+						error('ymodem_receive:short', '%s: %d bytes short of its header size', ...
+							files{end}, bytes_remaining);
+					end
 					expected_blk = 0; % Reset sequence for the next file's Block 0
 					disp('File successfully written to disk.');
 				end
 			end
+			header = [];
 		end
 
 	catch ME
@@ -123,10 +140,16 @@ function files = ymodem_receive(serial_obj, output_dir, start_timeout_s)
 	end
 end
 
-% --- Helper: Block until N bytes are available ---
-function data = wait_for_bytes(s, num_bytes)
-	while s.NumBytesAvailable < num_bytes
+% --- Helper: Block until N bytes are available; error after timeout_s with no new byte ---
+function data = wait_for_bytes(s, num_bytes, timeout_s)
+	t = tic; n = s.NumBytesAvailable;
+	while n < num_bytes
 		pause(0.005);
+		if s.NumBytesAvailable > n
+			n = s.NumBytesAvailable; t = tic;
+		elseif toc(t) > timeout_s
+			error('ymodem_receive:timeout', 'no byte from the sender for %g s', timeout_s);
+		end
 	end
 	data = read(s, num_bytes, 'uint8');
 end
