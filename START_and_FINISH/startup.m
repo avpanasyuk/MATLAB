@@ -51,7 +51,8 @@ if (~isdeployed)
     MfileDir = MATLAB_DIR;
   end
   
-  if exist('MfileDir','var')
+  % -batch runs are headless: reopening files would raise the Editor window
+  if exist('MfileDir','var') && ~batchStartupOptionUsed
     h = matlab.desktop.editor.getAll;
     Filenames = {h.Filename};
     KeepI = zeros(1,numel(h));
@@ -114,7 +115,9 @@ format shortg
 set(0, 'DefaultTextInterpreter', 'none')
 set(0, 'DefaultLegendInterpreter', 'none')
 set(0, 'DefaultAxesTickLabelInterpreter', 'none')
-set(0,'DefaultFigureWindowStyle','docked')
+if ~batchStartupOptionUsed % docked figures fail to export or open in a -batch run
+  set(0,'DefaultFigureWindowStyle','docked')
+end
 
 
 

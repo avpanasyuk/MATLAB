@@ -3,7 +3,8 @@ try
 catch ME
   has_init_dir = false;
 end
-if has_init_dir
+% a -batch run opened no files (startup.m skips them), so writing would empty the set
+if has_init_dir && ~batchStartupOptionUsed
   h = matlab.desktop.editor.getAll;
   Filenames = {h.Filename};
   f = fopen([INIT_DIR filesep 'matlab.files'],'wt');
